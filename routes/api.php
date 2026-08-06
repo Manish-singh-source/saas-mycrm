@@ -1,8 +1,11 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
+Route::prefix('platform/v1')
+    ->as('api.platform.v1.')
+    ->group(base_path('routes/api-platform.php'));
+
+Route::prefix('tenant/v1')
+    ->as('api.tenant.v1.')
+    ->group(base_path('routes/api-tenant.php'));
