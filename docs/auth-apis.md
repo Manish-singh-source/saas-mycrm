@@ -638,3 +638,357 @@ Recommended `security_events.event` names:
 - Do not reveal whether a password exists until user selects the account and submits password.
 - If different accounts with same email have different passwords, verify against the selected account only.
 - If business later wants one global identity password across accounts, introduce a separate identity table; do not mix that into the current table design without a migration plan.
+
+## 13. Tenant Registration APIs
+
+Tenant registration is public and only creates tenant/company accounts in the SaaS. Platform users and super admins must not self-register through this flow.
+
+Registration creates:
+
+- A `tenants` organization record.
+- A tenant owner `users` record with `account_type=owner`.
+- A default head office in `tenant_offices` when office fields are provided or generated.
+- Default tenant roles, permissions, settings, lookups, and module defaults.
+- A trial or pending subscription based on SaaS signup rules.
+- Optional email verification and onboarding checklist.
+
+### 13.1 Check Registration Email
+
+Use this before the full registration form if the UI wants to detect existing accounts.
+
+| Method | Endpoint | Auth | Purpose |
+| --- | --- | --- | --- |
+| POST | `/register/check-email` | Public | Check whether an email already has SaaS accounts |
+
+Request body:
+
+```json
+{
+  "email": "owner@example.com"
+}
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "email": "owner@example.com",
+    "has_existing_accounts": true,
+    "can_register_new_tenant": true,
+    "message": "This email already has accounts. You can still register a new tenant or continue to login."
+  }
+}
+```
+
+Rules:
+
+- Do not expose account details here. Use `/accounts/discover` for login account choices.
+- Existing platform or tenant accounts should not block registration unless business rules require it.
+- If the same email registers a new tenant, it creates a new tenant owner account under the new tenant.
+
+### 13.2 Register Tenant
+
+| Method | Endpoint | Auth | Purpose |
+| --- | --- | --- | --- |
+| POST | `/register/tenant` | Public | Register a new tenant organization and owner account |
+
+Request body:
+
+```json
+{
+  "organization": {
+    "organization_name": "Acme Pvt Ltd",
+    "legal_name": "Acme Private Limited",
+    "display_name": "Acme",
+    "organization_code": null,
+    "slug": "acme",
+    "business_type_id": "business_type_uuid",
+    "industry_id": "industry_uuid",
+    "company_size": "small",
+    "gst_number": "27AAAAA0000A1Z5",
+    "pan_number": "AAAAA0000A",
+    "registration_number": "REG123",
+    "website": "https://acme.example",
+    "default_currency": "INR",
+    "default_timezone": "Asia/Kolkata"
+  },
+  "owner": {
+    "first_name": "Sahil",
+    "last_name": "Owner",
+    "display_name": "Sahil Owner",
+    "email": "owner@example.com",
+    "mobile": "+919999999999",
+    "password": "StrongPassword#123",
+    "password_confirmation": "StrongPassword#123"
+  },
+  "head_office": {
+    "office_name": "Head Office",
+    "office_code": "HO",
+    "address_line_1": "Address line 1",
+    "address_line_2": null,
+    "landmark": null,
+    "country_id": "country_uuid",
+    "state_id": "state_uuid",
+    "city_id": "city_uuid",
+    "postal_code": "400001",
+    "contact_person": "Sahil Owner",
+    "contact_email": "owner@example.com",
+    "contact_phone": "+919999999999",
+    "gst_number": "27AAAAA0000A1Z5"
+  },
+  "subscription": {
+    "plan_id": "plan_uuid",
+    "billing_cycle": "monthly",
+    "coupon_code": null,
+    "start_trial": true
+  },
+  "acceptances": {
+    "terms": true,
+    "privacy_policy": true,
+    "marketing_opt_in": false
+  }
+}
+```
+
+Successful response with immediate login disabled until email verification:
+
+```json
+{
+  "data": {
+    "registered": true,
+    "requires_email_verification": true,
+    "auto_login": false,
+    "tenant": {
+      "uuid": "tenant_uuid",
+      "slug": "acme",
+      "organization_name": "Acme Pvt Ltd",
+      "status": "pending"
+    },
+    "owner": {
+      "uuid": "user_uuid",
+      "email": "owner@example.com",
+      "account_type": "tenant_owner",
+      "status": "invited"
+    },
+    "message": "Registration completed. Please verify your email to continue."
+  }
+}
+```
+
+Successful response with immediate login enabled:
+
+```json
+{
+  "data": {
+    "registered": true,
+    "requires_email_verification": false,
+    "auto_login": true,
+    "access_token": "plain_text_token_returned_once",
+    "token_type": "Bearer",
+    "expires_at": "2026-08-07T12:00:00Z",
+    "surface": "tenant",
+    "redirect_to": "/tenant/dashboard",
+    "tenant": {
+      "uuid": "tenant_uuid",
+      "slug": "acme",
+      "organization_name": "Acme Pvt Ltd",
+      "status": "trial"
+    },
+    "account": {
+      "uuid": "user_uuid",
+      "account_type": "tenant_owner",
+      "email": "owner@example.com",
+      "roles": ["owner"],
+      "permissions": ["dashboard.view", "setting.edit"]
+    },
+    "modules": ["dashboard", "crm", "projects", "finance", "settings"]
+  }
+}
+```
+
+Validation/conflict errors:
+
+```json
+{
+  "message": "Validation failed.",
+  "error_code": "VALIDATION_FAILED",
+  "errors": {
+    "organization.slug": ["This workspace URL is already taken."],
+    "owner.email": ["The owner email field is required."],
+    "acceptances.terms": ["You must accept the terms to continue."]
+  },
+  "request_id": "uuid"
+}
+```
+
+```json
+{
+  "message": "Workspace slug is already taken.",
+  "error_code": "TENANT_SLUG_TAKEN",
+  "request_id": "uuid"
+}
+```
+
+Rules:
+
+- This endpoint only registers tenant organizations and tenant owner accounts.
+- It must never create platform/super admin accounts.
+- Use a database transaction for tenant, owner, office, subscription, settings, roles, and seed data creation.
+- Create owner user with `account_type=owner`.
+- Enforce unique tenant slug and organization code globally.
+- Enforce unique owner email only inside the new tenant, not globally across all tenants.
+- If email already exists in another tenant or as platform user, allow registration but show login option in UI.
+- Password must be hashed and never logged.
+- Send verification email if verification is enabled.
+- Apply rate limiting, captcha if needed, and abuse prevention.
+
+### 13.3 Suggest Tenant Slug
+
+| Method | Endpoint | Auth | Purpose |
+| --- | --- | --- | --- |
+| POST | `/register/suggest-slug` | Public | Suggest available tenant workspace slug |
+
+Request body:
+
+```json
+{
+  "organization_name": "Acme Pvt Ltd"
+}
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "suggestions": ["acme", "acme-pvt", "acme-crm"]
+  }
+}
+```
+
+### 13.4 Verify Registered Owner Email
+
+| Method | Endpoint | Auth | Purpose |
+| --- | --- | --- | --- |
+| POST | `/register/verify-email` | Public + verification token | Verify owner email after registration |
+
+Request body:
+
+```json
+{
+  "token": "email_verification_token",
+  "email": "owner@example.com"
+}
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "verified": true,
+    "can_login": true,
+    "message": "Email verified. You can now login."
+  }
+}
+```
+
+### 13.5 Resend Registration Verification
+
+| Method | Endpoint | Auth | Purpose |
+| --- | --- | --- | --- |
+| POST | `/register/resend-verification` | Public | Resend tenant owner verification email |
+
+Request body:
+
+```json
+{
+  "email": "owner@example.com",
+  "tenant_slug": "acme"
+}
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "sent": true,
+    "message": "If this registration requires verification, a new email has been sent."
+  }
+}
+```
+
+## 14. Registration Rate Limiting
+
+Recommended limits:
+
+| Endpoint | Limit |
+| --- | --- |
+| `/register/check-email` | 10 attempts/hour by email/IP |
+| `/register/suggest-slug` | 20 attempts/hour by IP |
+| `/register/tenant` | 3 attempts/hour by IP and email |
+| `/register/verify-email` | 10 attempts/hour by email/IP |
+| `/register/resend-verification` | 3 attempts/hour by email/IP |
+
+Use captcha or bot protection on `/register/tenant` when public abuse becomes a risk.
+
+## 15. Registration Audit and Security Events
+
+Log these events:
+
+- Tenant registration started.
+- Tenant registration completed.
+- Tenant registration failed validation or duplicate slug.
+- Owner email verification sent.
+- Owner email verified.
+- Verification resend requested.
+
+Recommended event names:
+
+- `auth.registration_check_email`
+- `auth.tenant_registration_started`
+- `auth.tenant_registration_completed`
+- `auth.tenant_registration_failed`
+- `auth.registration_verification_sent`
+- `auth.registration_email_verified`
+- `auth.registration_verification_resent`
+
+## 16. Registration Validation Rules
+
+`/register/tenant`:
+
+- `organization.organization_name`: required, string, max 200.
+- `organization.legal_name`: nullable, string, max 200.
+- `organization.display_name`: nullable, string, max 200.
+- `organization.slug`: required, string, slug format, max 150, unique in `tenants.slug`.
+- `organization.business_type_id`: nullable, valid business type.
+- `organization.industry_id`: nullable, valid industry.
+- `organization.company_size`: nullable, enum `self`, `small`, `medium`, `large`, `enterprise`.
+- `organization.gst_number`: nullable, GST format if country is India.
+- `organization.pan_number`: nullable, PAN format if country is India.
+- `organization.website`: nullable, URL.
+- `organization.default_currency`: required, 3 chars.
+- `organization.default_timezone`: required, valid timezone.
+- `owner.first_name`: required, string, max 100.
+- `owner.last_name`: nullable, string, max 100.
+- `owner.display_name`: nullable, string, max 200.
+- `owner.email`: required, valid email, max 150.
+- `owner.mobile`: nullable, phone format.
+- `owner.password`: required, strong password, confirmed.
+- `head_office.office_name`: nullable or required depending signup step.
+- `head_office.office_code`: nullable, default `HO`.
+- `subscription.plan_id`: required if plans are public/selectable.
+- `subscription.billing_cycle`: required if plan supports multiple cycles.
+- `acceptances.terms`: accepted.
+- `acceptances.privacy_policy`: accepted.
+
+## 17. Updated Implementation Notes
+
+- Registration is tenant-only self-service signup.
+- Platform users and super admins must be created by existing platform admins, seeders, or controlled internal workflows.
+- After registration, normal login still uses the email-first account discovery flow.
+- If the same email registers multiple tenants, `/accounts/discover` will show each tenant owner account separately.
+- If auto-login is enabled after registration, return the same session payload shape as `/accounts/login`.
+- If email verification is required, do not issue a full session until verification is complete, unless using a restricted onboarding session.

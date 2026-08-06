@@ -631,3 +631,241 @@ The auth system is complete only when:
 - Security events and activity logs are written.
 - Rate limiting is enforced.
 - React and Flutter follow the same flow.
+
+## 17. Tenant Registration Setup
+
+Tenant registration is the only public signup flow in the SaaS. Public users can create a new tenant workspace and become that tenant's owner. Platform users, platform staff, and super admins must not be created through public registration.
+
+### 17.1 Registration UX Flow
+
+Build a dedicated tenant registration page at `/register` or `/tenant/register`.
+
+Recommended steps:
+
+1. Owner email step
+   - User enters email and continues.
+   - Call `POST /register/check-email`.
+   - If the email already has accounts, show a neutral message that the user can login or continue creating a new tenant workspace.
+   - Do not show the existing account list inside registration. Existing accounts are shown only in the login discovery flow.
+
+2. Organization step
+   - Collect organization name, legal name, display name, industry, business type, company size, default currency, and default timezone.
+   - Generate a workspace slug from the organization name.
+   - Allow the user to edit the slug.
+   - Call `POST /register/suggest-slug` when the slug is unavailable.
+
+3. Owner profile step
+   - Collect owner first name, last name, display name, mobile number, password, and password confirmation.
+   - Show password strength and password rule validation before submit.
+
+4. Head office step
+   - Collect head office name, phone, email, address, country, state, city, postal code, default timezone, and default currency.
+   - Default office code should be `HO` unless the user provides a valid code.
+
+5. Plan or trial step
+   - Show available public plans if plan selection is enabled.
+   - Otherwise assign the default trial plan from backend configuration.
+   - Do not require payment during registration unless billing is intentionally enabled for signup.
+
+6. Review and acceptance step
+   - Show organization, owner, workspace URL, plan, and head office summary.
+   - Require terms and privacy policy acceptance.
+   - Submit `POST /register/tenant`.
+
+7. Verification or auto-login step
+   - If backend returns `requires_email_verification: true`, show the verify email screen and allow resend through `POST /register/resend-verification`.
+   - If backend returns `auto_login: true`, store the returned access token and redirect to tenant onboarding or tenant dashboard.
+
+8. Future login behavior
+   - After registration, the same email can use the normal email-first login flow.
+   - If the email owns multiple tenants, `/accounts/discover` must show each tenant owner account separately.
+
+### 17.2 Laravel Registration Routes
+
+Add public registration routes under the auth API version group:
+
+```php
+Route::prefix('auth/v1')->group(function () {
+    Route::post('/register/check-email', [TenantRegistrationController::class, 'checkEmail']);
+    Route::post('/register/suggest-slug', [TenantRegistrationController::class, 'suggestSlug']);
+    Route::post('/register/tenant', [TenantRegistrationController::class, 'register']);
+    Route::post('/register/verify-email', [RegistrationEmailVerificationController::class, 'verify']);
+    Route::post('/register/resend-verification', [RegistrationEmailVerificationController::class, 'resend']);
+});
+```
+
+Use public middleware only, but apply strict throttling, request logging, and optional captcha validation on `POST /register/tenant`.
+
+### 17.3 Laravel Classes
+
+Controllers:
+
+- `TenantRegistrationController`
+- `RegistrationEmailVerificationController`
+
+Form requests:
+
+- `CheckRegistrationEmailRequest`
+- `SuggestTenantSlugRequest`
+- `RegisterTenantRequest`
+- `VerifyRegistrationEmailRequest`
+- `ResendRegistrationVerificationRequest`
+
+Services:
+
+- `TenantRegistrationService`
+- `TenantSlugService`
+- `TenantBootstrapService`
+- `TenantOwnerService`
+- `TenantTrialSubscriptionService`
+- `RegistrationVerificationService`
+- `AuthAuditService`
+
+Notifications/jobs:
+
+- `SendTenantOwnerVerificationEmail`
+- `SendTenantRegistrationWelcomeEmail`
+- `BootstrapTenantDefaultsJob` if tenant bootstrapping is moved out of the request cycle.
+
+### 17.4 Registration Transaction
+
+`TenantRegistrationService` should wrap tenant creation in a database transaction.
+
+Transaction steps:
+
+1. Validate that the workspace slug is available.
+2. Create the `tenants` record with pending, trial, or active status based on configuration.
+3. Create the tenant owner user with `account_type=owner`.
+4. Hash the owner password.
+5. Create the tenant head office record.
+6. Attach owner to the tenant and head office.
+7. Seed default tenant roles, permissions, modules, settings, pipelines, statuses, tags, and numbering rules.
+8. Create the trial or pending subscription record.
+9. Store terms and privacy policy acceptance details if legal acceptance tables exist.
+10. Create an email verification token when verification is required.
+11. Send verification and welcome notifications.
+12. Log tenant registration audit events.
+13. Return either verification-required response or auto-login session response.
+
+Important rules:
+
+- Public registration must create tenant accounts only.
+- Never create `super_admin`, platform admin, platform staff, or internal support users from tenant registration.
+- The same email may exist in multiple tenants and may also exist as a platform user.
+- Owner email uniqueness should be scoped to the new tenant, not globally across the SaaS.
+- Tenant slug must be globally unique.
+- Organization code should be generated if the user does not provide it.
+- Head office should default to office code `HO`.
+- If email verification is required, do not issue a full access token before verification unless the token is restricted to onboarding-only routes.
+
+### 17.5 React Frontend Registration Structure
+
+Create registration screens inside the auth module:
+
+```text
+src/features/auth/register/
+  pages/TenantRegisterPage.tsx
+  pages/RegistrationEmailVerificationPage.tsx
+  components/RegistrationStepper.tsx
+  components/OwnerEmailStep.tsx
+  components/OrganizationStep.tsx
+  components/WorkspaceSlugField.tsx
+  components/OwnerProfileStep.tsx
+  components/HeadOfficeStep.tsx
+  components/PlanStep.tsx
+  components/RegistrationReviewStep.tsx
+  components/ExistingAccountNotice.tsx
+  components/VerificationSentPanel.tsx
+  hooks/useTenantRegistration.ts
+  services/registrationApi.ts
+  schemas/registration.schema.ts
+```
+
+Frontend requirements:
+
+- Use React Hook Form with Zod validation.
+- Keep each step resumable in local component state until submit.
+- Use backend validation messages as field-level errors.
+- Disable submit while registration is in progress.
+- Add a clear login link for users who already have accounts.
+- Show workspace URL preview while editing slug.
+- Show password strength and exact missing password rules.
+- Do not reveal whether an email belongs to a platform user.
+- After auto-login, redirect tenant owners to tenant onboarding or dashboard based on backend `redirect_to`.
+
+### 17.6 Flutter Registration Structure
+
+If mobile registration is enabled, mirror the web flow in the Flutter auth feature:
+
+```text
+lib/features/auth/register/
+  presentation/pages/tenant_register_page.dart
+  presentation/pages/registration_email_verification_page.dart
+  presentation/widgets/registration_stepper.dart
+  presentation/widgets/owner_email_step.dart
+  presentation/widgets/organization_step.dart
+  presentation/widgets/workspace_slug_field.dart
+  presentation/widgets/owner_profile_step.dart
+  presentation/widgets/head_office_step.dart
+  presentation/widgets/plan_step.dart
+  presentation/widgets/registration_review_step.dart
+  data/registration_api.dart
+  data/registration_models.dart
+  domain/tenant_registration_controller.dart
+```
+
+Flutter requirements:
+
+- Use the same API contract as React.
+- Use form validators matching backend rules.
+- Store tokens only in secure storage after verified login or approved auto-login.
+- Support verification resend.
+- Keep registration optional if tenant signup is web-only for the first release.
+
+### 17.7 Registration Tests
+
+Backend tests:
+
+- A new tenant can register successfully.
+- Registration creates tenant, owner user, owner role, head office, default settings, and subscription/trial records.
+- Duplicate tenant slug is rejected.
+- Same email can register another tenant.
+- Same email as a platform user can still register a tenant owner account.
+- Public registration cannot create super admin or platform users.
+- Weak password is rejected.
+- Terms and privacy acceptance are required.
+- Email verification token is created and verified.
+- Verification resend is rate limited.
+- Auto-login returns the same session structure as password login when enabled.
+
+Frontend tests:
+
+- Registration stepper validates every step.
+- Existing account notice does not expose account details.
+- Slug suggestions render when slug is unavailable.
+- Submit handles validation errors, duplicate slug, verification required, and auto-login success.
+- Verification sent screen supports resend.
+
+### 17.8 Updated Implementation Order
+
+Add tenant registration after the core auth API contracts are defined and before final auth acceptance testing:
+
+1. Create auth route groups and response envelopes.
+2. Implement account discovery and password login.
+3. Implement tenant registration routes, requests, services, and tests.
+4. Implement email verification for newly registered tenant owners.
+5. Implement `/me`, logout, password reset, and 2FA.
+6. Build React login and registration screens.
+7. Build Flutter login screens and optional registration screens.
+8. Test full login, registration, account switching, module access, and tenant isolation flows.
+
+### 17.9 Updated Final Acceptance Criteria
+
+Tenant registration is complete when:
+
+- Public signup creates only tenant workspaces and tenant owner accounts.
+- Platform and super-admin accounts cannot be created from the registration page or registration APIs.
+- The registration page supports organization, owner, workspace slug, head office, plan/trial, and legal acceptance steps.
+- Registered owners can verify email, login, and access tenant modules based on their assigned permissions.
+- Registered tenant accounts appear in the normal email-first account discovery flow after signup.
+- Same email can safely belong to multiple tenant accounts without breaking account selection.
