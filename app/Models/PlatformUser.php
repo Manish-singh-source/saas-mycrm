@@ -15,6 +15,7 @@ class PlatformUser extends Authenticatable
     protected $table = 'platform_users';
 
     protected $fillable = [
+        'uuid',
         'employee_code',
         'first_name',
         'last_name',

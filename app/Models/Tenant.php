@@ -11,6 +11,7 @@ class Tenant extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'uuid',
         'organization_name',
         'legal_name',
         'display_name',
