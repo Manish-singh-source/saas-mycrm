@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Database\Seeders\Concerns\SeedsRecords;
 use Illuminate\Database\Seeder;
+use App\Models\PlatformUser;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -12,7 +13,6 @@ class PlatformSuperAdminSeeder extends Seeder
 {
     use SeedsRecords;
 
-    private const MODEL_TYPE = 'App\\Models\\PlatformUser';
 
     public function run(): void
     {
@@ -58,7 +58,7 @@ class PlatformSuperAdminSeeder extends Seeder
             $this->seedPivot('platform_model_has_roles', [
                 'role_id' => (int) $role->id,
                 'model_id' => $userId,
-                'model_type' => self::MODEL_TYPE,
+                'model_type' => PlatformUser::class,
             ]);
         }
     }

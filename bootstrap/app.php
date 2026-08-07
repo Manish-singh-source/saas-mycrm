@@ -1,7 +1,10 @@
 <?php
 
 use App\Exceptions\BusinessException;
+use App\Http\Middleware\EnsurePlatformToken;
+use App\Http\Middleware\EnsureTenantToken;
 use App\Http\Middleware\IdempotencyMiddleware;
+use App\Http\Middleware\ResolveTenantContext;
 use App\Http\Middleware\LocaleTimezoneMiddleware;
 use App\Http\Middleware\RequestIdMiddleware;
 use App\Support\ApiResponse;
@@ -35,6 +38,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'request.id' => RequestIdMiddleware::class,
             'locale.timezone' => LocaleTimezoneMiddleware::class,
             'idempotency' => IdempotencyMiddleware::class,
+            'platform.token' => EnsurePlatformToken::class,
+            'tenant.context' => ResolveTenantContext::class,
+            'tenant.token' => EnsureTenantToken::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

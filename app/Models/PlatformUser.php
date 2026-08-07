@@ -2,23 +2,19 @@
 
 namespace App\Models;
 
-use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable
+class PlatformUser extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+
+    protected $table = 'platform_users';
 
     protected $fillable = [
-        'tenant_id',
-        'staff_id',
-        'client_contact_id',
-        'default_office_id',
         'employee_code',
         'first_name',
         'last_name',
@@ -27,20 +23,18 @@ class User extends Authenticatable
         'mobile',
         'password',
         'profile_photo_file_id',
+        'designation',
+        'department',
         'timezone',
         'locale',
         'email_verified_at',
-        'mobile_verified_at',
         'two_factor_enabled',
         'two_factor_secret',
         'two_factor_recovery_codes',
         'two_factor_confirmed_at',
-        'account_type',
         'last_login_at',
         'last_login_ip',
         'status',
-        'created_by',
-        'updated_by',
     ];
 
     protected $hidden = [
@@ -54,7 +48,6 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'mobile_verified_at' => 'datetime',
             'two_factor_enabled' => 'boolean',
             'two_factor_secret' => 'encrypted',
             'two_factor_recovery_codes' => 'encrypted:array',
@@ -62,10 +55,5 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
             'password' => 'hashed',
         ];
-    }
-
-    public function tenant(): BelongsTo
-    {
-        return $this->belongsTo(Tenant::class);
     }
 }
