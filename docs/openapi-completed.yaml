@@ -4,8 +4,8 @@ info:
   version: 1.0.0
   description: Completed API surface in the same sequence as docs/completed-api-curls.md.
 servers:
-  - url: http://localhost:8000
-    description: Local API root
+  - url: https://darkgreen-goat-738912.hostingersite.com
+    description: Production API root
 tags:
   - name: 1. Unified Auth
   - name: 2. Platform Auth/Profile/Security

@@ -4,8 +4,8 @@ info:
   version: 1.0.0
   description: Platform and tenant RBAC access-control APIs.
 servers:
-  - url: http://localhost:8000
-    description: Local API root
+  - url: https://darkgreen-goat-738912.hostingersite.com
+    description: Production API root
 security:
   - bearerAuth: []
 tags:
