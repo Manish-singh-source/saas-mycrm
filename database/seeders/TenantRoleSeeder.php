@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Database\Seeders\Concerns\SeedsRecords;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class TenantRoleSeeder extends Seeder
 {
@@ -18,6 +19,7 @@ class TenantRoleSeeder extends Seeder
         foreach ($tenants as $tenant) {
             foreach ($this->roles() as $role) {
                 $roleId = $this->seedRecord('roles', ['tenant_id' => $tenant->id, 'name' => $role['name'], 'guard_name' => 'tenant'], [
+                    'display_name' => Str::headline(str_replace('_', ' ', $role['name'])),
                     'description' => $role['description'],
                     'is_system' => true,
                     'status' => 'active',

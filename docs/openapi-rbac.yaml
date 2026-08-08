@@ -1,0 +1,654 @@
+openapi: 3.1.0
+info:
+  title: SaaS MyCRM RBAC APIs
+  version: 1.0.0
+  description: Platform and tenant RBAC access-control APIs.
+servers:
+  - url: http://localhost:8000
+    description: Local API root
+security:
+  - bearerAuth: []
+tags:
+  - name: Platform Roles
+  - name: Platform Permissions
+  - name: Tenant Roles
+  - name: Tenant Permissions
+paths:
+  /api/platform/v1/access-control/roles:
+    get:
+      tags: [Platform Roles]
+      summary: List platform roles
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Search'
+        - name: filter[status]
+          in: query
+          schema: {type: string, enum: [active, inactive]}
+        - name: filter[type]
+          in: query
+          schema: {type: string, enum: [system, custom]}
+        - name: filter[guard_name]
+          in: query
+          schema: {type: string, example: platform}
+      responses:
+        '200': {$ref: '#/components/responses/RoleList'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Platform Roles]
+      summary: Create platform role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RoleWrite'}
+      responses:
+        '201': {$ref: '#/components/responses/RoleSingle'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /api/platform/v1/access-control/roles/{role_uuid}:
+    parameters:
+      - $ref: '#/components/parameters/RoleUuid'
+    get:
+      tags: [Platform Roles]
+      summary: View platform role
+      responses:
+        '200': {$ref: '#/components/responses/RoleSingle'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    patch:
+      tags: [Platform Roles]
+      summary: Update platform role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RoleUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/RoleSingle'}
+        '403': {$ref: '#/components/responses/SystemRoleRenameForbidden'}
+    delete:
+      tags: [Platform Roles]
+      summary: Delete custom unused platform role
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AuditReason'}
+      responses:
+        '200': {$ref: '#/components/responses/SuccessNull'}
+        '403': {$ref: '#/components/responses/SystemRoleDeleteForbidden'}
+        '409': {$ref: '#/components/responses/RoleInUse'}
+  /api/platform/v1/access-control/roles/{role_uuid}/clone:
+    post:
+      tags: [Platform Roles]
+      summary: Clone platform role
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RoleClone'}
+      responses:
+        '201': {$ref: '#/components/responses/RoleSingle'}
+  /api/platform/v1/access-control/roles/{role_uuid}/activate:
+    post:
+      tags: [Platform Roles]
+      summary: Activate platform role
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AuditReason'}
+      responses:
+        '200': {$ref: '#/components/responses/RoleSingle'}
+  /api/platform/v1/access-control/roles/{role_uuid}/deactivate:
+    post:
+      tags: [Platform Roles]
+      summary: Deactivate platform role
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AuditReason'}
+      responses:
+        '200': {$ref: '#/components/responses/RoleSingle'}
+  /api/platform/v1/access-control/roles/{role_uuid}/permissions:
+    get:
+      tags: [Platform Roles]
+      summary: List platform role permissions grouped by module
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+      responses:
+        '200': {$ref: '#/components/responses/GroupedPermissions'}
+    put:
+      tags: [Platform Roles]
+      summary: Replace platform role permissions
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PermissionAssignment'}
+      responses:
+        '200': {$ref: '#/components/responses/RoleSingle'}
+  /api/platform/v1/access-control/roles/{role_uuid}/users:
+    get:
+      tags: [Platform Roles]
+      summary: List platform users assigned to role
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+      responses:
+        '200': {$ref: '#/components/responses/UserList'}
+    post:
+      tags: [Platform Roles]
+      summary: Assign platform users to role
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PlatformUserAssignment'}
+      responses:
+        '200': {$ref: '#/components/responses/AssignedCount'}
+  /api/platform/v1/access-control/roles/{role_uuid}/users/{platform_user_uuid}:
+    delete:
+      tags: [Platform Roles]
+      summary: Remove platform user from role
+      parameters:
+        - $ref: '#/components/parameters/RoleUuid'
+        - name: platform_user_uuid
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AuditReason'}
+      responses:
+        '200': {$ref: '#/components/responses/SuccessNull'}
+  /api/platform/v1/access-control/permissions:
+    get:
+      tags: [Platform Permissions]
+      summary: List platform permissions
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Search'
+        - name: filter[module]
+          in: query
+          schema: {type: string, example: billing}
+        - name: filter[status]
+          in: query
+          schema: {type: string, enum: [active, inactive]}
+      responses:
+        '200': {$ref: '#/components/responses/PermissionList'}
+    post:
+      tags: [Platform Permissions]
+      summary: Create platform permission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PermissionWrite'}
+      responses:
+        '201': {$ref: '#/components/responses/PermissionSingle'}
+  /api/platform/v1/access-control/permissions/grouped:
+    get:
+      tags: [Platform Permissions]
+      summary: List platform permissions grouped by module
+      responses:
+        '200': {$ref: '#/components/responses/GroupedPermissions'}
+  /api/platform/v1/access-control/permissions/{permission_uuid}:
+    parameters:
+      - $ref: '#/components/parameters/PermissionUuid'
+    get:
+      tags: [Platform Permissions]
+      summary: View platform permission
+      responses:
+        '200': {$ref: '#/components/responses/PermissionSingle'}
+    patch:
+      tags: [Platform Permissions]
+      summary: Update platform permission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PermissionUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/PermissionSingle'}
+        '403': {$ref: '#/components/responses/SystemPermissionRenameForbidden'}
+    delete:
+      tags: [Platform Permissions]
+      summary: Delete custom unused platform permission
+      responses:
+        '200': {$ref: '#/components/responses/SuccessNull'}
+        '403': {$ref: '#/components/responses/SystemPermissionDeleteForbidden'}
+        '409': {$ref: '#/components/responses/PermissionInUse'}
+  /api/tenant/v1/access-control/roles:
+    get:
+      tags: [Tenant Roles]
+      summary: List tenant roles
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200': {$ref: '#/components/responses/RoleList'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Tenant Roles]
+      summary: Create tenant role
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RoleWrite'}
+      responses:
+        '201': {$ref: '#/components/responses/RoleSingle'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /api/tenant/v1/access-control/roles/{role_uuid}:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+      - $ref: '#/components/parameters/RoleUuid'
+    get:
+      tags: [Tenant Roles]
+      summary: View tenant role
+      responses:
+        '200': {$ref: '#/components/responses/RoleSingle'}
+    patch:
+      tags: [Tenant Roles]
+      summary: Update tenant role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RoleUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/RoleSingle'}
+        '403': {$ref: '#/components/responses/SystemRoleRenameForbidden'}
+    delete:
+      tags: [Tenant Roles]
+      summary: Delete custom unused tenant role
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AuditReason'}
+      responses:
+        '200': {$ref: '#/components/responses/SuccessNull'}
+        '403': {$ref: '#/components/responses/SystemRoleDeleteForbidden'}
+        '409': {$ref: '#/components/responses/FinalOwnerAdminRequired'}
+  /api/tenant/v1/access-control/roles/{role_uuid}/clone:
+    post:
+      tags: [Tenant Roles]
+      summary: Clone tenant role
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/RoleUuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RoleClone'}
+      responses:
+        '201': {$ref: '#/components/responses/RoleSingle'}
+  /api/tenant/v1/access-control/roles/{role_uuid}/activate:
+    post:
+      tags: [Tenant Roles]
+      summary: Activate tenant role
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/RoleUuid'
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AuditReason'}
+      responses:
+        '200': {$ref: '#/components/responses/RoleSingle'}
+  /api/tenant/v1/access-control/roles/{role_uuid}/deactivate:
+    post:
+      tags: [Tenant Roles]
+      summary: Deactivate tenant role
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/RoleUuid'
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AuditReason'}
+      responses:
+        '200': {$ref: '#/components/responses/RoleSingle'}
+        '409': {$ref: '#/components/responses/FinalOwnerAdminRequired'}
+  /api/tenant/v1/access-control/roles/{role_uuid}/permissions:
+    get:
+      tags: [Tenant Roles]
+      summary: List tenant role permissions grouped by module
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/RoleUuid'
+      responses:
+        '200': {$ref: '#/components/responses/GroupedPermissions'}
+    put:
+      tags: [Tenant Roles]
+      summary: Replace tenant role permissions
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/RoleUuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PermissionAssignment'}
+      responses:
+        '200': {$ref: '#/components/responses/RoleSingle'}
+  /api/tenant/v1/access-control/roles/{role_uuid}/users:
+    get:
+      tags: [Tenant Roles]
+      summary: List tenant users assigned to role
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/RoleUuid'
+      responses:
+        '200': {$ref: '#/components/responses/UserList'}
+    post:
+      tags: [Tenant Roles]
+      summary: Assign tenant users to role
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/RoleUuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TenantUserAssignment'}
+      responses:
+        '200': {$ref: '#/components/responses/AssignedCount'}
+  /api/tenant/v1/access-control/roles/{role_uuid}/users/{user_uuid}:
+    delete:
+      tags: [Tenant Roles]
+      summary: Remove tenant user from role
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/RoleUuid'
+        - name: user_uuid
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AuditReason'}
+      responses:
+        '200': {$ref: '#/components/responses/SuccessNull'}
+        '409': {$ref: '#/components/responses/FinalOwnerAdminRequired'}
+  /api/tenant/v1/access-control/permissions:
+    get:
+      tags: [Tenant Permissions]
+      summary: List tenant permissions
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200': {$ref: '#/components/responses/PermissionList'}
+  /api/tenant/v1/access-control/permissions/grouped:
+    get:
+      tags: [Tenant Permissions]
+      summary: List tenant permissions grouped by module
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      responses:
+        '200': {$ref: '#/components/responses/GroupedPermissions'}
+  /api/tenant/v1/access-control/permissions/{permission_uuid}:
+    get:
+      tags: [Tenant Permissions]
+      summary: View tenant permission
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/PermissionUuid'
+      responses:
+        '200': {$ref: '#/components/responses/PermissionSingle'}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum token
+  parameters:
+    TenantHeader:
+      name: X-Tenant
+      in: header
+      required: true
+      schema: {type: string, example: acme}
+    RoleUuid:
+      name: role_uuid
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    PermissionUuid:
+      name: permission_uuid
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    Page:
+      name: page
+      in: query
+      schema: {type: integer, example: 1}
+    PerPage:
+      name: per_page
+      in: query
+      schema: {type: integer, example: 25}
+    Search:
+      name: search
+      in: query
+      schema: {type: string, example: billing}
+  schemas:
+    AuditReason:
+      type: object
+      properties:
+        audit_reason: {type: string, example: Quarterly access review}
+    RoleWrite:
+      type: object
+      required: [name, display_name]
+      properties:
+        name: {type: string, example: billing_manager_custom}
+        display_name: {type: string, example: Billing Manager Custom}
+        guard_name: {type: string, example: platform}
+        description: {type: string, nullable: true}
+        status: {type: string, enum: [active, inactive]}
+        is_system: {type: boolean, default: false}
+        permission_ids:
+          type: array
+          items: {type: string, format: uuid}
+        audit_reason: {type: string, nullable: true}
+    RoleUpdate:
+      allOf:
+        - $ref: '#/components/schemas/RoleWrite'
+    RoleClone:
+      type: object
+      required: [name, display_name]
+      properties:
+        name: {type: string, example: billing_manager_copy}
+        display_name: {type: string, example: Billing Manager Copy}
+        copy_permissions: {type: boolean, default: true}
+        copy_description: {type: boolean, default: true}
+        status: {type: string, enum: [active, inactive], example: inactive}
+        audit_reason: {type: string, nullable: true}
+    PermissionAssignment:
+      type: object
+      required: [permission_ids]
+      properties:
+        permission_ids:
+          type: array
+          items: {type: string, format: uuid}
+        audit_reason: {type: string, nullable: true}
+    PlatformUserAssignment:
+      type: object
+      required: [platform_user_ids]
+      properties:
+        platform_user_ids:
+          type: array
+          items: {type: string, format: uuid}
+        audit_reason: {type: string, nullable: true}
+    TenantUserAssignment:
+      type: object
+      required: [user_ids]
+      properties:
+        user_ids:
+          type: array
+          items: {type: string, format: uuid}
+        audit_reason: {type: string, nullable: true}
+    PermissionWrite:
+      type: object
+      required: [module, name]
+      properties:
+        module: {type: string, example: billing}
+        name: {type: string, example: billing.adjustment.create}
+        display_name: {type: string, example: Create Billing Adjustment}
+        guard_name: {type: string, example: platform}
+        description: {type: string, nullable: true}
+        is_system: {type: boolean, default: false}
+        status: {type: string, enum: [active, inactive]}
+    PermissionUpdate:
+      allOf:
+        - $ref: '#/components/schemas/PermissionWrite'
+    ApiError:
+      type: object
+      properties:
+        success: {type: boolean, example: false}
+        message: {type: string}
+        data: {nullable: true}
+        meta:
+          type: object
+          properties:
+            request_id: {type: string, example: '{{REQUEST_ID}}'}
+        errors:
+          type: object
+          properties:
+            code: {type: string}
+            details: {type: object}
+  responses:
+    RoleList:
+      description: Role list
+      content:
+        application/json:
+          example:
+            success: true
+            message: OK
+            data: [{uuid: role_uuid, name: billing_manager, display_name: Billing Manager, status: active, permissions_count: 3, users_count: 2}]
+            meta: {request_id: '{{REQUEST_ID}}'}
+            errors: null
+    RoleSingle:
+      description: Single role response
+      content:
+        application/json:
+          example:
+            success: true
+            message: OK
+            data: {role: {uuid: role_uuid, name: billing_manager, display_name: Billing Manager, status: active, permissions: {billing: [{uuid: permission_uuid, name: billing.invoice.view}]}}}
+            meta: {request_id: '{{REQUEST_ID}}'}
+            errors: null
+    PermissionList:
+      description: Permission list
+      content:
+        application/json:
+          example:
+            success: true
+            message: OK
+            data: [{uuid: permission_uuid, module: billing, name: billing.invoice.view, display_name: Billing Invoice View, status: active}]
+            meta: {request_id: '{{REQUEST_ID}}'}
+            errors: null
+    PermissionSingle:
+      description: Single permission response
+      content:
+        application/json:
+          example:
+            success: true
+            message: OK
+            data: {permission: {uuid: permission_uuid, module: billing, name: billing.invoice.view, display_name: Billing Invoice View, status: active}}
+            meta: {request_id: '{{REQUEST_ID}}'}
+            errors: null
+    GroupedPermissions:
+      description: Permissions grouped by module
+      content:
+        application/json:
+          example:
+            success: true
+            message: OK
+            data: {permissions: {billing: [{uuid: permission_uuid, module: billing, name: billing.invoice.view, display_name: Billing Invoice View}]}}
+            meta: {request_id: '{{REQUEST_ID}}'}
+            errors: null
+    UserList:
+      description: Assigned users
+      content:
+        application/json:
+          example:
+            success: true
+            message: OK
+            data: {users: [{uuid: user_uuid, display_name: Sahil Admin, email: admin@example.com, status: active}]}
+            meta: {request_id: '{{REQUEST_ID}}'}
+            errors: null
+    AssignedCount:
+      description: Assignment count
+      content:
+        application/json:
+          example:
+            success: true
+            message: Users assigned.
+            data: {users: 2}
+            meta: {request_id: '{{REQUEST_ID}}'}
+            errors: null
+    SuccessNull:
+      description: Success with null data
+      content:
+        application/json:
+          example: {success: true, message: OK, data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}
+    Forbidden:
+      description: Missing permission
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ApiError'}
+          example: {success: false, message: Missing permission., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: PERMISSION_DENIED, details: {}}}
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ApiError'}
+          example: {success: false, message: Validation failed., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: VALIDATION_ERROR, details: {name: [The name field is required.]}}}
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          example: {success: false, message: Resource not found., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: NOT_FOUND, details: []}}
+    SystemRoleRenameForbidden:
+      description: System role rename blocked
+      content:
+        application/json:
+          example: {success: false, message: System roles cannot be renamed., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: SYSTEM_ROLE_RENAME_FORBIDDEN, details: []}}
+    SystemRoleDeleteForbidden:
+      description: System role delete blocked
+      content:
+        application/json:
+          example: {success: false, message: System roles cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: SYSTEM_ROLE_DELETE_FORBIDDEN, details: []}}
+    SystemPermissionRenameForbidden:
+      description: System permission rename blocked
+      content:
+        application/json:
+          example: {success: false, message: System permissions cannot be renamed., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: SYSTEM_PERMISSION_RENAME_FORBIDDEN, details: []}}
+    SystemPermissionDeleteForbidden:
+      description: System permission delete blocked
+      content:
+        application/json:
+          example: {success: false, message: System permissions cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: SYSTEM_PERMISSION_DELETE_FORBIDDEN, details: []}}
+    RoleInUse:
+      description: Role has assigned users
+      content:
+        application/json:
+          example: {success: false, message: Assigned roles cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: ROLE_IN_USE, details: []}}
+    PermissionInUse:
+      description: Permission is assigned to roles
+      content:
+        application/json:
+          example: {success: false, message: Assigned permissions cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: PERMISSION_IN_USE, details: []}}
+    FinalOwnerAdminRequired:
+      description: Final tenant owner/admin role protection
+      content:
+        application/json:
+          example: {success: false, message: Cannot remove the final owner/admin role from this tenant., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: FINAL_OWNER_ADMIN_ROLE_REQUIRED, details: []}}

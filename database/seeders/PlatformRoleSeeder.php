@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Database\Seeders\Concerns\SeedsRecords;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class PlatformRoleSeeder extends Seeder
 {
@@ -16,6 +17,7 @@ class PlatformRoleSeeder extends Seeder
 
         foreach ($this->roles() as $role) {
             $roleId = $this->seedRecord('platform_roles', ['name' => $role['name'], 'guard_name' => 'platform'], [
+                'display_name' => Str::headline(str_replace('_', ' ', $role['name'])),
                 'description' => $role['description'],
                 'is_system' => true,
                 'status' => 'active',

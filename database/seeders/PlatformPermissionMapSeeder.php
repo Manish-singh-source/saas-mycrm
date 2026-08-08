@@ -15,7 +15,10 @@ class PlatformPermissionMapSeeder extends Seeder
         foreach ($this->permissions() as $permission) {
             $this->seedRecord('platform_permissions', ['name' => $permission, 'guard_name' => 'platform'], [
                 'module' => explode('.', $permission)[0],
+                'display_name' => Str::headline(str_replace('.', ' ', $permission)),
                 'description' => Str::headline(str_replace('.', ' ', $permission)),
+                'is_system' => true,
+                'status' => 'active',
             ], true);
         }
     }

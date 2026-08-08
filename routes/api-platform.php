@@ -1,11 +1,18 @@
 <?php
 
 use App\Http\Controllers\Platform\PlatformApiTokenController;
+use App\Http\Controllers\Platform\PlatformPermissionController;
+use App\Http\Controllers\Platform\PlatformRoleController;
 use App\Http\Controllers\Platform\PlatformAuthController;
 use App\Http\Controllers\Platform\PlatformHealthController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', PlatformHealthController::class)->name('health');
+
+Route::prefix('auth')->name('auth.')->group(function (): void {
+    Route::post('/forgot-password', [PlatformAuthController::class, 'forgotPassword'])->name('forgot-password');
+    Route::post('/reset-password', [PlatformAuthController::class, 'resetPassword'])->name('reset-password');
+});
 
 Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::prefix('auth')->name('auth.')->group(function (): void {
@@ -26,6 +33,29 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::get('/profile/sessions', [PlatformAuthController::class, 'sessions'])->name('profile.sessions.index');
     Route::delete('/profile/sessions/{session_id}', [PlatformAuthController::class, 'revokeSession'])->whereNumber('session_id')->name('profile.sessions.revoke');
 
+
+    Route::prefix('access-control')->name('access-control.')->group(function (): void {
+        Route::get('/roles', [PlatformRoleController::class, 'index'])->middleware('platform.permission:platform_role.view')->name('roles.index');
+        Route::post('/roles', [PlatformRoleController::class, 'store'])->middleware('platform.permission:platform_role.create')->name('roles.store');
+        Route::get('/roles/{role_uuid}', [PlatformRoleController::class, 'show'])->middleware('platform.permission:platform_role.view')->name('roles.show');
+        Route::match(['put', 'patch'], '/roles/{role_uuid}', [PlatformRoleController::class, 'update'])->middleware('platform.permission:platform_role.edit')->name('roles.update');
+        Route::delete('/roles/{role_uuid}', [PlatformRoleController::class, 'destroy'])->middleware('platform.permission:platform_role.delete')->name('roles.destroy');
+        Route::post('/roles/{role_uuid}/clone', [PlatformRoleController::class, 'clone'])->middleware('platform.permission:platform_role.create')->name('roles.clone');
+        Route::post('/roles/{role_uuid}/activate', [PlatformRoleController::class, 'activate'])->middleware('platform.permission:platform_role.edit')->name('roles.activate');
+        Route::post('/roles/{role_uuid}/deactivate', [PlatformRoleController::class, 'deactivate'])->middleware('platform.permission:platform_role.edit')->name('roles.deactivate');
+        Route::get('/roles/{role_uuid}/permissions', [PlatformRoleController::class, 'permissions'])->middleware('platform.permission:platform_role.view')->name('roles.permissions');
+        Route::put('/roles/{role_uuid}/permissions', [PlatformRoleController::class, 'syncPermissions'])->middleware('platform.permission:platform_role.edit')->name('roles.permissions.sync');
+        Route::get('/roles/{role_uuid}/users', [PlatformRoleController::class, 'users'])->middleware('platform.permission:platform_role.view')->name('roles.users');
+        Route::post('/roles/{role_uuid}/users', [PlatformRoleController::class, 'assignUsers'])->middleware('platform.permission:platform_role.edit')->name('roles.users.assign');
+        Route::delete('/roles/{role_uuid}/users/{platform_user_uuid}', [PlatformRoleController::class, 'removeUser'])->middleware('platform.permission:platform_role.edit')->name('roles.users.remove');
+
+        Route::get('/permissions/grouped', [PlatformPermissionController::class, 'grouped'])->middleware('platform.permission:platform_permission.view')->name('permissions.grouped');
+        Route::get('/permissions', [PlatformPermissionController::class, 'index'])->middleware('platform.permission:platform_permission.view')->name('permissions.index');
+        Route::post('/permissions', [PlatformPermissionController::class, 'store'])->middleware('platform.permission:platform_permission.create')->name('permissions.store');
+        Route::get('/permissions/{permission_uuid}', [PlatformPermissionController::class, 'show'])->middleware('platform.permission:platform_permission.view')->name('permissions.show');
+        Route::match(['put', 'patch'], '/permissions/{permission_uuid}', [PlatformPermissionController::class, 'update'])->middleware('platform.permission:platform_permission.edit')->name('permissions.update');
+        Route::delete('/permissions/{permission_uuid}', [PlatformPermissionController::class, 'destroy'])->middleware('platform.permission:platform_permission.delete')->name('permissions.destroy');
+    });
     Route::get('/api-tokens', [PlatformApiTokenController::class, 'index'])->name('api-tokens.index');
     Route::post('/api-tokens', [PlatformApiTokenController::class, 'store'])->name('api-tokens.store');
     Route::get('/api-tokens/{token_uuid}', [PlatformApiTokenController::class, 'show'])->name('api-tokens.show');

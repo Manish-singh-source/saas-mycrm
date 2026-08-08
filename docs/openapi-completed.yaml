@@ -1,0 +1,910 @@
+openapi: 3.1.0
+info:
+  title: SaaS MyCRM Completed APIs
+  version: 1.0.0
+  description: Completed API surface in the same sequence as docs/completed-api-curls.md.
+servers:
+  - url: http://localhost:8000
+    description: Local API root
+tags:
+  - name: 1. Unified Auth
+  - name: 2. Platform Auth/Profile/Security
+  - name: 2. Platform API Tokens
+  - name: 3. Tenant Auth/Profile/Security
+  - name: 3. Tenant API Tokens
+  - name: 5. Platform Roles
+  - name: 5. Platform Permissions
+  - name: 6. Tenant Roles
+  - name: 6. Tenant Permissions
+paths:
+  /api/auth/v1/accounts/discover:
+    post:
+      tags: [1. Unified Auth]
+      summary: Discover accounts by email
+      security: []
+      parameters: [{$ref: '#/components/parameters/RequestId'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DiscoverRequest'}
+            example: {email: user@example.com, device_name: Chrome on Windows}
+      responses:
+        '200': {$ref: '#/components/responses/DiscoverResponse'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /api/auth/v1/accounts/login:
+    post:
+      tags: [1. Unified Auth]
+      summary: Login selected account
+      security: []
+      parameters: [{$ref: '#/components/parameters/RequestId'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UnifiedLoginRequest'}
+            example: {email: user@example.com, discovery_token: disc_short_lived_token, account_ref: acct_opaque_ref, password: StrongPassword#123, remember: true, device_name: Chrome on Windows}
+      responses:
+        '200': {$ref: '#/components/responses/LoginResponse'}
+        '401': {$ref: '#/components/responses/InvalidCredentials'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /api/auth/v1/accounts/login/2fa:
+    post:
+      tags: [1. Unified Auth]
+      summary: Verify login 2FA challenge
+      security: []
+      parameters: [{$ref: '#/components/parameters/RequestId'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LoginTwoFactorRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/LoginResponse'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /api/auth/v1/me:
+    get:
+      tags: [1. Unified Auth]
+      summary: Current unified session
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/RequestId'}]
+      responses:
+        '200': {$ref: '#/components/responses/CurrentSessionResponse'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+  /api/auth/v1/logout:
+    post:
+      tags: [1. Unified Auth]
+      summary: Logout current unified session
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/RequestId'}]
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, properties: {all_devices: {type: boolean, example: false}}}
+      responses:
+        '200': {$ref: '#/components/responses/LogoutResponse'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+  /api/auth/v1/password/forgot:
+    post:
+      tags: [1. Unified Auth]
+      summary: Request password reset
+      security: []
+      parameters: [{$ref: '#/components/parameters/RequestId'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ForgotPasswordRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/ForgotPasswordResponse'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /api/auth/v1/password/reset:
+    post:
+      tags: [1. Unified Auth]
+      summary: Reset password
+      security: []
+      parameters: [{$ref: '#/components/parameters/RequestId'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ResetPasswordRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/ResetPasswordResponse'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /api/platform/v1/auth/forgot-password:
+    post:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Request platform password reset
+      security: []
+      parameters: [{$ref: '#/components/parameters/RequestId'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PlatformForgotPasswordRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/ForgotPasswordResponse'}
+  /api/platform/v1/auth/reset-password:
+    post:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Reset platform password
+      security: []
+      parameters: [{$ref: '#/components/parameters/RequestId'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ResetPasswordRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/ResetPasswordResponse'}
+  /api/platform/v1/auth/logout:
+    post:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Revoke current platform token
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '401': {$ref: '#/components/responses/Unauthenticated'}}
+  /api/platform/v1/auth/refresh:
+    post:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Rotate current platform token
+      security: [{bearerAuth: []}]
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, properties: {device_name: {type: string, example: platform-api}}}
+      responses: {'200': {$ref: '#/components/responses/TokenRefreshResponse'}}
+  /api/platform/v1/auth/me:
+    get:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Platform current user
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/PlatformMeResponse'}}
+  /api/platform/v1/auth/verify-email/resend:
+    post:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Queue platform verification email placeholder
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}}
+  /api/platform/v1/auth/2fa/enable:
+    post:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Start platform TOTP 2FA setup
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/TwoFactorEnableResponse'}}
+  /api/platform/v1/auth/2fa/confirm:
+    post:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Confirm platform TOTP 2FA setup
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TwoFactorCodeRequest'}
+      responses: {'200': {$ref: '#/components/responses/TwoFactorConfirmResponse'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/platform/v1/auth/2fa/disable:
+    post:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Disable platform 2FA
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [password], properties: {password: {type: string, format: password}}}
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '422': {$ref: '#/components/responses/InvalidPassword'}}
+  /api/platform/v1/profile:
+    get:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Get platform profile
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/PlatformProfileResponse'}}
+    patch:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Update platform profile
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProfileUpdateRequest'}
+      responses: {'200': {$ref: '#/components/responses/PlatformProfileResponse'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    put:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Update platform profile
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProfileUpdateRequest'}
+      responses: {'200': {$ref: '#/components/responses/PlatformProfileResponse'}}
+  /api/platform/v1/profile/password:
+    put:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Change platform password
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ChangePasswordRequest'}
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '422': {$ref: '#/components/responses/InvalidPassword'}}
+  /api/platform/v1/settings/preferences:
+    get:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: List platform preferences
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/PreferencesResponse'}}
+    put:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Update platform preferences
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PreferencesUpdateRequest'}
+      responses: {'200': {$ref: '#/components/responses/PreferencesResponse'}}
+  /api/platform/v1/profile/sessions:
+    get:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: List platform Sanctum sessions/tokens
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/SessionsResponse'}}
+  /api/platform/v1/profile/sessions/{session_id}:
+    delete:
+      tags: [2. Platform Auth/Profile/Security]
+      summary: Revoke platform session/token
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/SessionId'}]
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '404': {$ref: '#/components/responses/NotFound'}}
+  /api/platform/v1/api-tokens:
+    get:
+      tags: [2. Platform API Tokens]
+      summary: List platform API tokens
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/ApiTokenListResponse'}}
+    post:
+      tags: [2. Platform API Tokens]
+      summary: Create platform API token
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ApiTokenCreateRequest'}
+      responses: {'201': {$ref: '#/components/responses/ApiTokenCreatedResponse'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/platform/v1/api-tokens/{token_uuid}:
+    get:
+      tags: [2. Platform API Tokens]
+      summary: Show platform API token metadata
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TokenUuid'}]
+      responses: {'200': {$ref: '#/components/responses/ApiTokenShowResponse'}, '404': {$ref: '#/components/responses/NotFound'}}
+  /api/platform/v1/api-tokens/{token_uuid}/rotate:
+    post:
+      tags: [2. Platform API Tokens]
+      summary: Rotate platform API token and return raw token once
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TokenUuid'}]
+      responses: {'200': {$ref: '#/components/responses/ApiTokenCreatedResponse'}}
+  /api/platform/v1/api-tokens/{token_uuid}/revoke:
+    post:
+      tags: [2. Platform API Tokens]
+      summary: Revoke platform API token
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TokenUuid'}]
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}}
+  /api/tenant/v1/auth/forgot-password:
+    post:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Request tenant password reset
+      security: []
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/RequestId'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TenantForgotPasswordRequest'}
+      responses: {'200': {$ref: '#/components/responses/ForgotPasswordResponse'}}
+  /api/tenant/v1/auth/reset-password:
+    post:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Reset tenant password
+      security: []
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/RequestId'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TenantResetPasswordRequest'}
+      responses: {'200': {$ref: '#/components/responses/ResetPasswordResponse'}}
+  /api/tenant/v1/auth/logout:
+    post:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Revoke current tenant token
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '401': {$ref: '#/components/responses/Unauthenticated'}}
+  /api/tenant/v1/auth/refresh:
+    post:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Rotate current tenant token
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, properties: {device_name: {type: string, example: tenant-api}}}
+      responses: {'200': {$ref: '#/components/responses/TokenRefreshResponse'}}
+  /api/tenant/v1/auth/me:
+    get:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Tenant current user
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      responses: {'200': {$ref: '#/components/responses/TenantMeResponse'}}
+  /api/tenant/v1/auth/verify-email/resend:
+    post:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Queue tenant verification email placeholder
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}}
+  /api/tenant/v1/auth/2fa/enable:
+    post:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Start tenant TOTP 2FA setup
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      responses: {'200': {$ref: '#/components/responses/TwoFactorEnableResponse'}}
+  /api/tenant/v1/auth/2fa/confirm:
+    post:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Confirm tenant TOTP 2FA setup
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TwoFactorCodeRequest'}
+      responses: {'200': {$ref: '#/components/responses/TwoFactorConfirmResponse'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/auth/2fa/disable:
+    post:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Disable tenant 2FA
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [password], properties: {password: {type: string, format: password}}}
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '422': {$ref: '#/components/responses/InvalidPassword'}}
+  /api/tenant/v1/profile:
+    get:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Get tenant profile
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      responses: {'200': {$ref: '#/components/responses/TenantProfileResponse'}}
+    patch:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Update tenant profile
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProfileUpdateRequest'}
+      responses: {'200': {$ref: '#/components/responses/TenantProfileResponse'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    put:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Update tenant profile
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProfileUpdateRequest'}
+      responses: {'200': {$ref: '#/components/responses/TenantProfileResponse'}}
+  /api/tenant/v1/profile/password:
+    put:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Change tenant password
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ChangePasswordRequest'}
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '422': {$ref: '#/components/responses/InvalidPassword'}}
+  /api/tenant/v1/profile/preferences:
+    get:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: List tenant preferences
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      responses: {'200': {$ref: '#/components/responses/PreferencesResponse'}}
+    put:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Update tenant preferences
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PreferencesUpdateRequest'}
+      responses: {'200': {$ref: '#/components/responses/PreferencesResponse'}}
+  /api/tenant/v1/profile/sessions:
+    get:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: List tenant Sanctum sessions/tokens
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      responses: {'200': {$ref: '#/components/responses/SessionsResponse'}}
+  /api/tenant/v1/profile/sessions/{session_id}:
+    delete:
+      tags: [3. Tenant Auth/Profile/Security]
+      summary: Revoke tenant session/token
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/SessionId'}]
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '404': {$ref: '#/components/responses/NotFound'}}
+  /api/tenant/v1/profile/api-tokens:
+    get:
+      tags: [3. Tenant API Tokens]
+      summary: List tenant API tokens
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      responses: {'200': {$ref: '#/components/responses/ApiTokenListResponse'}}
+    post:
+      tags: [3. Tenant API Tokens]
+      summary: Create tenant API token
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ApiTokenCreateRequest'}
+      responses: {'201': {$ref: '#/components/responses/ApiTokenCreatedResponse'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/profile/api-tokens/{token_uuid}/rotate:
+    post:
+      tags: [3. Tenant API Tokens]
+      summary: Rotate tenant API token and return raw token once
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/TokenUuid'}]
+      responses: {'200': {$ref: '#/components/responses/ApiTokenCreatedResponse'}}
+  /api/tenant/v1/profile/api-tokens/{token_uuid}/revoke:
+    post:
+      tags: [3. Tenant API Tokens]
+      summary: Revoke tenant API token
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/TokenUuid'}]
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}}
+  /api/platform/v1/access-control/roles:
+    get:
+      tags: [5. Platform Roles]
+      summary: List platform roles
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}, {$ref: '#/components/parameters/Search'}, {$ref: '#/components/parameters/StatusFilter'}, {$ref: '#/components/parameters/RoleTypeFilter'}, {$ref: '#/components/parameters/GuardFilter'}]
+      responses: {'200': {$ref: '#/components/responses/RoleList'}, '403': {$ref: '#/components/responses/Forbidden'}}
+    post:
+      tags: [5. Platform Roles]
+      summary: Create platform role
+      security: [{bearerAuth: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RoleWrite'}}}}
+      responses: {'201': {$ref: '#/components/responses/RoleSingle'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/platform/v1/access-control/roles/{role_uuid}:
+    parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+    get:
+      tags: [5. Platform Roles]
+      summary: View platform role
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/RoleSingle'}, '404': {$ref: '#/components/responses/NotFound'}}
+    patch:
+      tags: [5. Platform Roles]
+      summary: Update platform role
+      security: [{bearerAuth: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RoleUpdate'}}}}
+      responses: {'200': {$ref: '#/components/responses/RoleSingle'}, '403': {$ref: '#/components/responses/SystemRoleRenameForbidden'}}
+    put:
+      tags: [5. Platform Roles]
+      summary: Update platform role
+      security: [{bearerAuth: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RoleUpdate'}}}}
+      responses: {'200': {$ref: '#/components/responses/RoleSingle'}}
+    delete:
+      tags: [5. Platform Roles]
+      summary: Delete custom unused platform role
+      security: [{bearerAuth: []}]
+      requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/AuditReason'}}}}
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '403': {$ref: '#/components/responses/SystemRoleDeleteForbidden'}, '409': {$ref: '#/components/responses/RoleInUse'}}
+  /api/platform/v1/access-control/roles/{role_uuid}/clone:
+    post:
+      tags: [5. Platform Roles]
+      summary: Clone platform role
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RoleClone'}}}}
+      responses: {'201': {$ref: '#/components/responses/RoleSingle'}}
+  /api/platform/v1/access-control/roles/{role_uuid}/activate:
+    post:
+      tags: [5. Platform Roles]
+      summary: Activate platform role
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+      requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/AuditReason'}}}}
+      responses: {'200': {$ref: '#/components/responses/RoleSingle'}}
+  /api/platform/v1/access-control/roles/{role_uuid}/deactivate:
+    post:
+      tags: [5. Platform Roles]
+      summary: Deactivate platform role
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+      requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/AuditReason'}}}}
+      responses: {'200': {$ref: '#/components/responses/RoleSingle'}}
+  /api/platform/v1/access-control/roles/{role_uuid}/permissions:
+    get:
+      tags: [5. Platform Roles]
+      summary: List platform role permissions grouped by module
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+      responses: {'200': {$ref: '#/components/responses/GroupedPermissions'}}
+    put:
+      tags: [5. Platform Roles]
+      summary: Replace platform role permissions
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PermissionAssignment'}}}}
+      responses: {'200': {$ref: '#/components/responses/RoleSingle'}}
+  /api/platform/v1/access-control/roles/{role_uuid}/users:
+    get:
+      tags: [5. Platform Roles]
+      summary: List platform users assigned to role
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+      responses: {'200': {$ref: '#/components/responses/UserList'}}
+    post:
+      tags: [5. Platform Roles]
+      summary: Assign platform users to role
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformUserAssignment'}}}}
+      responses: {'200': {$ref: '#/components/responses/AssignedCount'}}
+  /api/platform/v1/access-control/roles/{role_uuid}/users/{platform_user_uuid}:
+    delete:
+      tags: [5. Platform Roles]
+      summary: Remove platform user from role
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/RoleUuid'}, {$ref: '#/components/parameters/PlatformUserUuid'}]
+      requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/AuditReason'}}}}
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}}
+  /api/platform/v1/access-control/permissions:
+    get:
+      tags: [5. Platform Permissions]
+      summary: List platform permissions
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}, {$ref: '#/components/parameters/Search'}, {$ref: '#/components/parameters/ModuleFilter'}, {$ref: '#/components/parameters/StatusFilter'}, {$ref: '#/components/parameters/GuardFilter'}]
+      responses: {'200': {$ref: '#/components/responses/PermissionList'}}
+    post:
+      tags: [5. Platform Permissions]
+      summary: Create platform permission
+      security: [{bearerAuth: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PermissionWrite'}}}}
+      responses: {'201': {$ref: '#/components/responses/PermissionSingle'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/platform/v1/access-control/permissions/grouped:
+    get:
+      tags: [5. Platform Permissions]
+      summary: List platform permissions grouped by module
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/GroupedPermissions'}}
+  /api/platform/v1/access-control/permissions/{permission_uuid}:
+    parameters: [{$ref: '#/components/parameters/PermissionUuid'}]
+    get:
+      tags: [5. Platform Permissions]
+      summary: View platform permission
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/PermissionSingle'}, '404': {$ref: '#/components/responses/NotFound'}}
+    patch:
+      tags: [5. Platform Permissions]
+      summary: Update platform permission
+      security: [{bearerAuth: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PermissionUpdate'}}}}
+      responses: {'200': {$ref: '#/components/responses/PermissionSingle'}, '403': {$ref: '#/components/responses/SystemPermissionRenameForbidden'}}
+    put:
+      tags: [5. Platform Permissions]
+      summary: Update platform permission
+      security: [{bearerAuth: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PermissionUpdate'}}}}
+      responses: {'200': {$ref: '#/components/responses/PermissionSingle'}}
+    delete:
+      tags: [5. Platform Permissions]
+      summary: Delete custom unused platform permission
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '403': {$ref: '#/components/responses/SystemPermissionDeleteForbidden'}, '409': {$ref: '#/components/responses/PermissionInUse'}}
+  /api/tenant/v1/access-control/roles:
+    get:
+      tags: [6. Tenant Roles]
+      summary: List tenant roles
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}, {$ref: '#/components/parameters/Search'}, {$ref: '#/components/parameters/StatusFilter'}, {$ref: '#/components/parameters/GuardFilter'}]
+      responses: {'200': {$ref: '#/components/responses/RoleList'}, '403': {$ref: '#/components/responses/Forbidden'}}
+    post:
+      tags: [6. Tenant Roles]
+      summary: Create tenant role
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RoleWrite'}}}}
+      responses: {'201': {$ref: '#/components/responses/RoleSingle'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/access-control/roles/{role_uuid}:
+    parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/RoleUuid'}]
+    get:
+      tags: [6. Tenant Roles]
+      summary: View tenant role
+      security: [{bearerAuth: []}]
+      responses: {'200': {$ref: '#/components/responses/RoleSingle'}, '404': {$ref: '#/components/responses/NotFound'}}
+    patch:
+      tags: [6. Tenant Roles]
+      summary: Update tenant role
+      security: [{bearerAuth: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RoleUpdate'}}}}
+      responses: {'200': {$ref: '#/components/responses/RoleSingle'}, '403': {$ref: '#/components/responses/SystemRoleRenameForbidden'}}
+    put:
+      tags: [6. Tenant Roles]
+      summary: Update tenant role
+      security: [{bearerAuth: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RoleUpdate'}}}}
+      responses: {'200': {$ref: '#/components/responses/RoleSingle'}}
+    delete:
+      tags: [6. Tenant Roles]
+      summary: Delete custom unused tenant role
+      security: [{bearerAuth: []}]
+      requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/AuditReason'}}}}
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '403': {$ref: '#/components/responses/SystemRoleDeleteForbidden'}, '409': {$ref: '#/components/responses/FinalOwnerAdminRequired'}}
+  /api/tenant/v1/access-control/roles/{role_uuid}/clone:
+    post:
+      tags: [6. Tenant Roles]
+      summary: Clone tenant role
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/RoleUuid'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RoleClone'}}}}
+      responses: {'201': {$ref: '#/components/responses/RoleSingle'}}
+  /api/tenant/v1/access-control/roles/{role_uuid}/activate:
+    post:
+      tags: [6. Tenant Roles]
+      summary: Activate tenant role
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/RoleUuid'}]
+      requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/AuditReason'}}}}
+      responses: {'200': {$ref: '#/components/responses/RoleSingle'}}
+  /api/tenant/v1/access-control/roles/{role_uuid}/deactivate:
+    post:
+      tags: [6. Tenant Roles]
+      summary: Deactivate tenant role
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/RoleUuid'}]
+      requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/AuditReason'}}}}
+      responses: {'200': {$ref: '#/components/responses/RoleSingle'}, '409': {$ref: '#/components/responses/FinalOwnerAdminRequired'}}
+  /api/tenant/v1/access-control/roles/{role_uuid}/permissions:
+    get:
+      tags: [6. Tenant Roles]
+      summary: List tenant role permissions grouped by module
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/RoleUuid'}]
+      responses: {'200': {$ref: '#/components/responses/GroupedPermissions'}}
+    put:
+      tags: [6. Tenant Roles]
+      summary: Replace tenant role permissions
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/RoleUuid'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PermissionAssignment'}}}}
+      responses: {'200': {$ref: '#/components/responses/RoleSingle'}}
+  /api/tenant/v1/access-control/roles/{role_uuid}/users:
+    get:
+      tags: [6. Tenant Roles]
+      summary: List tenant users assigned to role
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/RoleUuid'}]
+      responses: {'200': {$ref: '#/components/responses/UserList'}}
+    post:
+      tags: [6. Tenant Roles]
+      summary: Assign tenant users to role
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/RoleUuid'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TenantUserAssignment'}}}}
+      responses: {'200': {$ref: '#/components/responses/AssignedCount'}}
+  /api/tenant/v1/access-control/roles/{role_uuid}/users/{user_uuid}:
+    delete:
+      tags: [6. Tenant Roles]
+      summary: Remove tenant user from role
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/RoleUuid'}, {$ref: '#/components/parameters/UserUuid'}]
+      requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/AuditReason'}}}}
+      responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '409': {$ref: '#/components/responses/FinalOwnerAdminRequired'}}
+  /api/tenant/v1/access-control/permissions:
+    get:
+      tags: [6. Tenant Permissions]
+      summary: List tenant permissions
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}, {$ref: '#/components/parameters/Search'}, {$ref: '#/components/parameters/ModuleFilter'}, {$ref: '#/components/parameters/StatusFilter'}, {$ref: '#/components/parameters/GuardFilter'}]
+      responses: {'200': {$ref: '#/components/responses/PermissionList'}}
+  /api/tenant/v1/access-control/permissions/grouped:
+    get:
+      tags: [6. Tenant Permissions]
+      summary: List tenant permissions grouped by module
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}]
+      responses: {'200': {$ref: '#/components/responses/GroupedPermissions'}}
+  /api/tenant/v1/access-control/permissions/{permission_uuid}:
+    get:
+      tags: [6. Tenant Permissions]
+      summary: View tenant permission
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/PermissionUuid'}]
+      responses: {'200': {$ref: '#/components/responses/PermissionSingle'}, '404': {$ref: '#/components/responses/NotFound'}}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum token
+  parameters:
+    RequestId: {name: X-Request-Id, in: header, required: false, schema: {type: string, example: '{{REQUEST_ID}}'}}
+    TenantHeader: {name: X-Tenant, in: header, required: true, schema: {type: string, example: '{{TENANT}}'}}
+    Page: {name: page, in: query, schema: {type: integer, example: 1}}
+    PerPage: {name: per_page, in: query, schema: {type: integer, example: 25}}
+    Search: {name: search, in: query, schema: {type: string, example: billing}}
+    StatusFilter: {name: 'filter[status]', in: query, schema: {type: string, enum: [active, inactive]}}
+    RoleTypeFilter: {name: 'filter[type]', in: query, schema: {type: string, enum: [system, custom]}}
+    GuardFilter: {name: 'filter[guard_name]', in: query, schema: {type: string, example: platform}}
+    ModuleFilter: {name: 'filter[module]', in: query, schema: {type: string, example: billing}}
+    SessionId: {name: session_id, in: path, required: true, schema: {type: integer, example: 1}}
+    TokenUuid: {name: token_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    RoleUuid: {name: role_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    PermissionUuid: {name: permission_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    PlatformUserUuid: {name: platform_user_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    UserUuid: {name: user_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+  schemas:
+    DiscoverRequest:
+      type: object
+      required: [email]
+      properties: {email: {type: string, format: email}, device_name: {type: string}}
+    UnifiedLoginRequest:
+      type: object
+      required: [email, discovery_token, account_ref, password]
+      properties: {email: {type: string, format: email}, discovery_token: {type: string}, account_ref: {type: string}, password: {type: string, format: password}, remember: {type: boolean}, device_name: {type: string}}
+    LoginTwoFactorRequest:
+      type: object
+      required: [challenge_token, code]
+      properties: {challenge_token: {type: string}, code: {type: string, example: '123456'}, remember_device: {type: boolean}, device_name: {type: string}}
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties: {email: {type: string, format: email}, account_ref: {type: string}, discovery_token: {type: string}}
+    PlatformForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties: {email: {type: string, format: email}}
+    TenantForgotPasswordRequest:
+      type: object
+      required: [tenant, email]
+      properties: {tenant: {type: string, example: '{{TENANT}}'}, email: {type: string, format: email}}
+    ResetPasswordRequest:
+      type: object
+      required: [email, token, password, password_confirmation]
+      properties: {email: {type: string, format: email}, token: {type: string}, password: {type: string, format: password}, password_confirmation: {type: string, format: password}}
+    TenantResetPasswordRequest:
+      allOf:
+        - $ref: '#/components/schemas/ResetPasswordRequest'
+        - type: object
+          required: [tenant]
+          properties: {tenant: {type: string, example: '{{TENANT}}'}}
+    TwoFactorCodeRequest: {type: object, required: [code], properties: {code: {type: string, example: '123456'}}}
+    ChangePasswordRequest:
+      type: object
+      required: [current_password, password, password_confirmation]
+      properties: {current_password: {type: string, format: password}, password: {type: string, format: password}, password_confirmation: {type: string, format: password}}
+    ProfileUpdateRequest:
+      type: object
+      properties: {first_name: {type: string}, last_name: {type: string, nullable: true}, display_name: {type: string}, mobile: {type: string, nullable: true}, profile_photo_file_id: {type: integer, nullable: true}, timezone: {type: string, example: Asia/Kolkata}, locale: {type: string, example: en}}
+    PreferencesUpdateRequest:
+      type: object
+      required: [preferences]
+      properties: {preferences: {type: object, additionalProperties: true}}
+    ApiTokenCreateRequest:
+      type: object
+      required: [name, abilities]
+      properties: {name: {type: string, example: BI Warehouse Export}, abilities: {type: array, items: {type: string}, example: [report.view, report.export]}, expires_at: {type: string, format: date-time, nullable: true}}
+    AuditReason: {type: object, properties: {audit_reason: {type: string, example: Quarterly access review}}}
+    RoleWrite:
+      type: object
+      required: [name, display_name]
+      properties:
+        name: {type: string, example: billing_manager_custom}
+        display_name: {type: string, example: Billing Manager Custom}
+        guard_name: {type: string, example: platform}
+        description: {type: string, nullable: true}
+        status: {type: string, enum: [active, inactive], example: active}
+        is_system: {type: boolean, example: false}
+        permission_ids: {type: array, items: {type: string, format: uuid}}
+        audit_reason: {type: string, nullable: true}
+    RoleUpdate:
+      allOf: [{$ref: '#/components/schemas/RoleWrite'}]
+    RoleClone:
+      type: object
+      required: [name, display_name]
+      properties: {name: {type: string, example: billing_manager_copy}, display_name: {type: string, example: Billing Manager Copy}, copy_permissions: {type: boolean, example: true}, copy_description: {type: boolean, example: true}, status: {type: string, enum: [active, inactive], example: inactive}, audit_reason: {type: string, nullable: true}}
+    PermissionAssignment:
+      type: object
+      required: [permission_ids]
+      properties: {permission_ids: {type: array, items: {type: string, format: uuid}}, audit_reason: {type: string, nullable: true}}
+    PlatformUserAssignment:
+      type: object
+      required: [platform_user_ids]
+      properties: {platform_user_ids: {type: array, items: {type: string, format: uuid}}, audit_reason: {type: string, nullable: true}}
+    TenantUserAssignment:
+      type: object
+      required: [user_ids]
+      properties: {user_ids: {type: array, items: {type: string, format: uuid}}, audit_reason: {type: string, nullable: true}}
+    PermissionWrite:
+      type: object
+      required: [module, name]
+      properties: {module: {type: string, example: billing}, name: {type: string, example: billing.adjustment.create}, display_name: {type: string, example: Create Billing Adjustment}, guard_name: {type: string, example: platform}, description: {type: string, nullable: true}, is_system: {type: boolean, example: false}, status: {type: string, enum: [active, inactive], example: active}}
+    PermissionUpdate:
+      allOf: [{$ref: '#/components/schemas/PermissionWrite'}]
+    ApiError:
+      type: object
+      properties:
+        success: {type: boolean, example: false}
+        message: {type: string}
+        data: {nullable: true}
+        meta: {type: object, properties: {request_id: {type: string}}}
+        errors: {type: object, properties: {code: {type: string}, details: {type: object}}}
+  responses:
+    DiscoverResponse: {description: Accounts discovered, content: {application/json: {example: {success: true, message: OK, data: {email: user@example.com, discovery_token: disc_short_lived_token, expires_in_seconds: 300, accounts: [{account_ref: acct_opaque_platform_ref, account_type: platform, auth_guard: platform, display_name: Super Admin, email: user@example.com, roles: [super_admin], status: active}]}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    LoginResponse: {description: Login success or 2FA challenge, content: {application/json: {example: {success: true, message: Logged in., data: {access_token: plain_text_token_returned_once, token_type: Bearer, surface: platform, redirect_to: /platform/dashboard, account: {uuid: platform_user_uuid, display_name: Super Admin, roles: [super_admin], permissions: [dashboard.view]}}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    CurrentSessionResponse: {description: Current session, content: {application/json: {example: {success: true, message: OK, data: {surface: tenant, account: {uuid: user_uuid, display_name: Staff User, roles: [sales_user], permissions: [lead.view]}}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    LogoutResponse: {description: Logged out, content: {application/json: {example: {success: true, message: OK, data: {logged_out: true}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    ForgotPasswordResponse: {description: Password reset queued, content: {application/json: {example: {success: true, message: Password reset instructions queued., data: {reset_token: local_only_reset_token}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    ResetPasswordResponse: {description: Password reset completed, content: {application/json: {example: {success: true, message: Password reset completed., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    TokenRefreshResponse: {description: Token refreshed, content: {application/json: {example: {success: true, message: Token refreshed., data: {access_token: plain_text_token_returned_once, token_type: Bearer}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    PlatformMeResponse: {description: Platform current user, content: {application/json: {example: {success: true, message: OK, data: {user: {uuid: platform_user_uuid, display_name: Super Admin}, roles: [super_admin], permissions: [dashboard.view]}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    TenantMeResponse: {description: Tenant current user, content: {application/json: {example: {success: true, message: OK, data: {tenant: {uuid: tenant_uuid, slug: acme}, user: {uuid: user_uuid, display_name: Acme Owner}, roles: [owner], permissions: [dashboard.view]}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    PlatformProfileResponse: {description: Platform profile, content: {application/json: {example: {success: true, message: OK, data: {user: {uuid: platform_user_uuid, display_name: Sahil Admin}}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    TenantProfileResponse: {description: Tenant profile, content: {application/json: {example: {success: true, message: OK, data: {user: {uuid: user_uuid, display_name: Sahil Owner}}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    TwoFactorEnableResponse: {description: 2FA setup started, content: {application/json: {example: {success: true, message: Confirm 2FA setup., data: {secret: BASE32TOTPSECRET, provisioning_uri: otpauth://totp/SaaS%20CRM:user@example.com}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    TwoFactorConfirmResponse: {description: 2FA enabled, content: {application/json: {example: {success: true, message: 2FA enabled., data: {recovery_codes: [RECOVERYCODE1]}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    PreferencesResponse: {description: Preferences, content: {application/json: {example: {success: true, message: OK, data: {preferences: []}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    SessionsResponse: {description: Sessions, content: {application/json: {example: {success: true, message: OK, data: {sessions: [{id: 1, name: Chrome on Windows, abilities: [platform:*]}]}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    ApiTokenListResponse: {description: API tokens, content: {application/json: {example: {success: true, message: OK, data: {tokens: [{uuid: token_uuid, name: BI Warehouse Export, abilities: [report.view]}]}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    ApiTokenShowResponse: {description: API token metadata, content: {application/json: {example: {success: true, message: OK, data: {uuid: token_uuid, name: BI Warehouse Export, abilities: [report.view]}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    ApiTokenCreatedResponse: {description: API token created or rotated, content: {application/json: {example: {success: true, message: API token created., data: {uuid: token_uuid, name: BI Warehouse Export, token: plain_text_token_returned_once, expires_at: '2027-08-06T00:00:00Z'}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    RoleList: {description: Role list, content: {application/json: {example: {success: true, message: OK, data: [{uuid: role_uuid, name: billing_manager, display_name: Billing Manager, status: active, permissions_count: 3, users_count: 2}], meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    RoleSingle: {description: Single role, content: {application/json: {example: {success: true, message: OK, data: {role: {uuid: role_uuid, name: billing_manager, display_name: Billing Manager, status: active, permissions: {billing: [{uuid: permission_uuid, name: billing.invoice.view}]}}}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    PermissionList: {description: Permission list, content: {application/json: {example: {success: true, message: OK, data: [{uuid: permission_uuid, module: billing, name: billing.invoice.view, display_name: Billing Invoice View, status: active}], meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    PermissionSingle: {description: Single permission, content: {application/json: {example: {success: true, message: OK, data: {permission: {uuid: permission_uuid, module: billing, name: billing.invoice.view, display_name: Billing Invoice View, status: active}}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    GroupedPermissions: {description: Permissions grouped by module, content: {application/json: {example: {success: true, message: OK, data: {permissions: {billing: [{uuid: permission_uuid, module: billing, name: billing.invoice.view, display_name: Billing Invoice View}]}}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    UserList: {description: Assigned users, content: {application/json: {example: {success: true, message: OK, data: {users: [{uuid: user_uuid, display_name: Sahil Admin, email: admin@example.com, status: active}]}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    AssignedCount: {description: Assignment count, content: {application/json: {example: {success: true, message: Users assigned., data: {users: 2}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    SuccessNull: {description: Success with null data, content: {application/json: {example: {success: true, message: OK, data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
+    Unauthenticated: {description: Unauthenticated, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}, example: {success: false, message: Unauthenticated., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: AUTHENTICATION_REQUIRED, details: []}}}}}
+    Forbidden: {description: Missing permission, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}, example: {success: false, message: Missing permission., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: PERMISSION_DENIED, details: {}}}}}}
+    ValidationError: {description: Validation failed, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}, example: {success: false, message: Validation failed., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: VALIDATION_ERROR, details: {name: [The name field is required.]}}}}}}
+    InvalidCredentials: {description: Invalid credentials, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}, example: {success: false, message: Invalid credentials., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: INVALID_CREDENTIALS, details: []}}}}}
+    InvalidPassword: {description: Invalid password/current password, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}, example: {success: false, message: Password is incorrect., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: INVALID_PASSWORD, details: []}}}}}
+    NotFound: {description: Resource not found, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}, example: {success: false, message: Resource not found., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: NOT_FOUND, details: []}}}}}
+    SystemRoleRenameForbidden: {description: System role rename blocked, content: {application/json: {example: {success: false, message: System roles cannot be renamed., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: SYSTEM_ROLE_RENAME_FORBIDDEN, details: []}}}}}
+    SystemRoleDeleteForbidden: {description: System role delete blocked, content: {application/json: {example: {success: false, message: System roles cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: SYSTEM_ROLE_DELETE_FORBIDDEN, details: []}}}}}
+    SystemPermissionRenameForbidden: {description: System permission rename blocked, content: {application/json: {example: {success: false, message: System permissions cannot be renamed., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: SYSTEM_PERMISSION_RENAME_FORBIDDEN, details: []}}}}}
+    SystemPermissionDeleteForbidden: {description: System permission delete blocked, content: {application/json: {example: {success: false, message: System permissions cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: SYSTEM_PERMISSION_DELETE_FORBIDDEN, details: []}}}}}
+    RoleInUse: {description: Role has assigned users, content: {application/json: {example: {success: false, message: Assigned roles cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: ROLE_IN_USE, details: []}}}}}
+    PermissionInUse: {description: Permission is assigned to roles, content: {application/json: {example: {success: false, message: Assigned permissions cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: PERMISSION_IN_USE, details: []}}}}}
+    FinalOwnerAdminRequired: {description: Final tenant owner/admin protection, content: {application/json: {example: {success: false, message: Cannot remove the final owner/admin role from this tenant., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: FINAL_OWNER_ADMIN_ROLE_REQUIRED, details: []}}}}}
