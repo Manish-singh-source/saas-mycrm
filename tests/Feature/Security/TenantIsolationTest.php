@@ -35,10 +35,10 @@ class TenantIsolationTest extends TestCase
     public function test_tenant_scoped_queries_cannot_read_records_from_another_tenant(): void
     {
         [$tenantA, $tenantB] = $this->tenants();
-        app(TenantContext::class)->set($tenantA);
 
         TenantScopedTestRecord::withoutGlobalScope('tenant')->create(['uuid' => '11111111-1111-4111-8111-111111111111', 'tenant_id' => $tenantA->id, 'name' => 'Tenant A Record']);
         TenantScopedTestRecord::withoutGlobalScope('tenant')->create(['uuid' => '22222222-2222-4222-8222-222222222222', 'tenant_id' => $tenantB->id, 'name' => 'Tenant B Record']);
+        app(TenantContext::class)->set($tenantA);
 
         $this->assertSame(['Tenant A Record'], TenantScopedTestRecord::query()->pluck('name')->all());
         $this->assertNull(TenantScopedTestRecord::query()->where('uuid', '22222222-2222-4222-8222-222222222222')->first());
@@ -47,10 +47,10 @@ class TenantIsolationTest extends TestCase
     public function test_tenant_scoped_queries_cannot_update_records_from_another_tenant_by_uuid(): void
     {
         [$tenantA, $tenantB] = $this->tenants();
-        app(TenantContext::class)->set($tenantA);
 
         TenantScopedTestRecord::withoutGlobalScope('tenant')->create(['uuid' => '11111111-1111-4111-8111-111111111111', 'tenant_id' => $tenantA->id, 'name' => 'Tenant A Record']);
         TenantScopedTestRecord::withoutGlobalScope('tenant')->create(['uuid' => '22222222-2222-4222-8222-222222222222', 'tenant_id' => $tenantB->id, 'name' => 'Tenant B Record']);
+        app(TenantContext::class)->set($tenantA);
 
         $updated = TenantScopedTestRecord::query()
             ->where('uuid', '22222222-2222-4222-8222-222222222222')
@@ -63,10 +63,10 @@ class TenantIsolationTest extends TestCase
     public function test_tenant_scoped_queries_cannot_delete_records_from_another_tenant_by_uuid(): void
     {
         [$tenantA, $tenantB] = $this->tenants();
-        app(TenantContext::class)->set($tenantA);
 
         TenantScopedTestRecord::withoutGlobalScope('tenant')->create(['uuid' => '11111111-1111-4111-8111-111111111111', 'tenant_id' => $tenantA->id, 'name' => 'Tenant A Record']);
         TenantScopedTestRecord::withoutGlobalScope('tenant')->create(['uuid' => '22222222-2222-4222-8222-222222222222', 'tenant_id' => $tenantB->id, 'name' => 'Tenant B Record']);
+        app(TenantContext::class)->set($tenantA);
 
         $deleted = TenantScopedTestRecord::query()
             ->where('uuid', '22222222-2222-4222-8222-222222222222')
