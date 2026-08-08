@@ -1,9 +1,12 @@
 <?php
 
 use App\Http\Controllers\Common\LocationController;
+use App\Http\Controllers\Shared\SignedFileDownloadController;
 use App\Http\Controllers\Auth\TenantRegistrationController;
 use App\Http\Controllers\Auth\UnifiedAuthController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/files/signed-download/{file_uuid}', SignedFileDownloadController::class)->name('api.files.signed-download')->middleware('signed');
 
 Route::prefix('common/v1')
     ->as('api.common.v1.')

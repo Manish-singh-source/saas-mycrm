@@ -5,6 +5,7 @@ use App\Http\Controllers\Platform\PlatformPermissionController;
 use App\Http\Controllers\Platform\PlatformRoleController;
 use App\Http\Controllers\Platform\PlatformAuthController;
 use App\Http\Controllers\Platform\PlatformHealthController;
+use App\Http\Controllers\Shared\SharedPrimitiveController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', PlatformHealthController::class)->name('health');
@@ -56,6 +57,21 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
         Route::match(['put', 'patch'], '/permissions/{permission_uuid}', [PlatformPermissionController::class, 'update'])->middleware('platform.permission:platform_permission.edit')->name('permissions.update');
         Route::delete('/permissions/{permission_uuid}', [PlatformPermissionController::class, 'destroy'])->middleware('platform.permission:platform_permission.delete')->name('permissions.destroy');
     });
+
+    Route::get('/files', [SharedPrimitiveController::class, 'files'])->middleware('platform.permission:document.view')->name('files.index');
+    Route::post('/files', [SharedPrimitiveController::class, 'upload'])->middleware('platform.permission:document.upload')->name('files.store');
+    Route::get('/files/{file_uuid}', [SharedPrimitiveController::class, 'file'])->middleware('platform.permission:document.view')->name('files.show');
+    Route::get('/files/{file_uuid}/download', [SharedPrimitiveController::class, 'download'])->middleware('platform.permission:document.view')->name('files.download');
+    Route::delete('/files/{file_uuid}', [SharedPrimitiveController::class, 'deleteFile'])->middleware('platform.permission:document.delete')->name('files.destroy');
+    Route::get('/attachments', [SharedPrimitiveController::class, 'attachments'])->middleware('platform.permission:document.view')->name('attachments.index');
+    Route::post('/attachments', [SharedPrimitiveController::class, 'attach'])->middleware('platform.permission:document.upload')->name('attachments.store');
+    Route::delete('/attachments/{attachment_id}', [SharedPrimitiveController::class, 'detach'])->whereNumber('attachment_id')->middleware('platform.permission:document.delete')->name('attachments.destroy');
+    Route::get('/notes', [SharedPrimitiveController::class, 'notes'])->middleware('platform.permission:document.view')->name('notes.index');
+    Route::post('/notes', [SharedPrimitiveController::class, 'createNote'])->middleware('platform.permission:document.upload')->name('notes.store');
+    Route::match(['put', 'patch'], '/notes/{note_uuid}', [SharedPrimitiveController::class, 'updateNote'])->middleware('platform.permission:document.upload')->name('notes.update');
+    Route::delete('/notes/{note_uuid}', [SharedPrimitiveController::class, 'deleteNote'])->middleware('platform.permission:document.delete')->name('notes.destroy');
+    Route::get('/activity-logs', [SharedPrimitiveController::class, 'activityLogs'])->middleware('platform.permission:audit_log.view')->name('activity-logs.index');
+    Route::get('/activity-logs/{activity_id}/compare', [SharedPrimitiveController::class, 'activityCompare'])->whereNumber('activity_id')->middleware('platform.permission:audit_log.view')->name('activity-logs.compare');
     Route::get('/api-tokens', [PlatformApiTokenController::class, 'index'])->name('api-tokens.index');
     Route::post('/api-tokens', [PlatformApiTokenController::class, 'store'])->name('api-tokens.store');
     Route::get('/api-tokens/{token_uuid}', [PlatformApiTokenController::class, 'show'])->name('api-tokens.show');
