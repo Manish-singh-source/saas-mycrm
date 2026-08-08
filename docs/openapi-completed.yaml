@@ -7,6 +7,7 @@ servers:
   - url: https://darkgreen-goat-738912.hostingersite.com
     description: Local API root
 tags:
+  - name: 0. Common Master Data
   - name: 1. Unified Auth
   - name: 2. Platform Auth/Profile/Security
   - name: 2. Platform API Tokens
@@ -17,6 +18,33 @@ tags:
   - name: 6. Tenant Roles
   - name: 6. Tenant Permissions
 paths:
+  /api/common/v1/locations/countries:
+    get:
+      tags: [0. Common Master Data]
+      summary: List active countries
+      security: []
+      parameters: [{$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/LocationSearch'}]
+      responses:
+        '200': {$ref: '#/components/responses/CountryListResponse'}
+  /api/common/v1/locations/states:
+    get:
+      tags: [0. Common Master Data]
+      summary: List active states
+      description: Common state dropdown API. Pass either country_id or country_iso2; optional search filters by state name or code.
+      security: []
+      parameters: [{$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/CountryIdQuery'}, {$ref: '#/components/parameters/CountryIso2Query'}, {$ref: '#/components/parameters/LocationSearch'}]
+      responses:
+        '200': {$ref: '#/components/responses/StateListResponse'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /api/common/v1/locations/cities:
+    get:
+      tags: [0. Common Master Data]
+      summary: List active cities
+      security: []
+      parameters: [{$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/StateIdQuery'}, {$ref: '#/components/parameters/CountryIdOptionalQuery'}, {$ref: '#/components/parameters/LocationSearch'}]
+      responses:
+        '200': {$ref: '#/components/responses/CityListResponse'}
+        '422': {$ref: '#/components/responses/ValidationError'}
   /api/auth/v1/tenants/register:
     post:
       tags: [1. Unified Auth]
@@ -794,6 +822,11 @@ components:
   parameters:
     RequestId: {name: X-Request-Id, in: header, required: false, schema: {type: string, example: '{{REQUEST_ID}}'}}
     TenantHeader: {name: X-Tenant, in: header, required: true, schema: {type: string, example: '{{TENANT}}'}}
+    LocationSearch: {name: search, in: query, required: false, schema: {type: string, example: ind}}
+    CountryIdQuery: {name: country_id, in: query, required: false, schema: {type: integer, example: 1}}
+    CountryIso2Query: {name: country_iso2, in: query, required: false, schema: {type: string, example: IN}}
+    CountryIdOptionalQuery: {name: country_id, in: query, required: false, schema: {type: integer, example: 1}}
+    StateIdQuery: {name: state_id, in: query, required: true, schema: {type: integer, example: 1}}
     Page: {name: page, in: query, schema: {type: integer, example: 1}}
     PerPage: {name: per_page, in: query, schema: {type: integer, example: 25}}
     Search: {name: search, in: query, schema: {type: string, example: billing}}
@@ -808,6 +841,29 @@ components:
     PlatformUserUuid: {name: platform_user_uuid, in: path, required: true, schema: {type: string, format: uuid}}
     UserUuid: {name: user_uuid, in: path, required: true, schema: {type: string, format: uuid}}
   schemas:
+    Country:
+      type: object
+      properties:
+        id: {type: integer, example: 1}
+        name: {type: string, example: India}
+        iso2: {type: string, example: IN}
+        iso3: {type: string, example: IND}
+        phone_code: {type: string, example: '+91'}
+        currency_code: {type: string, example: INR}
+    State:
+      type: object
+      properties:
+        id: {type: integer, example: 1}
+        country_id: {type: integer, example: 1}
+        name: {type: string, example: Gujarat}
+        code: {type: string, example: GJ}
+    City:
+      type: object
+      properties:
+        id: {type: integer, example: 1}
+        country_id: {type: integer, example: 1}
+        state_id: {type: integer, example: 1}
+        name: {type: string, example: Ahmedabad}
     TenantRegistrationRequest:
       type: object
       required: [organization_name, owner]
@@ -945,6 +1001,42 @@ components:
         meta: {type: object, properties: {request_id: {type: string}}}
         errors: {type: object, properties: {code: {type: string}, details: {type: object}}}
   responses:
+    CountryListResponse:
+      description: Active country list
+      content:
+        application/json:
+          example:
+            success: true
+            message: OK
+            data:
+              countries:
+                - {id: 1, name: India, iso2: IN, iso3: IND, phone_code: '+91', currency_code: INR}
+            meta: {request_id: '{{REQUEST_ID}}'}
+            errors: null
+    StateListResponse:
+      description: Active state list for a country
+      content:
+        application/json:
+          example:
+            success: true
+            message: OK
+            data:
+              states:
+                - {id: 1, country_id: 1, name: Gujarat, code: GJ}
+            meta: {request_id: '{{REQUEST_ID}}'}
+            errors: null
+    CityListResponse:
+      description: Active city list for a state
+      content:
+        application/json:
+          example:
+            success: true
+            message: OK
+            data:
+              cities:
+                - {id: 1, country_id: 1, state_id: 1, name: Ahmedabad}
+            meta: {request_id: '{{REQUEST_ID}}'}
+            errors: null
     TenantRegistrationResponse:
       description: Tenant registered and owner token issued
       content:

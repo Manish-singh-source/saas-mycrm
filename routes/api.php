@@ -1,8 +1,17 @@
 <?php
 
+use App\Http\Controllers\Common\LocationController;
 use App\Http\Controllers\Auth\TenantRegistrationController;
 use App\Http\Controllers\Auth\UnifiedAuthController;
 use Illuminate\Support\Facades\Route;
+
+Route::prefix('common/v1')
+    ->as('api.common.v1.')
+    ->group(function (): void {
+        Route::get('/locations/countries', [LocationController::class, 'countries'])->name('locations.countries');
+        Route::get('/locations/states', [LocationController::class, 'states'])->name('locations.states');
+        Route::get('/locations/cities', [LocationController::class, 'cities'])->name('locations.cities');
+    });
 
 Route::prefix('auth/v1')
     ->as('api.auth.v1.')
