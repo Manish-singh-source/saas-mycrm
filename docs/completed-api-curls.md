@@ -5,7 +5,7 @@ This file lists APIs currently implemented in the backend with curl examples, re
 Use these placeholders:
 
 ```text
-{{BASE_URL}} = http://localhost:8000
+{{BASE_URL}} = https://darkgreen-goat-738912.hostingersite.com
 {{REQUEST_ID}} = client generated UUID
 {{DISCOVERY_TOKEN}} = token returned by /api/auth/v1/accounts/discover
 {{ACCOUNT_REF}} = selected account_ref returned by /api/auth/v1/accounts/discover
@@ -31,7 +31,7 @@ X-Locale: en
 
 # 0. Common Master Data APIs
 
-Base URL: `/api/common/v1`
+Base URL: `https://darkgreen-goat-738912.hostingersite.com`
 
 ## 0.1 Countries List
 
@@ -279,6 +279,7 @@ Error examples:
 ```json
 {"success": false, "message": "Server error.", "data": null, "meta": {"request_id": "{{REQUEST_ID}}"}, "errors": {"code": "SERVER_ERROR", "details": []}}
 ```
+
 ## 1.2 Discover Accounts By Email
 
 ```bash
@@ -1049,6 +1050,7 @@ Common error examples:
 ```json
 {"success":false,"message":"Validation failed.","data":null,"meta":{"request_id":"{{REQUEST_ID}}"},"errors":{"code":"VALIDATION_ERROR","details":{"reason":["The reason field is required."]}}}
 ```
+
 # 4. Common Error Examples
 
 Validation error:
@@ -1082,6 +1084,7 @@ Tenant token mismatch:
 ```
 
 ---
+
 ---
 
 # 5. Implemented Platform RBAC APIs

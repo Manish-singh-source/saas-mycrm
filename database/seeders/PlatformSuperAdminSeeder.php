@@ -16,7 +16,7 @@ class PlatformSuperAdminSeeder extends Seeder
 
     public function run(): void
     {
-        $email = (string) env('PLATFORM_SUPER_ADMIN_EMAIL', 'superadmin@saas-mycrm.local');
+        $email = (string) env('PLATFORM_SUPER_ADMIN_EMAIL', 'support@technofra.com');
         $password = (string) env('PLATFORM_SUPER_ADMIN_PASSWORD', 'Password@123');
         $now = now();
 
