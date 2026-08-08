@@ -33,7 +33,115 @@ X-Locale: en
 
 Base URL: `/api/auth/v1`
 
-## 1.1 Discover Accounts By Email
+## 1.1 Tenant Registration
+
+Create a new SaaS tenant, first owner user, default head office, owner role, tenant role pivot, audit log, and return a tenant access token.
+
+```bash
+curl -X POST "{{BASE_URL}}/api/auth/v1/tenants/register" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "X-Request-Id: {{REQUEST_ID}}" \
+  -d '{
+    "organization_name": "Acme Pvt Ltd",
+    "legal_name": "Acme Private Limited",
+    "display_name": "Acme",
+    "organization_code": "ACME",
+    "slug": "acme",
+    "company_size": "small",
+    "website": "https://acme.example.com",
+    "default_currency": "INR",
+    "default_timezone": "Asia/Kolkata",
+    "owner": {
+      "first_name": "Sahil",
+      "last_name": "Owner",
+      "display_name": "Sahil Owner",
+      "email": "owner@example.com",
+      "mobile": "+919999999999",
+      "password": "Password@123",
+      "password_confirmation": "Password@123"
+    },
+    "office": {
+      "office_name": "Head Office",
+      "address_line_1": "Main Street",
+      "address_line_2": "Business Park",
+      "postal_code": "400001",
+      "contact_phone": "+919999999999"
+    }
+  }'
+```
+
+Request body:
+
+```json
+{
+  "organization_name": "Acme Pvt Ltd",
+  "legal_name": "Acme Private Limited",
+  "display_name": "Acme",
+  "organization_code": "ACME",
+  "slug": "acme",
+  "business_type_id": 1,
+  "industry_id": 1,
+  "company_size": "small",
+  "gst_number": "27ABCDE1234F1Z5",
+  "pan_number": "ABCDE1234F",
+  "registration_number": "U12345MH2026PTC123456",
+  "website": "https://acme.example.com",
+  "default_currency": "INR",
+  "default_timezone": "Asia/Kolkata",
+  "owner": {
+    "first_name": "Sahil",
+    "last_name": "Owner",
+    "display_name": "Sahil Owner",
+    "email": "owner@example.com",
+    "mobile": "+919999999999",
+    "password": "Password@123",
+    "password_confirmation": "Password@123"
+  },
+  "office": {
+    "office_name": "Head Office",
+    "address_line_1": "Main Street",
+    "address_line_2": "Business Park",
+    "landmark": "Near Metro",
+    "country_id": 1,
+    "state_id": 1,
+    "city_id": 1,
+    "postal_code": "400001",
+    "contact_phone": "+919999999999"
+  }
+}
+```
+
+Response example:
+
+```json
+{
+  "success": true,
+  "message": "Tenant registered.",
+  "data": {
+    "access_token": "plain_text_token_returned_once",
+    "token_type": "Bearer",
+    "expires_at": "2026-08-08T12:00:00.000000Z",
+    "tenant": {"uuid": "tenant_uuid", "organization_name": "Acme Pvt Ltd", "display_name": "Acme", "organization_code": "ACME", "slug": "acme", "default_currency": "INR", "default_timezone": "Asia/Kolkata", "status": "trial", "trial_ends_at": "2026-08-22T00:00:00.000000Z"},
+    "owner": {"uuid": "user_uuid", "display_name": "Sahil Owner", "email": "owner@example.com", "mobile": "+919999999999", "account_type": "owner", "status": "active"},
+    "roles": ["owner"],
+    "permissions": ["dashboard.view", "role.view"]
+  },
+  "meta": {"request_id": "{{REQUEST_ID}}"},
+  "errors": null
+}
+```
+
+Error examples:
+
+```json
+{"success": false, "message": "Validation failed.", "data": null, "meta": {"request_id": "{{REQUEST_ID}}"}, "errors": {"code": "VALIDATION_ERROR", "details": {"slug": ["The slug has already been taken."], "owner.password": ["The owner.password confirmation does not match."]}}}
+```
+
+```json
+{"success": false, "message": "Server error.", "data": null, "meta": {"request_id": "{{REQUEST_ID}}"}, "errors": {"code": "SERVER_ERROR", "details": []}}
+```
+## 1.2 Discover Accounts By Email
 
 ```bash
 curl -X POST "{{BASE_URL}}/api/auth/v1/accounts/discover" \
@@ -119,7 +227,7 @@ No accounts response example:
 }
 ```
 
-## 1.2 Login Selected Account
+## 1.3 Login Selected Account
 
 ```bash
 curl -X POST "{{BASE_URL}}/api/auth/v1/accounts/login" \
@@ -241,7 +349,7 @@ Client login response uses the same shape with `surface: "client_portal"`, `redi
 }
 ```
 
-## 1.3 Verify Login 2FA Challenge
+## 1.4 Verify Login 2FA Challenge
 
 ```bash
 curl -X POST "{{BASE_URL}}/api/auth/v1/accounts/login/2fa" \
@@ -269,7 +377,7 @@ Request body:
 
 Response body matches the successful `/accounts/login` response.
 
-## 1.4 Current Session
+## 1.5 Current Session
 
 ```bash
 curl -X GET "{{BASE_URL}}/api/auth/v1/me" \
@@ -299,7 +407,7 @@ Response example:
 }
 ```
 
-## 1.5 Logout
+## 1.6 Logout
 
 ```bash
 curl -X POST "{{BASE_URL}}/api/auth/v1/logout" \
@@ -322,7 +430,7 @@ Response example:
 {"success": true, "message": "OK", "data": {"logged_out": true}, "meta": {"request_id": "{{REQUEST_ID}}"}, "errors": null}
 ```
 
-## 1.6 Password Forgot
+## 1.7 Password Forgot
 
 ```bash
 curl -X POST "{{BASE_URL}}/api/auth/v1/password/forgot" \
@@ -370,7 +478,7 @@ Response example:
 
 `reset_token` is returned only in local environment.
 
-## 1.7 Password Reset
+## 1.8 Password Reset
 
 ```bash
 curl -X POST "{{BASE_URL}}/api/auth/v1/password/reset" \

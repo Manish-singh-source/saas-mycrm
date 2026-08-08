@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\Auth\TenantRegistrationController;
 use App\Http\Controllers\Auth\UnifiedAuthController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth/v1')
     ->as('api.auth.v1.')
     ->group(function (): void {
+        Route::post('/tenants/register', [TenantRegistrationController::class, 'store'])->name('tenants.register');
         Route::post('/accounts/discover', [UnifiedAuthController::class, 'discover'])->name('accounts.discover');
         Route::post('/accounts/login', [UnifiedAuthController::class, 'login'])->name('accounts.login');
         Route::post('/accounts/login/2fa', [UnifiedAuthController::class, 'verifyTwoFactor'])->name('accounts.login.2fa');

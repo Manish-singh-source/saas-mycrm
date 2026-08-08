@@ -5,7 +5,7 @@ info:
   description: Completed API surface in the same sequence as docs/completed-api-curls.md.
 servers:
   - url: https://darkgreen-goat-738912.hostingersite.com
-    description: Production API root
+    description: Local API root
 tags:
   - name: 1. Unified Auth
   - name: 2. Platform Auth/Profile/Security
@@ -17,6 +17,41 @@ tags:
   - name: 6. Tenant Roles
   - name: 6. Tenant Permissions
 paths:
+  /api/auth/v1/tenants/register:
+    post:
+      tags: [1. Unified Auth]
+      summary: Register a new SaaS tenant and owner account
+      security: []
+      parameters: [{$ref: '#/components/parameters/RequestId'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TenantRegistrationRequest'}
+            example:
+              organization_name: Acme Pvt Ltd
+              legal_name: Acme Private Limited
+              display_name: Acme
+              organization_code: ACME
+              slug: acme
+              company_size: small
+              default_currency: INR
+              default_timezone: Asia/Kolkata
+              owner:
+                first_name: Sahil
+                last_name: Owner
+                display_name: Sahil Owner
+                email: owner@example.com
+                mobile: '+919999999999'
+                password: Password@123
+                password_confirmation: Password@123
+              office:
+                office_name: Head Office
+                address_line_1: Main Street
+                postal_code: '400001'
+      responses:
+        '201': {$ref: '#/components/responses/TenantRegistrationResponse'}
+        '422': {$ref: '#/components/responses/ValidationError'}
   /api/auth/v1/accounts/discover:
     post:
       tags: [1. Unified Auth]
@@ -773,6 +808,47 @@ components:
     PlatformUserUuid: {name: platform_user_uuid, in: path, required: true, schema: {type: string, format: uuid}}
     UserUuid: {name: user_uuid, in: path, required: true, schema: {type: string, format: uuid}}
   schemas:
+    TenantRegistrationRequest:
+      type: object
+      required: [organization_name, owner]
+      properties:
+        organization_name: {type: string, example: Acme Pvt Ltd}
+        legal_name: {type: string, nullable: true, example: Acme Private Limited}
+        display_name: {type: string, nullable: true, example: Acme}
+        organization_code: {type: string, nullable: true, example: ACME}
+        slug: {type: string, nullable: true, example: acme}
+        business_type_id: {type: integer, nullable: true}
+        industry_id: {type: integer, nullable: true}
+        company_size: {type: string, enum: [self, small, medium, large, enterprise], nullable: true}
+        gst_number: {type: string, nullable: true}
+        pan_number: {type: string, nullable: true}
+        registration_number: {type: string, nullable: true}
+        website: {type: string, nullable: true, example: 'https://acme.example.com'}
+        default_currency: {type: string, example: INR}
+        default_timezone: {type: string, example: Asia/Kolkata}
+        owner:
+          type: object
+          required: [first_name, email, password, password_confirmation]
+          properties:
+            first_name: {type: string, example: Sahil}
+            last_name: {type: string, nullable: true, example: Owner}
+            display_name: {type: string, nullable: true, example: Sahil Owner}
+            email: {type: string, format: email, example: owner@example.com}
+            mobile: {type: string, nullable: true, example: '+919999999999'}
+            password: {type: string, format: password, example: Password@123}
+            password_confirmation: {type: string, format: password, example: Password@123}
+        office:
+          type: object
+          properties:
+            office_name: {type: string, nullable: true, example: Head Office}
+            address_line_1: {type: string, nullable: true}
+            address_line_2: {type: string, nullable: true}
+            landmark: {type: string, nullable: true}
+            country_id: {type: integer, nullable: true}
+            state_id: {type: integer, nullable: true}
+            city_id: {type: integer, nullable: true}
+            postal_code: {type: string, nullable: true}
+            contact_phone: {type: string, nullable: true}
     DiscoverRequest:
       type: object
       required: [email]
@@ -869,6 +945,23 @@ components:
         meta: {type: object, properties: {request_id: {type: string}}}
         errors: {type: object, properties: {code: {type: string}, details: {type: object}}}
   responses:
+    TenantRegistrationResponse:
+      description: Tenant registered and owner token issued
+      content:
+        application/json:
+          example:
+            success: true
+            message: Tenant registered.
+            data:
+              access_token: plain_text_token_returned_once
+              token_type: Bearer
+              expires_at: '2026-08-08T12:00:00.000000Z'
+              tenant: {uuid: tenant_uuid, organization_name: Acme Pvt Ltd, display_name: Acme, organization_code: ACME, slug: acme, status: trial}
+              owner: {uuid: user_uuid, display_name: Sahil Owner, email: owner@example.com, account_type: owner, status: active}
+              roles: [owner]
+              permissions: [dashboard.view, role.view]
+            meta: {request_id: '{{REQUEST_ID}}'}
+            errors: null
     DiscoverResponse: {description: Accounts discovered, content: {application/json: {example: {success: true, message: OK, data: {email: user@example.com, discovery_token: disc_short_lived_token, expires_in_seconds: 300, accounts: [{account_ref: acct_opaque_platform_ref, account_type: platform, auth_guard: platform, display_name: Super Admin, email: user@example.com, roles: [super_admin], status: active}]}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
     LoginResponse: {description: Login success or 2FA challenge, content: {application/json: {example: {success: true, message: Logged in., data: {access_token: plain_text_token_returned_once, token_type: Bearer, surface: platform, redirect_to: /platform/dashboard, account: {uuid: platform_user_uuid, display_name: Super Admin, roles: [super_admin], permissions: [dashboard.view]}}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
     CurrentSessionResponse: {description: Current session, content: {application/json: {example: {success: true, message: OK, data: {surface: tenant, account: {uuid: user_uuid, display_name: Staff User, roles: [sales_user], permissions: [lead.view]}}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
