@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
+use App\Mail\PasswordResetInstructions;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Shared\AuthAuditService;
@@ -12,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -94,6 +96,7 @@ class TenantAuthController extends Controller
 
         if ($tenant) {
             DB::table('password_reset_tokens')->updateOrInsert(['email' => 'tenant:'.$tenant->id.':'.$data['email']], ['token' => Hash::make($token), 'created_at' => now()]);
+            Mail::to($data['email'])->send(new PasswordResetInstructions($data['email'], $token, $this->passwordResetUrl($data['tenant'], $data['email'], $token), 'tenant', $data['tenant']));
         }
 
         $this->audit->log($request, 'tenant_password_reset_requested', metadata: ['email' => $data['email']]);
@@ -120,6 +123,11 @@ class TenantAuthController extends Controller
         $this->audit->log($request, 'tenant_password_reset_completed', tenantUser: $user);
 
         return ApiResponse::success(null, 'Password reset completed.');
+    }
+
+    private function passwordResetUrl(string $tenant, string $email, string $token): string
+    {
+        return url('/reset-password?surface=tenant&tenant='.urlencode($tenant).'&email='.urlencode($email).'&token='.urlencode($token));
     }
 
     public function resendVerification(Request $request): JsonResponse

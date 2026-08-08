@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Mail\PasswordResetInstructions;
 use App\Models\PlatformUser;
 use App\Models\Tenant;
 use App\Models\User;
@@ -14,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -239,6 +241,7 @@ class UnifiedAuthController extends Controller
         }
 
         DB::table('password_reset_tokens')->updateOrInsert(['email' => $key], ['token' => Hash::make($token), 'created_at' => now()]);
+        Mail::to($email)->send(new PasswordResetInstructions($email, $token, $this->passwordResetUrl($email, $token), 'unified'));
         $this->audit->log($request, 'auth.password_reset_requested', metadata: ['email' => $email]);
 
         return ApiResponse::success(['sent' => true, 'message' => 'If this account can receive password reset instructions, an email has been sent.', 'reset_token' => app()->isLocal() ? $token : null]);
@@ -446,6 +449,11 @@ class UnifiedAuthController extends Controller
     private function resetKey(array $account, string $email): string
     {
         return 'auth:'.$account['guard'].':'.$account['account_uuid'].':'.$email;
+    }
+
+    private function passwordResetUrl(string $email, string $token): string
+    {
+        return url('/reset-password?email='.urlencode($email).'&token='.urlencode($token));
     }
 
     private function resolveResetUser(string $key, string $email): PlatformUser|User|null

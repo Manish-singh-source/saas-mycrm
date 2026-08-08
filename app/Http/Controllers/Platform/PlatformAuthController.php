@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Platform;
 
 use App\Http\Controllers\Controller;
+use App\Mail\PasswordResetInstructions;
 use App\Models\PlatformUser;
 use App\Services\Shared\AuthAuditService;
 use App\Services\Shared\TotpService;
@@ -11,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -88,6 +90,7 @@ class PlatformAuthController extends Controller
         $token = Str::random(64);
 
         DB::table('password_reset_tokens')->updateOrInsert(['email' => 'platform:'.$data['email']], ['token' => Hash::make($token), 'created_at' => now()]);
+        Mail::to($data['email'])->send(new PasswordResetInstructions($data['email'], $token, $this->passwordResetUrl($data['email'], $token), 'platform'));
         $this->audit->log($request, 'platform_password_reset_requested', metadata: ['email' => $data['email']]);
 
         return ApiResponse::success(app()->isLocal() ? ['reset_token' => $token] : null, 'Password reset instructions queued.');
@@ -109,6 +112,11 @@ class PlatformAuthController extends Controller
         $this->audit->log($request, 'platform_password_reset_completed', platformUser: $user);
 
         return ApiResponse::success(null, 'Password reset completed.');
+    }
+
+    private function passwordResetUrl(string $email, string $token): string
+    {
+        return url('/reset-password?surface=platform&email='.urlencode($email).'&token='.urlencode($token));
     }
 
     public function resendVerification(Request $request): JsonResponse
