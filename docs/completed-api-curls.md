@@ -876,6 +876,179 @@ Response example:
 
 ---
 
+# 4. Platform Admin APIs
+
+Base URL: `/api/platform/v1`
+
+All requests require `Authorization: Bearer {{PLATFORM_TOKEN}}` and the permission listed in `docs/platform-apis.md`.
+
+## 4.1 Dashboard
+
+Implemented endpoints:
+
+```http
+GET /dashboard/summary
+GET /dashboard/charts
+GET /dashboard/recent
+GET /dashboard/alerts
+POST /dashboard/export
+```
+
+```bash
+curl -X GET "{{BASE_URL}}/api/platform/v1/dashboard/summary" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer {{PLATFORM_TOKEN}}" \
+  -H "X-Request-Id: {{REQUEST_ID}}"
+```
+
+Response example:
+
+```json
+{"success":true,"message":"OK","data":{"tenants":{"total":120,"active":91,"trial":12,"suspended":4,"expired":7},"revenue":{"mrr":"120000.00","arr":"1440000.00","currency":"INR"},"billing":{"overdue_invoice_count":8,"overdue_balance":"45000.00"},"operations":{"open_incidents":2}},"meta":{"request_id":"{{REQUEST_ID}}"},"errors":null}
+```
+
+## 4.2 Platform Staff
+
+Implemented endpoints:
+
+```http
+GET /platform-users
+POST /platform-users
+POST /platform-users/invite
+GET /platform-users/{platform_user_uuid}
+PUT|PATCH /platform-users/{platform_user_uuid}
+DELETE /platform-users/{platform_user_uuid}
+POST /platform-users/{platform_user_uuid}/restore
+POST /platform-users/{platform_user_uuid}/suspend
+POST /platform-users/{platform_user_uuid}/activate
+POST /platform-users/{platform_user_uuid}/reset-password
+POST /platform-users/{platform_user_uuid}/force-logout
+POST /platform-users/{platform_user_uuid}/require-2fa
+GET|PUT /platform-users/{platform_user_uuid}/roles
+GET|PUT /platform-users/{platform_user_uuid}/permissions
+GET /platform-users/{platform_user_uuid}/activity
+POST /platform-users/export
+```
+
+```bash
+curl -X POST "{{BASE_URL}}/api/platform/v1/platform-users" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {{PLATFORM_TOKEN}}" \
+  -H "X-Request-Id: {{REQUEST_ID}}" \
+  -d '{"first_name":"Priya","last_name":"Admin","display_name":"Priya Admin","email":"priya.admin@example.com","password":"Password@123","department":"Support","designation":"Manager","status":"active"}'
+```
+
+Response example:
+
+```json
+{"success":true,"message":"Platform staff created.","data":{"user":{"uuid":"platform_user_uuid","display_name":"Priya Admin","email":"priya.admin@example.com","status":"active"}},"meta":{"request_id":"{{REQUEST_ID}}"},"errors":null}
+```
+
+Action body examples:
+
+```json
+{"role_uuids":["role_uuid"]}
+```
+
+```json
+{"permission_uuids":["permission_uuid"]}
+```
+
+## 4.3 Platform Teams
+
+Implemented endpoints:
+
+```http
+GET|POST /platform-teams
+GET|PUT|PATCH|DELETE /platform-teams/{team_uuid}
+GET|POST /platform-teams/{team_uuid}/members
+PUT|PATCH|DELETE /platform-teams/{team_uuid}/members/{member_id}
+GET|POST /platform-teams/{team_uuid}/assignments
+DELETE /platform-teams/{team_uuid}/assignments/{assignment_id}
+GET|POST /platform-team-roles
+PUT|PATCH /platform-team-roles/{role_uuid}
+```
+
+```bash
+curl -X POST "{{BASE_URL}}/api/platform/v1/platform-teams" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {{PLATFORM_TOKEN}}" \
+  -d '{"name":"Customer Success","code":"customer-success","description":"Tenant success operations","status":"active"}'
+```
+
+Response example:
+
+```json
+{"success":true,"message":"Platform team created.","data":{"team":{"uuid":"team_uuid","name":"Customer Success","code":"customer-success","status":"active"}},"meta":{"request_id":"{{REQUEST_ID}}"},"errors":null}
+```
+
+## 4.4 Platform Tenants
+
+Implemented endpoints:
+
+```http
+GET|POST /tenants
+GET|PUT|PATCH|DELETE /tenants/{tenant_uuid}
+POST /tenants/{tenant_uuid}/restore
+POST /tenants/{tenant_uuid}/activate
+POST /tenants/{tenant_uuid}/suspend
+POST /tenants/{tenant_uuid}/reactivate
+POST /tenants/{tenant_uuid}/archive
+POST /tenants/{tenant_uuid}/extend-trial
+POST /tenants/{tenant_uuid}/impersonate
+DELETE /tenants/{tenant_uuid}/impersonate/{session_uuid}
+GET /tenants/{tenant_uuid}/{users|offices|subscription|billing|usage|modules|settings|integrations|security|support|files|activity}
+PUT /tenants/{tenant_uuid}/modules
+```
+
+```bash
+curl -X POST "{{BASE_URL}}/api/platform/v1/tenants" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {{PLATFORM_TOKEN}}" \
+  -H "X-Request-Id: {{REQUEST_ID}}" \
+  -d '{"organization_name":"Acme Pvt Ltd","display_name":"Acme","organization_code":"ACME","slug":"acme","plan_uuid":"plan_uuid","owner":{"first_name":"Sahil","last_name":"Owner","email":"owner@example.com","password":"Password@123"},"office":{"office_name":"Head Office","address_line_1":"Main Street"},"trial_days":14}'
+```
+
+Response example:
+
+```json
+{"success":true,"message":"Tenant created.","data":{"tenant":{"uuid":"tenant_uuid","organization_name":"Acme Pvt Ltd","slug":"acme","status":"trial"},"owner":{"uuid":"user_uuid","email":"owner@example.com"}},"meta":{"request_id":"{{REQUEST_ID}}"},"errors":null}
+```
+
+Lifecycle body examples:
+
+```json
+{"reason":"Payment overdue","notify_owner":true,"suspended_until":null}
+```
+
+```json
+{"trial_ends_at":"2026-09-30T00:00:00Z","reason":"Sales-approved extension"}
+```
+
+Remote login body:
+
+```json
+{"reason":"Debug billing setup with customer approval","duration_minutes":30,"target_user_uuid":"user_uuid"}
+```
+
+Module overrides body:
+
+```json
+{"modules":[{"module_code":"crm","enabled":true,"limits":{"users":25},"metadata":{"source":"platform_admin"}}]}
+```
+
+Common error examples:
+
+```json
+{"success":false,"message":"Missing permission.","data":null,"meta":{"request_id":"{{REQUEST_ID}}"},"errors":{"code":"PERMISSION_DENIED","details":{}}}
+```
+
+```json
+{"success":false,"message":"Validation failed.","data":null,"meta":{"request_id":"{{REQUEST_ID}}"},"errors":{"code":"VALIDATION_ERROR","details":{"reason":["The reason field is required."]}}}
+```
 # 4. Common Error Examples
 
 Validation error:

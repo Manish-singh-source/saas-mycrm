@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Platform\PlatformDashboardController;
+use App\Http\Controllers\Platform\PlatformStaffController;
+use App\Http\Controllers\Platform\PlatformTeamController;
+use App\Http\Controllers\Platform\PlatformTenantController;
 use App\Http\Controllers\Platform\PlatformApiTokenController;
 use App\Http\Controllers\Platform\PlatformPermissionController;
 use App\Http\Controllers\Platform\PlatformRoleController;
@@ -35,6 +39,65 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::delete('/profile/sessions/{session_id}', [PlatformAuthController::class, 'revokeSession'])->whereNumber('session_id')->name('profile.sessions.revoke');
 
 
+
+    Route::prefix('dashboard')->name('dashboard.')->group(function (): void {
+        Route::get('/summary', [PlatformDashboardController::class, 'summary'])->middleware('platform.permission:dashboard.view')->name('summary');
+        Route::get('/charts', [PlatformDashboardController::class, 'charts'])->middleware('platform.permission:dashboard.view')->name('charts');
+        Route::get('/recent', [PlatformDashboardController::class, 'recent'])->middleware('platform.permission:dashboard.view')->name('recent');
+        Route::get('/alerts', [PlatformDashboardController::class, 'alerts'])->middleware('platform.permission:dashboard.view')->name('alerts');
+        Route::post('/export', [PlatformDashboardController::class, 'export'])->middleware('platform.permission:dashboard.view')->name('export');
+    });
+
+    Route::post('/platform-users/export', [PlatformStaffController::class, 'export'])->middleware('platform.permission:platform_user.view')->name('platform-users.export');
+    Route::post('/platform-users/invite', [PlatformStaffController::class, 'invite'])->middleware('platform.permission:platform_user.create')->name('platform-users.invite');
+    Route::get('/platform-users', [PlatformStaffController::class, 'index'])->middleware('platform.permission:platform_user.view')->name('platform-users.index');
+    Route::post('/platform-users', [PlatformStaffController::class, 'store'])->middleware('platform.permission:platform_user.create')->name('platform-users.store');
+    Route::get('/platform-users/{platform_user_uuid}', [PlatformStaffController::class, 'show'])->middleware('platform.permission:platform_user.view')->name('platform-users.show');
+    Route::match(['put', 'patch'], '/platform-users/{platform_user_uuid}', [PlatformStaffController::class, 'update'])->middleware('platform.permission:platform_user.edit')->name('platform-users.update');
+    Route::delete('/platform-users/{platform_user_uuid}', [PlatformStaffController::class, 'destroy'])->middleware('platform.permission:platform_user.delete')->name('platform-users.destroy');
+    Route::post('/platform-users/{platform_user_uuid}/restore', [PlatformStaffController::class, 'restore'])->middleware('platform.permission:platform_user.edit')->name('platform-users.restore');
+    Route::post('/platform-users/{platform_user_uuid}/suspend', [PlatformStaffController::class, 'suspend'])->middleware('platform.permission:platform_user.suspend')->name('platform-users.suspend');
+    Route::post('/platform-users/{platform_user_uuid}/activate', [PlatformStaffController::class, 'activate'])->middleware('platform.permission:platform_user.edit')->name('platform-users.activate');
+    Route::post('/platform-users/{platform_user_uuid}/reset-password', [PlatformStaffController::class, 'resetPassword'])->middleware('platform.permission:platform_user.edit')->name('platform-users.reset-password');
+    Route::post('/platform-users/{platform_user_uuid}/force-logout', [PlatformStaffController::class, 'forceLogout'])->middleware('platform.permission:platform_user.edit')->name('platform-users.force-logout');
+    Route::post('/platform-users/{platform_user_uuid}/require-2fa', [PlatformStaffController::class, 'require2fa'])->middleware('platform.permission:platform_user.edit')->name('platform-users.require-2fa');
+    Route::get('/platform-users/{platform_user_uuid}/roles', [PlatformStaffController::class, 'roles'])->middleware('platform.permission:platform_user.view')->name('platform-users.roles');
+    Route::put('/platform-users/{platform_user_uuid}/roles', [PlatformStaffController::class, 'syncRoles'])->middleware('platform.permission:platform_user.edit')->name('platform-users.roles.sync');
+    Route::get('/platform-users/{platform_user_uuid}/permissions', [PlatformStaffController::class, 'permissions'])->middleware('platform.permission:platform_user.view')->name('platform-users.permissions');
+    Route::put('/platform-users/{platform_user_uuid}/permissions', [PlatformStaffController::class, 'syncPermissions'])->middleware('platform.permission:platform_user.edit')->name('platform-users.permissions.sync');
+    Route::get('/platform-users/{platform_user_uuid}/activity', [PlatformStaffController::class, 'activity'])->middleware('platform.permission:audit_log.view')->name('platform-users.activity');
+
+    Route::get('/platform-teams', [PlatformTeamController::class, 'index'])->middleware('platform.permission:platform_team.view')->name('platform-teams.index');
+    Route::post('/platform-teams', [PlatformTeamController::class, 'store'])->middleware('platform.permission:platform_team.create')->name('platform-teams.store');
+    Route::get('/platform-teams/{team_uuid}', [PlatformTeamController::class, 'show'])->middleware('platform.permission:platform_team.view')->name('platform-teams.show');
+    Route::match(['put', 'patch'], '/platform-teams/{team_uuid}', [PlatformTeamController::class, 'update'])->middleware('platform.permission:platform_team.edit')->name('platform-teams.update');
+    Route::delete('/platform-teams/{team_uuid}', [PlatformTeamController::class, 'destroy'])->middleware('platform.permission:platform_team.delete')->name('platform-teams.destroy');
+    Route::get('/platform-teams/{team_uuid}/members', [PlatformTeamController::class, 'members'])->middleware('platform.permission:platform_team.view')->name('platform-teams.members');
+    Route::post('/platform-teams/{team_uuid}/members', [PlatformTeamController::class, 'addMember'])->middleware('platform.permission:platform_team.assign')->name('platform-teams.members.store');
+    Route::match(['put', 'patch'], '/platform-teams/{team_uuid}/members/{member_id}', [PlatformTeamController::class, 'updateMember'])->whereNumber('member_id')->middleware('platform.permission:platform_team.assign')->name('platform-teams.members.update');
+    Route::delete('/platform-teams/{team_uuid}/members/{member_id}', [PlatformTeamController::class, 'removeMember'])->whereNumber('member_id')->middleware('platform.permission:platform_team.assign')->name('platform-teams.members.destroy');
+    Route::get('/platform-teams/{team_uuid}/assignments', [PlatformTeamController::class, 'assignments'])->middleware('platform.permission:platform_team.view')->name('platform-teams.assignments');
+    Route::post('/platform-teams/{team_uuid}/assignments', [PlatformTeamController::class, 'assign'])->middleware('platform.permission:platform_team.assign')->name('platform-teams.assignments.store');
+    Route::delete('/platform-teams/{team_uuid}/assignments/{assignment_id}', [PlatformTeamController::class, 'releaseAssignment'])->whereNumber('assignment_id')->middleware('platform.permission:platform_team.assign')->name('platform-teams.assignments.destroy');
+    Route::get('/platform-team-roles', [PlatformTeamController::class, 'teamRoles'])->middleware('platform.permission:platform_team.view')->name('platform-team-roles.index');
+    Route::post('/platform-team-roles', [PlatformTeamController::class, 'createTeamRole'])->middleware('platform.permission:platform_team.create')->name('platform-team-roles.store');
+    Route::match(['put', 'patch'], '/platform-team-roles/{role_uuid}', [PlatformTeamController::class, 'updateTeamRole'])->middleware('platform.permission:platform_team.edit')->name('platform-team-roles.update');
+
+    Route::get('/tenants', [PlatformTenantController::class, 'index'])->middleware('platform.permission:tenant.view')->name('tenants.index');
+    Route::post('/tenants', [PlatformTenantController::class, 'store'])->middleware('platform.permission:tenant.create')->name('tenants.store');
+    Route::get('/tenants/{tenant_uuid}', [PlatformTenantController::class, 'show'])->middleware('platform.permission:tenant.view')->name('tenants.show');
+    Route::match(['put', 'patch'], '/tenants/{tenant_uuid}', [PlatformTenantController::class, 'update'])->middleware('platform.permission:tenant.edit')->name('tenants.update');
+    Route::delete('/tenants/{tenant_uuid}', [PlatformTenantController::class, 'destroy'])->middleware('platform.permission:tenant.delete')->name('tenants.destroy');
+    Route::post('/tenants/{tenant_uuid}/restore', [PlatformTenantController::class, 'restore'])->middleware('platform.permission:tenant.edit')->name('tenants.restore');
+    Route::post('/tenants/{tenant_uuid}/activate', [PlatformTenantController::class, 'activate'])->middleware('platform.permission:tenant.activate')->name('tenants.activate');
+    Route::post('/tenants/{tenant_uuid}/suspend', [PlatformTenantController::class, 'suspend'])->middleware('platform.permission:tenant.suspend')->name('tenants.suspend');
+    Route::post('/tenants/{tenant_uuid}/reactivate', [PlatformTenantController::class, 'reactivate'])->middleware('platform.permission:tenant.activate')->name('tenants.reactivate');
+    Route::post('/tenants/{tenant_uuid}/archive', [PlatformTenantController::class, 'archive'])->middleware('platform.permission:tenant.delete')->name('tenants.archive');
+    Route::post('/tenants/{tenant_uuid}/extend-trial', [PlatformTenantController::class, 'extendTrial'])->middleware('platform.permission:subscription.edit')->name('tenants.extend-trial');
+    Route::post('/tenants/{tenant_uuid}/impersonate', [PlatformTenantController::class, 'remoteLogin'])->middleware('platform.permission:tenant.impersonate')->name('tenants.impersonate');
+    Route::delete('/tenants/{tenant_uuid}/impersonate/{session_uuid}', [PlatformTenantController::class, 'endRemoteLogin'])->middleware('platform.permission:tenant.impersonate')->name('tenants.impersonate.end');
+    Route::get('/tenants/{tenant_uuid}/{tab}', [PlatformTenantController::class, 'tab'])->whereIn('tab', ['users','offices','subscription','billing','usage','modules','settings','integrations','security','support','files','activity'])->middleware('platform.permission:tenant.view')->name('tenants.tab');
+    Route::put('/tenants/{tenant_uuid}/modules', [PlatformTenantController::class, 'moduleOverrides'])->middleware('platform.permission:module.edit')->name('tenants.modules.update');
     Route::prefix('access-control')->name('access-control.')->group(function (): void {
         Route::get('/roles', [PlatformRoleController::class, 'index'])->middleware('platform.permission:platform_role.view')->name('roles.index');
         Route::post('/roles', [PlatformRoleController::class, 'store'])->middleware('platform.permission:platform_role.create')->name('roles.store');

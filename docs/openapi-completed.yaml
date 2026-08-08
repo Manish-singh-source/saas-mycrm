@@ -13,6 +13,7 @@ tags:
   - name: 2. Platform API Tokens
   - name: 3. Tenant Auth/Profile/Security
   - name: 3. Tenant API Tokens
+  - name: 4. Platform Admin
   - name: 5. Platform Roles
   - name: 5. Platform Permissions
   - name: 6. Tenant Roles
@@ -552,6 +553,106 @@ paths:
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/TokenUuid'}]
       responses: {'200': {$ref: '#/components/responses/SuccessNull'}}
+  /api/platform/v1/dashboard/summary:
+    get: {tags: [4. Platform Admin], summary: Platform dashboard summary, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+  /api/platform/v1/dashboard/charts:
+    get: {tags: [4. Platform Admin], summary: Platform dashboard charts, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/dashboard/recent:
+    get: {tags: [4. Platform Admin], summary: Platform dashboard recent records, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/dashboard/alerts:
+    get: {tags: [4. Platform Admin], summary: Platform dashboard alerts and security events, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/dashboard/export:
+    post: {tags: [4. Platform Admin], summary: Export platform dashboard, security: [{bearerAuth: []}], responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-users:
+    get: {tags: [4. Platform Admin], summary: List platform staff, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}, {$ref: '#/components/parameters/Search'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [4. Platform Admin], summary: Create platform staff, security: [{bearerAuth: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformStaffWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '422': {$ref: '#/components/responses/ValidationError'}}}
+  /api/platform/v1/platform-users/invite:
+    post: {tags: [4. Platform Admin], summary: Invite platform staff, security: [{bearerAuth: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformStaffWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-users/export:
+    post: {tags: [4. Platform Admin], summary: Export platform staff, security: [{bearerAuth: []}], responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-users/{platform_user_uuid}:
+    parameters: [{$ref: '#/components/parameters/PlatformUserUuid'}]
+    get: {tags: [4. Platform Admin], summary: View platform staff, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    patch: {tags: [4. Platform Admin], summary: Update platform staff, security: [{bearerAuth: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformStaffWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [4. Platform Admin], summary: Update platform staff, security: [{bearerAuth: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformStaffWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    delete: {tags: [4. Platform Admin], summary: Delete platform staff, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/platform-users/{platform_user_uuid}/restore:
+    post: {tags: [4. Platform Admin], summary: Restore platform staff, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/PlatformUserUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-users/{platform_user_uuid}/suspend:
+    post: {tags: [4. Platform Admin], summary: Suspend platform staff, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/PlatformUserUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-users/{platform_user_uuid}/activate:
+    post: {tags: [4. Platform Admin], summary: Activate platform staff, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/PlatformUserUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-users/{platform_user_uuid}/reset-password:
+    post: {tags: [4. Platform Admin], summary: Send platform staff reset password email, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/PlatformUserUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-users/{platform_user_uuid}/force-logout:
+    post: {tags: [4. Platform Admin], summary: Force platform staff logout, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/PlatformUserUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-users/{platform_user_uuid}/require-2fa:
+    post: {tags: [4. Platform Admin], summary: Require platform staff 2FA, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/PlatformUserUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-users/{platform_user_uuid}/roles:
+    get: {tags: [4. Platform Admin], summary: Platform staff roles, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/PlatformUserUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [4. Platform Admin], summary: Replace platform staff roles, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/PlatformUserUuid'}], requestBody: {content: {application/json: {example: {role_uuids: [role_uuid]}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-users/{platform_user_uuid}/permissions:
+    get: {tags: [4. Platform Admin], summary: Platform staff direct permissions, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/PlatformUserUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [4. Platform Admin], summary: Replace platform staff direct permissions, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/PlatformUserUuid'}], requestBody: {content: {application/json: {example: {permission_uuids: [permission_uuid]}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-users/{platform_user_uuid}/activity:
+    get: {tags: [4. Platform Admin], summary: Platform staff activity, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/PlatformUserUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-teams:
+    get: {tags: [4. Platform Admin], summary: List platform teams, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [4. Platform Admin], summary: Create platform team, security: [{bearerAuth: []}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/PlatformTeamWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-teams/{team_uuid}:
+    parameters: [{$ref: '#/components/parameters/TeamUuid'}]
+    get: {tags: [4. Platform Admin], summary: View platform team, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [4. Platform Admin], summary: Update platform team, security: [{bearerAuth: []}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/PlatformTeamWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [4. Platform Admin], summary: Update platform team, security: [{bearerAuth: []}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/PlatformTeamWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    delete: {tags: [4. Platform Admin], summary: Archive platform team, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/platform-teams/{team_uuid}/members:
+    get: {tags: [4. Platform Admin], summary: List platform team members, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TeamUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [4. Platform Admin], summary: Add platform team member, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TeamUuid'}], requestBody: {content: {application/json: {example: {platform_user_uuid: platform_user_uuid, team_role_uuid: team_role_uuid}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-teams/{team_uuid}/members/{member_id}:
+    parameters: [{$ref: '#/components/parameters/TeamUuid'}, {name: member_id, in: path, required: true, schema: {type: integer}}]
+    patch: {tags: [4. Platform Admin], summary: Update platform team member, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [4. Platform Admin], summary: Update platform team member, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    delete: {tags: [4. Platform Admin], summary: Remove platform team member, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/platform-teams/{team_uuid}/assignments:
+    get: {tags: [4. Platform Admin], summary: List platform team assignments, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TeamUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [4. Platform Admin], summary: Create platform team assignment, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TeamUuid'}], responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-teams/{team_uuid}/assignments/{assignment_id}:
+    delete: {tags: [4. Platform Admin], summary: Release platform team assignment, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TeamUuid'}, {name: assignment_id, in: path, required: true, schema: {type: integer}}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/platform-team-roles:
+    get: {tags: [4. Platform Admin], summary: List platform team roles, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [4. Platform Admin], summary: Create platform team role, security: [{bearerAuth: []}], responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/platform-team-roles/{role_uuid}:
+    patch: {tags: [4. Platform Admin], summary: Update platform team role, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/RoleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [4. Platform Admin], summary: Update platform team role, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/RoleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/tenants:
+    get: {tags: [4. Platform Admin], summary: List tenants, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}, {$ref: '#/components/parameters/Search'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [4. Platform Admin], summary: Create tenant with owner office subscription settings and roles, security: [{bearerAuth: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformTenantCreate'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '422': {$ref: '#/components/responses/ValidationError'}}}
+  /api/platform/v1/tenants/{tenant_uuid}:
+    parameters: [{$ref: '#/components/parameters/TenantUuid'}]
+    get: {tags: [4. Platform Admin], summary: Tenant overview, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [4. Platform Admin], summary: Update tenant organization, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [4. Platform Admin], summary: Update tenant organization, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    delete: {tags: [4. Platform Admin], summary: Archive tenant, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/tenants/{tenant_uuid}/restore:
+    post: {tags: [4. Platform Admin], summary: Restore tenant, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TenantUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/tenants/{tenant_uuid}/activate:
+    post: {tags: [4. Platform Admin], summary: Activate tenant, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TenantUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/tenants/{tenant_uuid}/suspend:
+    post: {tags: [4. Platform Admin], summary: Suspend tenant, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TenantUuid'}], requestBody: {content: {application/json: {example: {reason: Payment overdue, notify_owner: true}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '422': {$ref: '#/components/responses/ValidationError'}}}
+  /api/platform/v1/tenants/{tenant_uuid}/reactivate:
+    post: {tags: [4. Platform Admin], summary: Reactivate tenant, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TenantUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/tenants/{tenant_uuid}/archive:
+    post: {tags: [4. Platform Admin], summary: Archive tenant, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TenantUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/tenants/{tenant_uuid}/extend-trial:
+    post: {tags: [4. Platform Admin], summary: Extend tenant trial, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TenantUuid'}], requestBody: {content: {application/json: {example: {trial_ends_at: '2026-09-30T00:00:00Z', reason: Sales-approved extension}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/tenants/{tenant_uuid}/impersonate:
+    post: {tags: [4. Platform Admin], summary: Start remote login session, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TenantUuid'}], requestBody: {content: {application/json: {example: {reason: Debug billing setup with customer approval, duration_minutes: 30, target_user_uuid: user_uuid}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '422': {$ref: '#/components/responses/ValidationError'}}}
+  /api/platform/v1/tenants/{tenant_uuid}/impersonate/{session_uuid}:
+    delete: {tags: [4. Platform Admin], summary: End remote login session, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TenantUuid'}, {name: session_uuid, in: path, required: true, schema: {type: string, format: uuid}}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/tenants/{tenant_uuid}/{tab}:
+    get: {tags: [4. Platform Admin], summary: Tenant detail tab, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TenantUuid'}, {name: tab, in: path, required: true, schema: {type: string, enum: [users, offices, subscription, billing, usage, modules, settings, integrations, security, support, files, activity]}}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/tenants/{tenant_uuid}/modules:
+    put: {tags: [4. Platform Admin], summary: Update tenant module overrides, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TenantUuid'}], requestBody: {content: {application/json: {example: {modules: [{module_code: crm, enabled: true, limits: {users: 25}}]}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
   /api/platform/v1/access-control/roles:
     get:
       tags: [5. Platform Roles]
@@ -840,6 +941,8 @@ components:
     PermissionUuid: {name: permission_uuid, in: path, required: true, schema: {type: string, format: uuid}}
     PlatformUserUuid: {name: platform_user_uuid, in: path, required: true, schema: {type: string, format: uuid}}
     UserUuid: {name: user_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    TenantUuid: {name: tenant_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    TeamUuid: {name: team_uuid, in: path, required: true, schema: {type: string, format: uuid}}
   schemas:
     Country:
       type: object
@@ -864,6 +967,35 @@ components:
         country_id: {type: integer, example: 1}
         state_id: {type: integer, example: 1}
         name: {type: string, example: Ahmedabad}
+    PlatformStaffWrite:
+      type: object
+      properties:
+        first_name: {type: string, example: Priya}
+        last_name: {type: string, example: Admin}
+        display_name: {type: string, example: Priya Admin}
+        email: {type: string, format: email, example: priya.admin@example.com}
+        password: {type: string, format: password, example: Password@123}
+        department: {type: string, example: Support}
+        designation: {type: string, example: Manager}
+        status: {type: string, enum: [active, inactive, suspended]}
+    PlatformTeamWrite:
+      type: object
+      properties:
+        name: {type: string, example: Customer Success}
+        code: {type: string, example: customer-success}
+        description: {type: string, nullable: true}
+        status: {type: string, enum: [active, inactive]}
+    PlatformTenantCreate:
+      type: object
+      required: [organization_name, organization_code, slug, owner, office]
+      properties:
+        organization_name: {type: string, example: Acme Pvt Ltd}
+        organization_code: {type: string, example: ACME}
+        slug: {type: string, example: acme}
+        plan_uuid: {type: string, format: uuid}
+        trial_days: {type: integer, example: 14}
+        owner: {type: object, properties: {first_name: {type: string, example: Sahil}, email: {type: string, format: email}, password: {type: string, format: password}}}
+        office: {type: object, properties: {office_name: {type: string, example: Head Office}, address_line_1: {type: string}}}
     TenantRegistrationRequest:
       type: object
       required: [organization_name, owner]
@@ -1037,6 +1169,7 @@ components:
                 - {id: 1, country_id: 1, state_id: 1, name: Ahmedabad}
             meta: {request_id: '{{REQUEST_ID}}'}
             errors: null
+    GenericSuccess: {description: Successful response, content: {application/json: {example: {success: true, message: OK, data: {}, meta: {request_id: '{{REQUEST_ID}}'}, errors: null}}}}
     TenantRegistrationResponse:
       description: Tenant registered and owner token issued
       content:
