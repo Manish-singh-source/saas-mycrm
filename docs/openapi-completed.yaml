@@ -19,6 +19,7 @@ tags:
   - name: 6. Tenant Roles
   - name: 6. Tenant Permissions
   - name: 7. Platform Billing and Catalog
+  - name: 8. Remaining Platform Admin
 security:
   - bearerAuth: []
 paths:
@@ -1065,6 +1066,204 @@ paths:
     get: {tags: [7. Platform Billing and Catalog], summary: Tenant module entitlements, parameters: [{$ref: '#/components/parameters/TenantUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
   /api/platform/v1/tenants/{tenant_uuid}/modules/{module_code}:
     put: {tags: [7. Platform Billing and Catalog], summary: Override tenant module access, parameters: [{$ref: '#/components/parameters/TenantUuid'}, {$ref: '#/components/parameters/ModuleCode'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/TenantModuleOverride'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/tickets:
+    get: {tags: [8. Remaining Platform Admin], summary: List platform support tickets, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [8. Remaining Platform Admin], summary: Create platform support ticket, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/SupportTicketWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/tickets/export:
+    post: {tags: [8. Remaining Platform Admin], summary: Export support tickets, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/tickets/{ticket_uuid}:
+    get: {tags: [8. Remaining Platform Admin], summary: Support ticket detail, parameters: [{$ref: '#/components/parameters/TicketUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [8. Remaining Platform Admin], summary: Update support ticket, parameters: [{$ref: '#/components/parameters/TicketUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/SupportTicketUpdate'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [8. Remaining Platform Admin], summary: Update support ticket, parameters: [{$ref: '#/components/parameters/TicketUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/SupportTicketUpdate'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/tickets/{ticket_uuid}/assign:
+    post: {tags: [8. Remaining Platform Admin], summary: Assign support ticket, parameters: [{$ref: '#/components/parameters/TicketUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/TicketAssign'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/tickets/{ticket_uuid}/comments:
+    post: {tags: [8. Remaining Platform Admin], summary: Add ticket comment or internal note, parameters: [{$ref: '#/components/parameters/TicketUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/TicketComment'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/tickets/{ticket_uuid}/attachments:
+    post: {tags: [8. Remaining Platform Admin], summary: Attach existing file to ticket, parameters: [{$ref: '#/components/parameters/TicketUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/FileUuidBody'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/tickets/{ticket_uuid}/close:
+    post: {tags: [8. Remaining Platform Admin], summary: Close support ticket, parameters: [{$ref: '#/components/parameters/TicketUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/NotesBody'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/tickets/{ticket_uuid}/reopen:
+    post: {tags: [8. Remaining Platform Admin], summary: Reopen support ticket, parameters: [{$ref: '#/components/parameters/TicketUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/knowledge-base/categories:
+    get: {tags: [8. Remaining Platform Admin], summary: List KB categories, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [8. Remaining Platform Admin], summary: Create KB category, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/KbCategoryWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/knowledge-base/categories/{category_uuid}:
+    patch: {tags: [8. Remaining Platform Admin], summary: Update KB category, parameters: [{$ref: '#/components/parameters/CategoryUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/KbCategoryWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [8. Remaining Platform Admin], summary: Update KB category, parameters: [{$ref: '#/components/parameters/CategoryUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/KbCategoryWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/knowledge-base/articles:
+    get: {tags: [8. Remaining Platform Admin], summary: List KB articles, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [8. Remaining Platform Admin], summary: Create KB article, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/KbArticleWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/knowledge-base/articles/{article_uuid}:
+    get: {tags: [8. Remaining Platform Admin], summary: View KB article, parameters: [{$ref: '#/components/parameters/ArticleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [8. Remaining Platform Admin], summary: Update KB article, parameters: [{$ref: '#/components/parameters/ArticleUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/KbArticleWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [8. Remaining Platform Admin], summary: Update KB article, parameters: [{$ref: '#/components/parameters/ArticleUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/KbArticleWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/knowledge-base/articles/{article_uuid}/publish:
+    post: {tags: [8. Remaining Platform Admin], summary: Publish KB article, parameters: [{$ref: '#/components/parameters/ArticleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/knowledge-base/articles/{article_uuid}/unpublish:
+    post: {tags: [8. Remaining Platform Admin], summary: Unpublish KB article, parameters: [{$ref: '#/components/parameters/ArticleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/knowledge-base/articles/{article_uuid}/archive:
+    post: {tags: [8. Remaining Platform Admin], summary: Archive KB article, parameters: [{$ref: '#/components/parameters/ArticleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/remote-login-sessions:
+    get: {tags: [8. Remaining Platform Admin], summary: List remote login sessions, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/remote-login-sessions/{session_uuid}:
+    get: {tags: [8. Remaining Platform Admin], summary: Remote login session detail, parameters: [{$ref: '#/components/parameters/SessionUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/support/remote-login-sessions/{session_uuid}/end:
+    post: {tags: [8. Remaining Platform Admin], summary: End remote login session, parameters: [{$ref: '#/components/parameters/SessionUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/reports/export-jobs:
+    get: {tags: [8. Remaining Platform Admin], summary: List report export jobs, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/reports/export-jobs/{job_uuid}:
+    get: {tags: [8. Remaining Platform Admin], summary: Report export job detail, parameters: [{$ref: '#/components/parameters/JobUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/reports/{report_code}:
+    get: {tags: [8. Remaining Platform Admin], summary: Run platform report, parameters: [{$ref: '#/components/parameters/ReportCode'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/reports/{report_code}/export:
+    post: {tags: [8. Remaining Platform Admin], summary: Queue report export, parameters: [{$ref: '#/components/parameters/ReportCode'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/ExportBody'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/monitoring/services:
+    get: {tags: [8. Remaining Platform Admin], summary: List monitoring services, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/monitoring/services/{service_code}/logs:
+    get: {tags: [8. Remaining Platform Admin], summary: Monitoring service logs, parameters: [{$ref: '#/components/parameters/ServiceCode'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/monitoring/api-request-logs:
+    get: {tags: [8. Remaining Platform Admin], summary: API request logs, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/monitoring/queue-jobs:
+    get: {tags: [8. Remaining Platform Admin], summary: Queue job logs, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/monitoring/queue-jobs/{job_id}/retry:
+    post: {tags: [8. Remaining Platform Admin], summary: Retry queue job, parameters: [{$ref: '#/components/parameters/JobId'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/monitoring/queue-jobs/{job_id}:
+    delete: {tags: [8. Remaining Platform Admin], summary: Mark queue job deleted, parameters: [{$ref: '#/components/parameters/JobId'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/monitoring/scheduler-logs:
+    get: {tags: [8. Remaining Platform Admin], summary: Scheduler logs, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/monitoring/alerts:
+    get: {tags: [8. Remaining Platform Admin], summary: Monitoring alerts, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/monitoring/alerts/{alert_id}/resolve:
+    post: {tags: [8. Remaining Platform Admin], summary: Resolve alert with notes and actor, parameters: [{$ref: '#/components/parameters/AlertId'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/NotesRequiredBody'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/monitoring/incidents:
+    get: {tags: [8. Remaining Platform Admin], summary: List incidents, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [8. Remaining Platform Admin], summary: Create incident, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/IncidentWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/monitoring/incidents/{incident_id}:
+    get: {tags: [8. Remaining Platform Admin], summary: Incident detail, parameters: [{$ref: '#/components/parameters/IncidentId'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [8. Remaining Platform Admin], summary: Update incident, parameters: [{$ref: '#/components/parameters/IncidentId'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/IncidentWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [8. Remaining Platform Admin], summary: Update incident, parameters: [{$ref: '#/components/parameters/IncidentId'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/IncidentWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/monitoring/incidents/{incident_id}/resolve:
+    post: {tags: [8. Remaining Platform Admin], summary: Resolve incident with notes and actor, parameters: [{$ref: '#/components/parameters/IncidentId'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/NotesRequiredBody'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/monitoring/tenant-usage-snapshots:
+    get: {tags: [8. Remaining Platform Admin], summary: Tenant usage snapshots, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/integrations/providers:
+    get: {tags: [8. Remaining Platform Admin], summary: List integration providers, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [8. Remaining Platform Admin], summary: Create integration provider, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationProviderWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/integrations/providers/{provider_code}:
+    patch: {tags: [8. Remaining Platform Admin], summary: Update integration provider, parameters: [{$ref: '#/components/parameters/ProviderCode'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationProviderWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [8. Remaining Platform Admin], summary: Update integration provider, parameters: [{$ref: '#/components/parameters/ProviderCode'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationProviderWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/integrations/tenant-integrations:
+    get: {tags: [8. Remaining Platform Admin], summary: List tenant integrations, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [8. Remaining Platform Admin], summary: Create tenant integration with encrypted credentials, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/TenantIntegrationWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/integrations/tenant-integrations/{integration_uuid}:
+    get: {tags: [8. Remaining Platform Admin], summary: Tenant integration detail, parameters: [{$ref: '#/components/parameters/IntegrationUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [8. Remaining Platform Admin], summary: Update tenant integration, parameters: [{$ref: '#/components/parameters/IntegrationUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [8. Remaining Platform Admin], summary: Update tenant integration, parameters: [{$ref: '#/components/parameters/IntegrationUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/integrations/tenant-integrations/{integration_uuid}/credentials:
+    post: {tags: [8. Remaining Platform Admin], summary: Rotate write-only encrypted credentials, parameters: [{$ref: '#/components/parameters/IntegrationUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/CredentialsWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/integrations/tenant-integrations/{integration_uuid}/test:
+    post: {tags: [8. Remaining Platform Admin], summary: Test tenant integration, parameters: [{$ref: '#/components/parameters/IntegrationUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/integrations/tenant-integrations/{integration_uuid}/disconnect:
+    post: {tags: [8. Remaining Platform Admin], summary: Disconnect tenant integration, parameters: [{$ref: '#/components/parameters/IntegrationUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/integrations/tenant-integrations/{integration_uuid}/mappings:
+    get: {tags: [8. Remaining Platform Admin], summary: Integration field mappings, parameters: [{$ref: '#/components/parameters/IntegrationUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [8. Remaining Platform Admin], summary: Replace integration field mappings, parameters: [{$ref: '#/components/parameters/IntegrationUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/FieldMappingsWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/integrations/tenant-integrations/{integration_uuid}/rate-limits:
+    get: {tags: [8. Remaining Platform Admin], summary: Integration rate limits, parameters: [{$ref: '#/components/parameters/IntegrationUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/integrations/webhooks:
+    get: {tags: [8. Remaining Platform Admin], summary: List integration webhooks, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [8. Remaining Platform Admin], summary: Create integration webhook, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationWebhookWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/integrations/webhooks/{webhook_id}:
+    get: {tags: [8. Remaining Platform Admin], summary: Integration webhook detail, parameters: [{$ref: '#/components/parameters/WebhookId'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [8. Remaining Platform Admin], summary: Update integration webhook, parameters: [{$ref: '#/components/parameters/WebhookId'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [8. Remaining Platform Admin], summary: Update integration webhook, parameters: [{$ref: '#/components/parameters/WebhookId'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    delete: {tags: [8. Remaining Platform Admin], summary: Disable integration webhook, parameters: [{$ref: '#/components/parameters/WebhookId'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/integrations/webhooks/{webhook_id}/logs:
+    get: {tags: [8. Remaining Platform Admin], summary: Integration webhook logs with masked payloads, parameters: [{$ref: '#/components/parameters/WebhookId'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/integrations/webhook-logs/{log_id}/retry:
+    post: {tags: [8. Remaining Platform Admin], summary: Retry webhook log idempotently, parameters: [{$ref: '#/components/parameters/LogId'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/integrations/sync-jobs:
+    get: {tags: [8. Remaining Platform Admin], summary: Integration sync jobs, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/integrations/sync-jobs/{job_id}/retry:
+    post: {tags: [8. Remaining Platform Admin], summary: Retry integration sync job, parameters: [{$ref: '#/components/parameters/JobId'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/settings/platform:
+    get: {tags: [8. Remaining Platform Admin], summary: Platform settings, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [8. Remaining Platform Admin], summary: Update platform settings, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/SettingsWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/settings/notification-templates:
+    get: {tags: [8. Remaining Platform Admin], summary: List notification templates, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [8. Remaining Platform Admin], summary: Create notification template, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/NotificationTemplateWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/settings/notification-templates/{template_uuid}:
+    patch: {tags: [8. Remaining Platform Admin], summary: Update notification template, parameters: [{$ref: '#/components/parameters/TemplateUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/NotificationTemplateWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [8. Remaining Platform Admin], summary: Update notification template, parameters: [{$ref: '#/components/parameters/TemplateUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/NotificationTemplateWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/settings/backups:
+    get: {tags: [8. Remaining Platform Admin], summary: Backup settings, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [8. Remaining Platform Admin], summary: Update backup settings, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/SettingsWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/settings/backups/run:
+    post: {tags: [8. Remaining Platform Admin], summary: Queue manual backup, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/BackupRunWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/settings/backups/runs:
+    get: {tags: [8. Remaining Platform Admin], summary: Backup run history, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/settings/backups/runs/{run_uuid}:
+    get: {tags: [8. Remaining Platform Admin], summary: Backup run detail, parameters: [{$ref: '#/components/parameters/RunUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/settings/backups/runs/{run_uuid}/download:
+    get: {tags: [8. Remaining Platform Admin], summary: Backup download metadata, parameters: [{$ref: '#/components/parameters/RunUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/audit/activity-logs:
+    get: {tags: [8. Remaining Platform Admin], summary: Activity logs, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/audit/security-events:
+    get: {tags: [8. Remaining Platform Admin], summary: Security events with masked metadata, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/audit/security-events/{event_id}/review:
+    post: {tags: [8. Remaining Platform Admin], summary: Review security event, parameters: [{$ref: '#/components/parameters/EventId'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/SecurityReviewWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/audit/export:
+    post: {tags: [8. Remaining Platform Admin], summary: Export audit logs, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/ExportBody'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/onboarding/tenants:
+    get: {tags: [8. Remaining Platform Admin], summary: Tenant onboarding progress, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/onboarding/tenants/{tenant_uuid}:
+    get: {tags: [8. Remaining Platform Admin], summary: Tenant onboarding detail, parameters: [{$ref: '#/components/parameters/TenantUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/onboarding/tenants/{tenant_uuid}/steps/{step_code}:
+    put: {tags: [8. Remaining Platform Admin], summary: Update onboarding step, parameters: [{$ref: '#/components/parameters/TenantUuid'}, {$ref: '#/components/parameters/StepCode'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/OnboardingStepWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/trials:
+    get: {tags: [8. Remaining Platform Admin], summary: List trial tenants, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/trials/{tenant_uuid}/extend:
+    post: {tags: [8. Remaining Platform Admin], summary: Extend tenant trial, parameters: [{$ref: '#/components/parameters/TenantUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/TrialExtendWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/trials/{tenant_uuid}/convert:
+    post: {tags: [8. Remaining Platform Admin], summary: Convert trial tenant, parameters: [{$ref: '#/components/parameters/TenantUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/legal/documents:
+    get: {tags: [8. Remaining Platform Admin], summary: List legal documents, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [8. Remaining Platform Admin], summary: Create legal document, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/LegalDocumentWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/legal/documents/{document_uuid}:
+    get: {tags: [8. Remaining Platform Admin], summary: Legal document detail, parameters: [{$ref: '#/components/parameters/DocumentUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [8. Remaining Platform Admin], summary: Update legal document, parameters: [{$ref: '#/components/parameters/DocumentUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/LegalDocumentWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [8. Remaining Platform Admin], summary: Update legal document, parameters: [{$ref: '#/components/parameters/DocumentUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/LegalDocumentWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/legal/documents/{document_uuid}/publish:
+    post: {tags: [8. Remaining Platform Admin], summary: Publish legal document, parameters: [{$ref: '#/components/parameters/DocumentUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/legal/documents/{document_uuid}/acceptances:
+    get: {tags: [8. Remaining Platform Admin], summary: Legal document acceptances, parameters: [{$ref: '#/components/parameters/DocumentUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/announcements:
+    get: {tags: [8. Remaining Platform Admin], summary: List announcements, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [8. Remaining Platform Admin], summary: Create announcement, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/AnnouncementWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/announcements/{announcement_uuid}:
+    get: {tags: [8. Remaining Platform Admin], summary: Announcement detail, parameters: [{$ref: '#/components/parameters/AnnouncementUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [8. Remaining Platform Admin], summary: Update announcement, parameters: [{$ref: '#/components/parameters/AnnouncementUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/AnnouncementWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [8. Remaining Platform Admin], summary: Update announcement, parameters: [{$ref: '#/components/parameters/AnnouncementUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/AnnouncementWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    delete: {tags: [8. Remaining Platform Admin], summary: Delete draft/archive announcement, parameters: [{$ref: '#/components/parameters/AnnouncementUuid'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/announcements/{announcement_uuid}/publish:
+    post: {tags: [8. Remaining Platform Admin], summary: Publish announcement, parameters: [{$ref: '#/components/parameters/AnnouncementUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/announcements/{announcement_uuid}/archive:
+    post: {tags: [8. Remaining Platform Admin], summary: Archive announcement, parameters: [{$ref: '#/components/parameters/AnnouncementUuid'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/webhook-endpoints:
+    get: {tags: [8. Remaining Platform Admin], summary: List outbound webhook endpoints, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [8. Remaining Platform Admin], summary: Create outbound webhook endpoint, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/OutboundWebhookEndpointWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/webhook-endpoints/{endpoint_uuid}:
+    get: {tags: [8. Remaining Platform Admin], summary: Outbound webhook endpoint detail, parameters: [{$ref: '#/components/parameters/EndpointUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [8. Remaining Platform Admin], summary: Update outbound webhook endpoint, parameters: [{$ref: '#/components/parameters/EndpointUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [8. Remaining Platform Admin], summary: Update outbound webhook endpoint, parameters: [{$ref: '#/components/parameters/EndpointUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    delete: {tags: [8. Remaining Platform Admin], summary: Delete outbound webhook endpoint, parameters: [{$ref: '#/components/parameters/EndpointUuid'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/webhook-endpoints/{endpoint_uuid}/deliveries:
+    get: {tags: [8. Remaining Platform Admin], summary: Outbound webhook deliveries, parameters: [{$ref: '#/components/parameters/EndpointUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/webhook-deliveries/{delivery_uuid}:
+    get: {tags: [8. Remaining Platform Admin], summary: Outbound webhook delivery detail with masked payload, parameters: [{$ref: '#/components/parameters/DeliveryUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/webhook-deliveries/{delivery_uuid}/retry:
+    post: {tags: [8. Remaining Platform Admin], summary: Retry outbound webhook delivery, parameters: [{$ref: '#/components/parameters/DeliveryUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
 components:
   securitySchemes:
     bearerAuth:
@@ -1106,6 +1305,28 @@ components:
     CouponUuid: {name: coupon_uuid, in: path, required: true, schema: {type: string, format: uuid}}
     ModuleUuid: {name: module_uuid, in: path, required: true, schema: {type: string, format: uuid}}
     ModuleCode: {name: module_code, in: path, required: true, schema: {type: string}}
+    TicketUuid: {name: ticket_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    CategoryUuid: {name: category_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    ArticleUuid: {name: article_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    SessionUuid: {name: session_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    JobUuid: {name: job_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    ReportCode: {name: report_code, in: path, required: true, schema: {type: string, enum: [tenant-status, plan-performance, revenue, invoice-aging, payment-failures, coupon-usage, tenant-usage, support-sla, security-events]}}
+    ServiceCode: {name: service_code, in: path, required: true, schema: {type: string}}
+    JobId: {name: job_id, in: path, required: true, schema: {type: integer}}
+    AlertId: {name: alert_id, in: path, required: true, schema: {type: string}}
+    IncidentId: {name: incident_id, in: path, required: true, schema: {type: integer}}
+    ProviderCode: {name: provider_code, in: path, required: true, schema: {type: string}}
+    IntegrationUuid: {name: integration_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    WebhookId: {name: webhook_id, in: path, required: true, schema: {type: integer}}
+    LogId: {name: log_id, in: path, required: true, schema: {type: integer}}
+    TemplateUuid: {name: template_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    RunUuid: {name: run_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    EventId: {name: event_id, in: path, required: true, schema: {type: integer}}
+    StepCode: {name: step_code, in: path, required: true, schema: {type: string}}
+    DocumentUuid: {name: document_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    AnnouncementUuid: {name: announcement_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    EndpointUuid: {name: endpoint_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    DeliveryUuid: {name: delivery_uuid, in: path, required: true, schema: {type: string, format: uuid}}
   schemas:
     Country:
       type: object
@@ -1302,6 +1523,31 @@ components:
     ModuleWrite: {type: object, required: [name, code], properties: {name: {type: string}, code: {type: string}, description: {type: string}, icon: {type: string}, category: {type: string}, is_core: {type: boolean}, status: {type: string}, sort_order: {type: integer}}}
     TenantModuleOverride: {type: object, required: [enabled], properties: {enabled: {type: boolean}, limits: {type: object}, metadata: {type: object}, reason: {type: string}}}
     ReasonBody: {type: object, required: [reason], properties: {reason: {type: string}}}
+    SupportTicketWrite: {type: object, required: [subject], properties: {tenant_uuid: {type: string, format: uuid}, subject: {type: string}, description: {type: string}, priority: {type: string}, category: {type: string}, source: {type: string}, assigned_to_uuid: {type: string, format: uuid}}}
+    SupportTicketUpdate: {type: object, properties: {subject: {type: string}, description: {type: string}, priority: {type: string}, category: {type: string}, status: {type: string}}}
+    TicketAssign: {type: object, properties: {assigned_to_uuid: {type: string, format: uuid}, audit_reason: {type: string}}}
+    TicketComment: {type: object, required: [comment], properties: {comment: {type: string}, is_internal: {type: boolean}}}
+    FileUuidBody: {type: object, required: [file_uuid], properties: {file_uuid: {type: string, format: uuid}}}
+    NotesBody: {type: object, properties: {notes: {type: string}}}
+    NotesRequiredBody: {type: object, required: [notes], properties: {notes: {type: string}}}
+    KbCategoryWrite: {type: object, required: [name], properties: {parent_uuid: {type: string, format: uuid}, name: {type: string}, slug: {type: string}, audience: {type: string}, status: {type: string}}}
+    KbArticleWrite: {type: object, required: [title, body], properties: {category_uuid: {type: string, format: uuid}, title: {type: string}, slug: {type: string}, body: {type: string}, audience: {type: string}, status: {type: string}}}
+    ExportBody: {type: object, properties: {format: {type: string, enum: [csv, xlsx, pdf]}}}
+    IncidentWrite: {type: object, required: [title, severity], properties: {title: {type: string}, severity: {type: string}, status: {type: string}, summary: {type: string}}}
+    IntegrationProviderWrite: {type: object, required: [name, code, category, auth_type], properties: {name: {type: string}, code: {type: string}, category: {type: string}, auth_type: {type: string}, status: {type: string}, metadata: {type: object}}}
+    TenantIntegrationWrite: {type: object, required: [tenant_uuid, provider_code, name], properties: {tenant_uuid: {type: string, format: uuid}, provider_code: {type: string}, name: {type: string}, status: {type: string}, credentials: {type: object, description: Write-only encrypted credentials}}}
+    CredentialsWrite: {type: object, required: [credentials], properties: {credentials: {type: object, description: Write-only encrypted credentials}}}
+    FieldMappingsWrite: {type: object, required: [mappings], properties: {mappings: {type: array, items: {type: object, properties: {entity_type: {type: string}, local_field: {type: string}, external_field: {type: string}, transform_rule: {type: object}}}}}}
+    IntegrationWebhookWrite: {type: object, required: [integration_uuid, event], properties: {integration_uuid: {type: string, format: uuid}, event: {type: string}, secret: {type: string, description: Write-only secret}, status: {type: string}}}
+    SettingsWrite: {type: object, required: [settings], properties: {settings: {type: object}}}
+    NotificationTemplateWrite: {type: object, required: [code, channel, body], properties: {code: {type: string}, channel: {type: string}, subject: {type: string}, body: {type: string}, variables: {type: array, items: {type: string}}, status: {type: string}}}
+    BackupRunWrite: {type: object, properties: {backup_type: {type: string, example: manual}}}
+    SecurityReviewWrite: {type: object, required: [status, notes], properties: {status: {type: string}, notes: {type: string}}}
+    OnboardingStepWrite: {type: object, required: [status], properties: {status: {type: string}, metadata: {type: object}}}
+    TrialExtendWrite: {type: object, required: [trial_ends_at], properties: {trial_ends_at: {type: string, format: date-time}, reason: {type: string}}}
+    LegalDocumentWrite: {type: object, required: [document_type, title, version, content], properties: {document_type: {type: string}, title: {type: string}, version: {type: string}, content: {type: string}, status: {type: string}}}
+    AnnouncementWrite: {type: object, required: [title, body], properties: {title: {type: string}, body: {type: string}, audience: {type: string}, status: {type: string}}}
+    OutboundWebhookEndpointWrite: {type: object, required: [name, url], properties: {tenant_uuid: {type: string, format: uuid}, name: {type: string}, url: {type: string, format: uri}, events: {type: array, items: {type: string}}, secret: {type: string, description: Write-only secret}, status: {type: string}}}
     ApiError:
       type: object
       properties:
@@ -1407,6 +1653,11 @@ components:
     RoleInUse: {description: Role has assigned users, content: {application/json: {example: {success: false, message: Assigned roles cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: ROLE_IN_USE, details: []}}}}}
     PermissionInUse: {description: Permission is assigned to roles, content: {application/json: {example: {success: false, message: Assigned permissions cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: PERMISSION_IN_USE, details: []}}}}}
     FinalOwnerAdminRequired: {description: Final tenant owner/admin protection, content: {application/json: {example: {success: false, message: Cannot remove the final owner/admin role from this tenant., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: FINAL_OWNER_ADMIN_ROLE_REQUIRED, details: []}}}}}
+
+
+
+
+
 
 
 

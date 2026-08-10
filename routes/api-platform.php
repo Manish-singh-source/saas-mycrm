@@ -5,6 +5,11 @@ use App\Http\Controllers\Platform\PlatformBillingController;
 use App\Http\Controllers\Platform\PlatformCatalogController;
 use App\Http\Controllers\Platform\PlatformCouponController;
 use App\Http\Controllers\Platform\PlatformModuleController;
+use App\Http\Controllers\Platform\PlatformSupportController;
+use App\Http\Controllers\Platform\PlatformMonitoringController;
+use App\Http\Controllers\Platform\PlatformReportsController;
+use App\Http\Controllers\Platform\PlatformIntegrationController;
+use App\Http\Controllers\Platform\PlatformSettingsAuditController;
 use App\Http\Controllers\Platform\PlatformStaffController;
 use App\Http\Controllers\Platform\PlatformSubscriptionController;
 use App\Http\Controllers\Platform\PlatformTeamController;
@@ -226,11 +231,136 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::delete('/notes/{note_uuid}', [SharedPrimitiveController::class, 'deleteNote'])->middleware('platform.permission:document.delete')->name('notes.destroy');
     Route::get('/activity-logs', [SharedPrimitiveController::class, 'activityLogs'])->middleware('platform.permission:audit_log.view')->name('activity-logs.index');
     Route::get('/activity-logs/{activity_id}/compare', [SharedPrimitiveController::class, 'activityCompare'])->whereNumber('activity_id')->middleware('platform.permission:audit_log.view')->name('activity-logs.compare');
+
+    Route::prefix('support')->name('support.')->group(function (): void {
+        Route::get('/tickets', [PlatformSupportController::class, 'tickets'])->middleware('platform.permission:support.ticket.view')->name('tickets.index');
+        Route::post('/tickets', [PlatformSupportController::class, 'storeTicket'])->middleware('platform.permission:support.ticket.reply')->name('tickets.store');
+        Route::post('/tickets/export', [PlatformSupportController::class, 'exportTickets'])->middleware('platform.permission:support.ticket.view')->name('tickets.export');
+        Route::get('/tickets/{ticket_uuid}', [PlatformSupportController::class, 'showTicket'])->middleware('platform.permission:support.ticket.view')->name('tickets.show');
+        Route::match(['put', 'patch'], '/tickets/{ticket_uuid}', [PlatformSupportController::class, 'updateTicket'])->middleware('platform.permission:support.ticket.reply')->name('tickets.update');
+        Route::post('/tickets/{ticket_uuid}/assign', [PlatformSupportController::class, 'assignTicket'])->middleware('platform.permission:support.ticket.assign')->name('tickets.assign');
+        Route::post('/tickets/{ticket_uuid}/comments', [PlatformSupportController::class, 'comment'])->middleware('platform.permission:support.ticket.reply')->name('tickets.comments');
+        Route::post('/tickets/{ticket_uuid}/attachments', [PlatformSupportController::class, 'attach'])->middleware('platform.permission:support.ticket.reply')->name('tickets.attachments');
+        Route::post('/tickets/{ticket_uuid}/close', [PlatformSupportController::class, 'close'])->middleware('platform.permission:support.ticket.close')->name('tickets.close');
+        Route::post('/tickets/{ticket_uuid}/reopen', [PlatformSupportController::class, 'reopen'])->middleware('platform.permission:support.ticket.close')->name('tickets.reopen');
+        Route::get('/knowledge-base/categories', [PlatformSupportController::class, 'kbCategories'])->middleware('platform.permission:support.knowledge_base.view')->name('kb.categories');
+        Route::post('/knowledge-base/categories', [PlatformSupportController::class, 'storeKbCategory'])->middleware('platform.permission:support.knowledge_base.create')->name('kb.categories.store');
+        Route::match(['put', 'patch'], '/knowledge-base/categories/{category_uuid}', [PlatformSupportController::class, 'updateKbCategory'])->middleware('platform.permission:support.knowledge_base.edit')->name('kb.categories.update');
+        Route::get('/knowledge-base/articles', [PlatformSupportController::class, 'articles'])->middleware('platform.permission:support.knowledge_base.view')->name('kb.articles');
+        Route::post('/knowledge-base/articles', [PlatformSupportController::class, 'storeArticle'])->middleware('platform.permission:support.knowledge_base.create')->name('kb.articles.store');
+        Route::get('/knowledge-base/articles/{article_uuid}', [PlatformSupportController::class, 'showArticle'])->middleware('platform.permission:support.knowledge_base.view')->name('kb.articles.show');
+        Route::match(['put', 'patch'], '/knowledge-base/articles/{article_uuid}', [PlatformSupportController::class, 'updateArticle'])->middleware('platform.permission:support.knowledge_base.edit')->name('kb.articles.update');
+        Route::post('/knowledge-base/articles/{article_uuid}/publish', [PlatformSupportController::class, 'publishArticle'])->middleware('platform.permission:support.knowledge_base.publish')->name('kb.articles.publish');
+        Route::post('/knowledge-base/articles/{article_uuid}/unpublish', [PlatformSupportController::class, 'unpublishArticle'])->middleware('platform.permission:support.knowledge_base.publish')->name('kb.articles.unpublish');
+        Route::post('/knowledge-base/articles/{article_uuid}/archive', [PlatformSupportController::class, 'archiveArticle'])->middleware('platform.permission:support.knowledge_base.edit')->name('kb.articles.archive');
+        Route::get('/remote-login-sessions', [PlatformSupportController::class, 'remoteSessions'])->middleware('platform.permission:tenant.impersonate')->name('remote-login-sessions.index');
+        Route::get('/remote-login-sessions/{session_uuid}', [PlatformSupportController::class, 'remoteSession'])->middleware('platform.permission:tenant.impersonate')->name('remote-login-sessions.show');
+        Route::post('/remote-login-sessions/{session_uuid}/end', [PlatformSupportController::class, 'endRemoteSession'])->middleware('platform.permission:tenant.impersonate')->name('remote-login-sessions.end');
+    });
+
+    Route::get('/reports/export-jobs', [PlatformReportsController::class, 'exportJobs'])->middleware('platform.permission:report.view')->name('reports.export-jobs');
+    Route::get('/reports/export-jobs/{job_uuid}', [PlatformReportsController::class, 'exportJob'])->middleware('platform.permission:report.view')->name('reports.export-jobs.show');
+    Route::get('/reports/{report_code}', [PlatformReportsController::class, 'report'])->middleware('platform.permission:report.view')->name('reports.show');
+    Route::post('/reports/{report_code}/export', [PlatformReportsController::class, 'export'])->middleware('platform.permission:report.export')->name('reports.export');
+
+    Route::prefix('monitoring')->name('monitoring.')->group(function (): void {
+        Route::get('/services', [PlatformMonitoringController::class, 'services'])->middleware('platform.permission:monitoring.view')->name('services');
+        Route::get('/services/{service_code}/logs', [PlatformMonitoringController::class, 'serviceLogs'])->middleware('platform.permission:monitoring.view')->name('services.logs');
+        Route::get('/api-request-logs', [PlatformMonitoringController::class, 'apiRequestLogs'])->middleware('platform.permission:monitoring.view')->name('api-request-logs');
+        Route::get('/queue-jobs', [PlatformMonitoringController::class, 'queueJobs'])->middleware('platform.permission:monitoring.view')->name('queue-jobs');
+        Route::post('/queue-jobs/{job_id}/retry', [PlatformMonitoringController::class, 'retryQueueJob'])->whereNumber('job_id')->middleware('platform.permission:monitoring.manage')->name('queue-jobs.retry');
+        Route::delete('/queue-jobs/{job_id}', [PlatformMonitoringController::class, 'deleteQueueJob'])->whereNumber('job_id')->middleware('platform.permission:monitoring.manage')->name('queue-jobs.delete');
+        Route::get('/scheduler-logs', [PlatformMonitoringController::class, 'schedulerLogs'])->middleware('platform.permission:monitoring.view')->name('scheduler-logs');
+        Route::get('/alerts', [PlatformMonitoringController::class, 'alerts'])->middleware('platform.permission:monitoring.view')->name('alerts');
+        Route::post('/alerts/{alert_id}/resolve', [PlatformMonitoringController::class, 'resolveAlert'])->middleware('platform.permission:monitoring.manage')->name('alerts.resolve');
+        Route::get('/incidents', [PlatformMonitoringController::class, 'incidents'])->middleware('platform.permission:monitoring.view')->name('incidents');
+        Route::post('/incidents', [PlatformMonitoringController::class, 'storeIncident'])->middleware('platform.permission:monitoring.manage')->name('incidents.store');
+        Route::get('/incidents/{incident_id}', [PlatformMonitoringController::class, 'showIncident'])->whereNumber('incident_id')->middleware('platform.permission:monitoring.view')->name('incidents.show');
+        Route::match(['put', 'patch'], '/incidents/{incident_id}', [PlatformMonitoringController::class, 'updateIncident'])->whereNumber('incident_id')->middleware('platform.permission:monitoring.manage')->name('incidents.update');
+        Route::post('/incidents/{incident_id}/resolve', [PlatformMonitoringController::class, 'resolveIncident'])->whereNumber('incident_id')->middleware('platform.permission:monitoring.manage')->name('incidents.resolve');
+        Route::get('/tenant-usage-snapshots', [PlatformMonitoringController::class, 'tenantUsageSnapshots'])->middleware('platform.permission:monitoring.view')->name('tenant-usage-snapshots');
+    });
+
+    Route::prefix('integrations')->name('integrations.')->group(function (): void {
+        Route::get('/providers', [PlatformIntegrationController::class, 'providers'])->middleware('platform.permission:integration.view')->name('providers');
+        Route::post('/providers', [PlatformIntegrationController::class, 'storeProvider'])->middleware('platform.permission:integration.create')->name('providers.store');
+        Route::match(['put', 'patch'], '/providers/{provider_code}', [PlatformIntegrationController::class, 'updateProvider'])->middleware('platform.permission:integration.edit')->name('providers.update');
+        Route::get('/tenant-integrations', [PlatformIntegrationController::class, 'tenantIntegrations'])->middleware('platform.permission:integration.view')->name('tenant-integrations');
+        Route::post('/tenant-integrations', [PlatformIntegrationController::class, 'storeTenantIntegration'])->middleware('platform.permission:integration.create')->name('tenant-integrations.store');
+        Route::get('/tenant-integrations/{integration_uuid}', [PlatformIntegrationController::class, 'showTenantIntegration'])->middleware('platform.permission:integration.view')->name('tenant-integrations.show');
+        Route::match(['put', 'patch'], '/tenant-integrations/{integration_uuid}', [PlatformIntegrationController::class, 'updateTenantIntegration'])->middleware('platform.permission:integration.edit')->name('tenant-integrations.update');
+        Route::post('/tenant-integrations/{integration_uuid}/credentials', [PlatformIntegrationController::class, 'rotateCredentials'])->middleware('platform.permission:integration.edit')->name('tenant-integrations.credentials');
+        Route::post('/tenant-integrations/{integration_uuid}/test', [PlatformIntegrationController::class, 'testIntegration'])->middleware('platform.permission:integration.test')->name('tenant-integrations.test');
+        Route::post('/tenant-integrations/{integration_uuid}/disconnect', [PlatformIntegrationController::class, 'disconnectIntegration'])->middleware('platform.permission:integration.edit')->name('tenant-integrations.disconnect');
+        Route::get('/tenant-integrations/{integration_uuid}/mappings', [PlatformIntegrationController::class, 'mappings'])->middleware('platform.permission:integration.view')->name('mappings');
+        Route::put('/tenant-integrations/{integration_uuid}/mappings', [PlatformIntegrationController::class, 'replaceMappings'])->middleware('platform.permission:integration.edit')->name('mappings.update');
+        Route::get('/tenant-integrations/{integration_uuid}/rate-limits', [PlatformIntegrationController::class, 'rateLimits'])->middleware('platform.permission:integration.view')->name('rate-limits');
+        Route::get('/webhooks', [PlatformIntegrationController::class, 'webhooks'])->middleware('platform.permission:integration.view')->name('webhooks');
+        Route::post('/webhooks', [PlatformIntegrationController::class, 'storeWebhook'])->middleware('platform.permission:integration.create')->name('webhooks.store');
+        Route::get('/webhooks/{webhook_id}', [PlatformIntegrationController::class, 'showWebhook'])->whereNumber('webhook_id')->middleware('platform.permission:integration.view')->name('webhooks.show');
+        Route::match(['put', 'patch'], '/webhooks/{webhook_id}', [PlatformIntegrationController::class, 'updateWebhook'])->whereNumber('webhook_id')->middleware('platform.permission:integration.edit')->name('webhooks.update');
+        Route::delete('/webhooks/{webhook_id}', [PlatformIntegrationController::class, 'deleteWebhook'])->whereNumber('webhook_id')->middleware('platform.permission:integration.delete')->name('webhooks.delete');
+        Route::get('/webhooks/{webhook_id}/logs', [PlatformIntegrationController::class, 'webhookLogs'])->whereNumber('webhook_id')->middleware('platform.permission:integration.view')->name('webhooks.logs');
+        Route::post('/webhook-logs/{log_id}/retry', [PlatformIntegrationController::class, 'retryWebhookLog'])->whereNumber('log_id')->middleware('platform.permission:integration.edit')->name('webhook-logs.retry');
+        Route::get('/sync-jobs', [PlatformIntegrationController::class, 'syncJobs'])->middleware('platform.permission:integration.view')->name('sync-jobs');
+        Route::post('/sync-jobs/{job_id}/retry', [PlatformIntegrationController::class, 'retrySyncJob'])->whereNumber('job_id')->middleware('platform.permission:integration.edit')->name('sync-jobs.retry');
+    });
+
+    Route::prefix('settings')->name('settings-admin.')->group(function (): void {
+        Route::get('/platform', [PlatformSettingsAuditController::class, 'settings'])->middleware('platform.permission:setting.view')->name('platform');
+        Route::put('/platform', [PlatformSettingsAuditController::class, 'updateSettings'])->middleware('platform.permission:setting.edit')->name('platform.update');
+        Route::get('/notification-templates', [PlatformSettingsAuditController::class, 'templates'])->middleware('platform.permission:setting.view')->name('templates');
+        Route::post('/notification-templates', [PlatformSettingsAuditController::class, 'storeTemplate'])->middleware('platform.permission:setting.edit')->name('templates.store');
+        Route::match(['put', 'patch'], '/notification-templates/{template_uuid}', [PlatformSettingsAuditController::class, 'updateTemplate'])->middleware('platform.permission:setting.edit')->name('templates.update');
+        Route::get('/backups', [PlatformSettingsAuditController::class, 'backupSettings'])->middleware('platform.permission:setting.view')->name('backups');
+        Route::put('/backups', [PlatformSettingsAuditController::class, 'updateBackupSettings'])->middleware('platform.permission:setting.edit')->name('backups.update');
+        Route::post('/backups/run', [PlatformSettingsAuditController::class, 'runBackup'])->middleware('platform.permission:setting.edit')->name('backups.run');
+        Route::get('/backups/runs', [PlatformSettingsAuditController::class, 'backupRuns'])->middleware('platform.permission:setting.view')->name('backups.runs');
+        Route::get('/backups/runs/{run_uuid}', [PlatformSettingsAuditController::class, 'backupRun'])->middleware('platform.permission:setting.view')->name('backups.runs.show');
+        Route::get('/backups/runs/{run_uuid}/download', [PlatformSettingsAuditController::class, 'backupDownload'])->middleware('platform.permission:setting.view')->name('backups.runs.download');
+    });
+
+    Route::get('/audit/activity-logs', [PlatformSettingsAuditController::class, 'activityLogs'])->middleware('platform.permission:audit_log.view')->name('audit.activity-logs');
+    Route::get('/audit/security-events', [PlatformSettingsAuditController::class, 'securityEvents'])->middleware('platform.permission:audit_log.view')->name('audit.security-events');
+    Route::post('/audit/security-events/{event_id}/review', [PlatformSettingsAuditController::class, 'reviewSecurityEvent'])->whereNumber('event_id')->middleware('platform.permission:audit_log.view')->name('audit.security-events.review');
+    Route::post('/audit/export', [PlatformSettingsAuditController::class, 'exportAudit'])->middleware('platform.permission:audit_log.export')->name('audit.export');
+
+    Route::get('/onboarding/tenants', [PlatformSettingsAuditController::class, 'onboardingTenants'])->middleware('platform.permission:tenant.view')->name('onboarding.tenants');
+    Route::get('/onboarding/tenants/{tenant_uuid}', [PlatformSettingsAuditController::class, 'onboardingTenant'])->middleware('platform.permission:tenant.view')->name('onboarding.tenants.show');
+    Route::put('/onboarding/tenants/{tenant_uuid}/steps/{step_code}', [PlatformSettingsAuditController::class, 'updateOnboardingStep'])->middleware('platform.permission:tenant.edit')->name('onboarding.tenants.steps');
+    Route::get('/trials', [PlatformSettingsAuditController::class, 'trials'])->middleware('platform.permission:tenant.view')->name('trials.index');
+    Route::post('/trials/{tenant_uuid}/extend', [PlatformSettingsAuditController::class, 'extendTrial'])->middleware('platform.permission:subscription.edit')->name('trials.extend');
+    Route::post('/trials/{tenant_uuid}/convert', [PlatformSettingsAuditController::class, 'convertTrial'])->middleware('platform.permission:subscription.edit')->name('trials.convert');
+
+    Route::get('/legal/documents', [PlatformSettingsAuditController::class, 'legalDocuments'])->middleware('platform.permission:setting.view')->name('legal.documents');
+    Route::post('/legal/documents', [PlatformSettingsAuditController::class, 'storeLegalDocument'])->middleware('platform.permission:setting.edit')->name('legal.documents.store');
+    Route::get('/legal/documents/{document_uuid}', [PlatformSettingsAuditController::class, 'legalDocument'])->middleware('platform.permission:setting.view')->name('legal.documents.show');
+    Route::match(['put', 'patch'], '/legal/documents/{document_uuid}', [PlatformSettingsAuditController::class, 'updateLegalDocument'])->middleware('platform.permission:setting.edit')->name('legal.documents.update');
+    Route::post('/legal/documents/{document_uuid}/publish', [PlatformSettingsAuditController::class, 'publishLegalDocument'])->middleware('platform.permission:setting.edit')->name('legal.documents.publish');
+    Route::get('/legal/documents/{document_uuid}/acceptances', [PlatformSettingsAuditController::class, 'legalAcceptances'])->middleware('platform.permission:setting.view')->name('legal.documents.acceptances');
+
+    Route::get('/announcements', [PlatformSettingsAuditController::class, 'announcements'])->middleware('platform.permission:setting.view')->name('announcements.index');
+    Route::post('/announcements', [PlatformSettingsAuditController::class, 'storeAnnouncement'])->middleware('platform.permission:setting.edit')->name('announcements.store');
+    Route::get('/announcements/{announcement_uuid}', [PlatformSettingsAuditController::class, 'announcement'])->middleware('platform.permission:setting.view')->name('announcements.show');
+    Route::match(['put', 'patch'], '/announcements/{announcement_uuid}', [PlatformSettingsAuditController::class, 'updateAnnouncement'])->middleware('platform.permission:setting.edit')->name('announcements.update');
+    Route::post('/announcements/{announcement_uuid}/publish', [PlatformSettingsAuditController::class, 'publishAnnouncement'])->middleware('platform.permission:setting.edit')->name('announcements.publish');
+    Route::post('/announcements/{announcement_uuid}/archive', [PlatformSettingsAuditController::class, 'archiveAnnouncement'])->middleware('platform.permission:setting.edit')->name('announcements.archive');
+    Route::delete('/announcements/{announcement_uuid}', [PlatformSettingsAuditController::class, 'deleteAnnouncement'])->middleware('platform.permission:setting.edit')->name('announcements.delete');
+
+    Route::get('/webhook-endpoints', [PlatformSettingsAuditController::class, 'webhookEndpoints'])->middleware('platform.permission:integration.view')->name('webhook-endpoints.index');
+    Route::post('/webhook-endpoints', [PlatformSettingsAuditController::class, 'storeWebhookEndpoint'])->middleware('platform.permission:integration.create')->name('webhook-endpoints.store');
+    Route::get('/webhook-endpoints/{endpoint_uuid}', [PlatformSettingsAuditController::class, 'webhookEndpoint'])->middleware('platform.permission:integration.view')->name('webhook-endpoints.show');
+    Route::match(['put', 'patch'], '/webhook-endpoints/{endpoint_uuid}', [PlatformSettingsAuditController::class, 'updateWebhookEndpoint'])->middleware('platform.permission:integration.edit')->name('webhook-endpoints.update');
+    Route::delete('/webhook-endpoints/{endpoint_uuid}', [PlatformSettingsAuditController::class, 'deleteWebhookEndpoint'])->middleware('platform.permission:integration.delete')->name('webhook-endpoints.delete');
+    Route::get('/webhook-endpoints/{endpoint_uuid}/deliveries', [PlatformSettingsAuditController::class, 'webhookDeliveries'])->middleware('platform.permission:integration.view')->name('webhook-endpoints.deliveries');
+    Route::get('/webhook-deliveries/{delivery_uuid}', [PlatformSettingsAuditController::class, 'webhookDelivery'])->middleware('platform.permission:integration.view')->name('webhook-deliveries.show');
+    Route::post('/webhook-deliveries/{delivery_uuid}/retry', [PlatformSettingsAuditController::class, 'retryWebhookDelivery'])->middleware('platform.permission:integration.edit')->name('webhook-deliveries.retry');
     Route::get('/api-tokens', [PlatformApiTokenController::class, 'index'])->name('api-tokens.index');
     Route::post('/api-tokens', [PlatformApiTokenController::class, 'store'])->name('api-tokens.store');
     Route::get('/api-tokens/{token_uuid}', [PlatformApiTokenController::class, 'show'])->name('api-tokens.show');
     Route::post('/api-tokens/{token_uuid}/rotate', [PlatformApiTokenController::class, 'rotate'])->name('api-tokens.rotate');
     Route::post('/api-tokens/{token_uuid}/revoke', [PlatformApiTokenController::class, 'revoke'])->name('api-tokens.revoke');
 });
+
 
 
