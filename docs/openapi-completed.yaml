@@ -20,6 +20,8 @@ tags:
   - name: 6. Tenant Permissions
   - name: 7. Platform Billing and Catalog
   - name: 8. Remaining Platform Admin
+  - name: 9. Tenant Workspace Admin
+  - name: 10. Tenant CRM
 security:
   - bearerAuth: []
 paths:
@@ -1264,6 +1266,871 @@ paths:
     get: {tags: [8. Remaining Platform Admin], summary: Outbound webhook delivery detail with masked payload, parameters: [{$ref: '#/components/parameters/DeliveryUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
   /api/platform/v1/webhook-deliveries/{delivery_uuid}/retry:
     post: {tags: [8. Remaining Platform Admin], summary: Retry outbound webhook delivery, parameters: [{$ref: '#/components/parameters/DeliveryUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/tenant/v1/navigation/sidebar:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant navigation sidebar
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/dashboard/summary:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant dashboard KPI summary
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/dashboard/charts/{chart}:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant dashboard chart
+      parameters:
+        - {name: chart, in: path, required: true, schema: {type: string}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/dashboard/{widget}:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant dashboard table widget
+      parameters:
+        - {name: widget, in: path, required: true, schema: {type: string}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/dashboard/recent-activities:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant dashboard recent activities
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/dashboard/widgets:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant dashboard widget preferences
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    put:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant dashboard widget preferences
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/dashboard/export:
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Queue dashboard export
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'202': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/team-roles:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant team roles
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant team roles
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/team-roles/{team_role_uuid}:
+    patch:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant team role
+      parameters:
+        - {name: team_role_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    delete:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant team role
+      parameters:
+        - {name: team_role_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/teams:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant teams
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant teams
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/teams/export:
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Queue teams export
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'202': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/teams/{team_uuid}:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant team
+      parameters:
+        - {name: team_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    patch:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant team
+      parameters:
+        - {name: team_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    delete:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant team
+      parameters:
+        - {name: team_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/teams/{team_uuid}/members:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Team members
+      parameters:
+        - {name: team_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Team members
+      parameters:
+        - {name: team_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/teams/{team_uuid}/members/{member_uuid}:
+    patch:
+      tags: [9. Tenant Workspace Admin]
+      summary: Team member
+      parameters:
+        - {name: team_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: member_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    delete:
+      tags: [9. Tenant Workspace Admin]
+      summary: Team member
+      parameters:
+        - {name: team_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: member_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/teams/{team_uuid}/permissions:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Team permissions
+      parameters:
+        - {name: team_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    put:
+      tags: [9. Tenant Workspace Admin]
+      summary: Team permissions
+      parameters:
+        - {name: team_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/teams/{team_uuid}/settings:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Team settings
+      parameters:
+        - {name: team_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    put:
+      tags: [9. Tenant Workspace Admin]
+      summary: Team settings
+      parameters:
+        - {name: team_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/teams/{team_uuid}/assignments:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Team assignments
+      parameters:
+        - {name: team_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Team assignments
+      parameters:
+        - {name: team_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/teams/{team_uuid}/assignments/{assignment_id}:
+    delete:
+      tags: [9. Tenant Workspace Admin]
+      summary: Team assignment release
+      parameters:
+        - {name: team_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: assignment_id, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/users:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant login users
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/users/invite:
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Invite tenant login user
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/users/{user_uuid}:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant login user
+      parameters:
+        - {name: user_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    patch:
+      tags: [9. Tenant Workspace Admin]
+      summary: Tenant login user
+      parameters:
+        - {name: user_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/users/{user_uuid}/roles:
+    put:
+      tags: [9. Tenant Workspace Admin]
+      summary: Replace tenant login user roles
+      parameters:
+        - {name: user_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/users/{user_uuid}/suspend:
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Suspend tenant login user
+      parameters:
+        - {name: user_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/users/{user_uuid}/activate:
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Activate tenant login user
+      parameters:
+        - {name: user_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/users/{user_uuid}/reset-password:
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Reset tenant login user password
+      parameters:
+        - {name: user_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/staff/dashboard:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Staff dashboard
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/staff:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Staff profiles
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Staff profiles
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/staff/grid:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Staff grid
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/staff/import:
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Queue staff import
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'202': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/staff/export:
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Queue staff export
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'202': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/staff/{staff_uuid}:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Staff profile
+      parameters:
+        - {name: staff_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    patch:
+      tags: [9. Tenant Workspace Admin]
+      summary: Staff profile
+      parameters:
+        - {name: staff_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    delete:
+      tags: [9. Tenant Workspace Admin]
+      summary: Staff profile
+      parameters:
+        - {name: staff_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/staff/{staff_uuid}/restore:
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Restore staff profile
+      parameters:
+        - {name: staff_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/staff/{staff_uuid}/activity:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Staff activity
+      parameters:
+        - {name: staff_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/staff/{staff_uuid}/{resource}:
+    get:
+      tags: [9. Tenant Workspace Admin]
+      summary: Staff child resource
+      parameters:
+        - {name: staff_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: resource, in: path, required: true, schema: {type: string}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [9. Tenant Workspace Admin]
+      summary: Staff child resource
+      parameters:
+        - {name: staff_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: resource, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/staff/{staff_uuid}/{resource}/{id}:
+    patch:
+      tags: [9. Tenant Workspace Admin]
+      summary: Staff child resource item
+      parameters:
+        - {name: staff_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: resource, in: path, required: true, schema: {type: string}}
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    delete:
+      tags: [9. Tenant Workspace Admin]
+      summary: Staff child resource item
+      parameters:
+        - {name: staff_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: resource, in: path, required: true, schema: {type: string}}
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/clients:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Tenant clients
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [10. Tenant CRM]
+      summary: Tenant clients
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/clients/import:
+    post:
+      tags: [10. Tenant CRM]
+      summary: Queue client import
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'202': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/clients/export:
+    post:
+      tags: [10. Tenant CRM]
+      summary: Queue client export
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'202': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/clients/merge:
+    post:
+      tags: [10. Tenant CRM]
+      summary: Merge duplicate clients
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/clients/{client_uuid}:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Tenant client
+      parameters:
+        - {name: client_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    patch:
+      tags: [10. Tenant CRM]
+      summary: Tenant client
+      parameters:
+        - {name: client_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    delete:
+      tags: [10. Tenant CRM]
+      summary: Tenant client
+      parameters:
+        - {name: client_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/clients/{client_uuid}/restore:
+    post:
+      tags: [10. Tenant CRM]
+      summary: Restore tenant client
+      parameters:
+        - {name: client_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/clients/{client_uuid}/contacts:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Client contacts
+      parameters:
+        - {name: client_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [10. Tenant CRM]
+      summary: Client contacts
+      parameters:
+        - {name: client_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/clients/{client_uuid}/contacts/{contact_uuid}:
+    patch:
+      tags: [10. Tenant CRM]
+      summary: Client contact
+      parameters:
+        - {name: client_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: contact_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    delete:
+      tags: [10. Tenant CRM]
+      summary: Client contact
+      parameters:
+        - {name: client_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: contact_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/clients/{client_uuid}/addresses:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Client addresses
+      parameters:
+        - {name: client_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [10. Tenant CRM]
+      summary: Client addresses
+      parameters:
+        - {name: client_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/clients/{client_uuid}/addresses/{address_id}:
+    patch:
+      tags: [10. Tenant CRM]
+      summary: Client address
+      parameters:
+        - {name: client_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: address_id, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    delete:
+      tags: [10. Tenant CRM]
+      summary: Client address
+      parameters:
+        - {name: client_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: address_id, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/clients/{client_uuid}/{resource}:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Client related projects, invoices, payments, renewals, or issues
+      parameters:
+        - {name: client_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: resource, in: path, required: true, schema: {type: string}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/clients/{client_uuid}/activity:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Client activity timeline
+      parameters:
+        - {name: client_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/vendors:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Tenant vendors
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [10. Tenant CRM]
+      summary: Tenant vendors
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/vendors/import:
+    post:
+      tags: [10. Tenant CRM]
+      summary: Queue vendor import
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'202': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/vendors/export:
+    post:
+      tags: [10. Tenant CRM]
+      summary: Queue vendor export
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'202': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/vendors/{vendor_uuid}:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Tenant vendor
+      parameters:
+        - {name: vendor_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    patch:
+      tags: [10. Tenant CRM]
+      summary: Tenant vendor
+      parameters:
+        - {name: vendor_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    delete:
+      tags: [10. Tenant CRM]
+      summary: Tenant vendor
+      parameters:
+        - {name: vendor_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/vendors/{vendor_uuid}/contacts:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Vendor contacts
+      parameters:
+        - {name: vendor_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [10. Tenant CRM]
+      summary: Vendor contacts
+      parameters:
+        - {name: vendor_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/vendors/{vendor_uuid}/contacts/{contact_uuid}:
+    patch:
+      tags: [10. Tenant CRM]
+      summary: Vendor contact
+      parameters:
+        - {name: vendor_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: contact_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/vendors/{vendor_uuid}/addresses:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Vendor addresses
+      parameters:
+        - {name: vendor_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [10. Tenant CRM]
+      summary: Vendor addresses
+      parameters:
+        - {name: vendor_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/vendors/{vendor_uuid}/addresses/{address_id}:
+    patch:
+      tags: [10. Tenant CRM]
+      summary: Vendor address
+      parameters:
+        - {name: vendor_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: address_id, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/vendors/{vendor_uuid}/bank-accounts:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Vendor bank accounts
+      parameters:
+        - {name: vendor_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [10. Tenant CRM]
+      summary: Vendor bank accounts
+      parameters:
+        - {name: vendor_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/vendors/{vendor_uuid}/{resource}:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Vendor related expenses or renewals
+      parameters:
+        - {name: vendor_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: resource, in: path, required: true, schema: {type: string}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/vendors/{vendor_uuid}/activity:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Vendor activity timeline
+      parameters:
+        - {name: vendor_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/leads/dashboard:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Lead dashboard
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/leads:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Tenant leads
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [10. Tenant CRM]
+      summary: Tenant leads
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/leads/kanban:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Lead Kanban pipeline
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/leads/import:
+    post:
+      tags: [10. Tenant CRM]
+      summary: Queue lead import
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'202': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/leads/export:
+    post:
+      tags: [10. Tenant CRM]
+      summary: Queue lead export
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'202': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/leads/merge:
+    post:
+      tags: [10. Tenant CRM]
+      summary: Merge duplicate leads
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/leads/{lead_uuid}:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Tenant lead
+      parameters:
+        - {name: lead_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    patch:
+      tags: [10. Tenant CRM]
+      summary: Tenant lead
+      parameters:
+        - {name: lead_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    delete:
+      tags: [10. Tenant CRM]
+      summary: Tenant lead
+      parameters:
+        - {name: lead_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/leads/{lead_uuid}/duplicate:
+    post:
+      tags: [10. Tenant CRM]
+      summary: Duplicate lead
+      parameters:
+        - {name: lead_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/leads/{lead_uuid}/convert:
+    post:
+      tags: [10. Tenant CRM]
+      summary: Convert lead to client
+      parameters:
+        - {name: lead_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/leads/{lead_uuid}/mark-lost:
+    post:
+      tags: [10. Tenant CRM]
+      summary: Mark lead lost
+      parameters:
+        - {name: lead_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/leads/{lead_uuid}/activities:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Lead activities and follow-ups
+      parameters:
+        - {name: lead_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+    post:
+      tags: [10. Tenant CRM]
+      summary: Lead activities and follow-ups
+      parameters:
+        - {name: lead_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/leads/{lead_uuid}/activities/{activity_uuid}:
+    patch:
+      tags: [10. Tenant CRM]
+      summary: Lead activity
+      parameters:
+        - {name: lead_uuid, in: path, required: true, schema: {type: integer}}
+        - {name: activity_uuid, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            example: {status: active}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/tenant/v1/leads/{lead_uuid}/activity:
+    get:
+      tags: [10. Tenant CRM]
+      summary: Lead audit timeline
+      parameters:
+        - {name: lead_uuid, in: path, required: true, schema: {type: integer}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '401': {$ref: '#/components/responses/Unauthenticated'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}}
 components:
   securitySchemes:
     bearerAuth:
@@ -1653,6 +2520,9 @@ components:
     RoleInUse: {description: Role has assigned users, content: {application/json: {example: {success: false, message: Assigned roles cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: ROLE_IN_USE, details: []}}}}}
     PermissionInUse: {description: Permission is assigned to roles, content: {application/json: {example: {success: false, message: Assigned permissions cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: PERMISSION_IN_USE, details: []}}}}}
     FinalOwnerAdminRequired: {description: Final tenant owner/admin protection, content: {application/json: {example: {success: false, message: Cannot remove the final owner/admin role from this tenant., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: FINAL_OWNER_ADMIN_ROLE_REQUIRED, details: []}}}}}
+
+
+
 
 
 

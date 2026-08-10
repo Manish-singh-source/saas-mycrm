@@ -1,0 +1,156 @@
+<?php
+
+namespace App\Http\Controllers\Tenant;
+
+use App\Services\Tenant\TenantWorkspaceService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class TenantDashboardController extends BaseTenantController
+{
+    public function __construct(private readonly TenantWorkspaceService $tenant) {}
+
+    public function sidebar(): JsonResponse
+    {
+        return $this->success(['navigation' => [
+            'modules' => app(\App\Tenancy\TenantContext::class)->enabledModules(),
+            'subscription' => app(\App\Tenancy\TenantContext::class)->subscription(),
+            'badges' => [
+                'overdue_tasks' => $this->tenant->count('tasks', ['status' => ['open', 'in_progress']]),
+                'open_issues' => $this->tenant->count('client_issues', ['status' => ['open', 'in_progress']]),
+                'pending_leave' => $this->tenant->count('leave_requests'),
+            ],
+        ]]);
+    }
+
+    public function summary(): JsonResponse
+    {
+        return $this->success(['summary' => [
+            'leads' => $this->tenant->count('lead_profiles'),
+            'clients' => $this->tenant->count('client_profiles'),
+            'vendors' => $this->tenant->count('vendor_profiles'),
+            'active_projects' => $this->tenant->count('projects', ['status' => ['active', 'in_progress']]),
+            'open_tasks' => $this->tenant->count('tasks', ['status' => ['open', 'in_progress']]),
+            'open_support_issues' => $this->tenant->count('client_issues', ['status' => ['open', 'in_progress']]),
+            'staff_count' => $this->tenant->count('staff'),
+            'present_today' => $this->todayAttendanceCount(true),
+            'absent_today' => max($this->tenant->count('staff', ['employment_status' => 'active']) - $this->todayAttendanceCount(true), 0),
+            'pending_leave_approvals' => $this->tenant->count('leave_requests'),
+        ]]);
+    }
+
+    public function chart(string $chart): JsonResponse
+    {
+        $map = [
+            'leads-pipeline' => ['table' => 'lead_profiles', 'group' => 'stage_id'],
+            'projects' => ['table' => 'projects', 'group' => 'status'],
+            'tasks' => ['table' => 'tasks', 'group' => 'status'],
+            'attendance' => ['table' => 'attendance_records', 'group' => 'attendance_date'],
+            'support' => ['table' => 'client_issues', 'group' => 'status'],
+        ];
+        if ($chart === 'revenue') {
+            return $this->success(['chart' => ['code' => $chart, 'series' => $this->revenueSeries()]]);
+        }
+        abort_unless(isset($map[$chart]), 404, 'Chart not found.');
+
+        return $this->success(['chart' => ['code' => $chart, 'series' => $this->groupedCount($map[$chart]['table'], $map[$chart]['group'])]]);
+    }
+
+    public function table(string $widget): JsonResponse
+    {
+        $data = match ($widget) {
+            'my-tasks' => $this->recentRows('tasks', ['uuid', 'title', 'status', 'priority', 'due_date'], 'due_date'),
+            'upcoming-events' => $this->recentRows('calendar_events', ['uuid', 'title', 'starts_at', 'ends_at'], 'starts_at'),
+            'recent-leads' => $this->recentRows('lead_profiles', ['uuid', 'lead_number', 'stage_id', 'expected_value'], 'id'),
+            'overdue-invoices' => $this->recentRows('tenant_invoices', ['uuid', 'invoice_number', 'due_date', 'balance_amount'], 'due_date'),
+            default => abort(404, 'Dashboard widget not found.'),
+        };
+
+        return $this->success([str_replace('-', '_', $widget) => $data]);
+    }
+
+    public function recentActivities(): JsonResponse
+    {
+        return $this->success(['activities' => DB::table('activity_logs')
+            ->leftJoin('users', 'users.id', '=', 'activity_logs.actor_user_id')
+            ->where('activity_logs.tenant_id', app(\App\Tenancy\TenantContext::class)->id())
+            ->orderByDesc('activity_logs.created_at')
+            ->limit(20)
+            ->get(['activity_logs.*', 'users.uuid as actor_uuid', 'users.display_name as actor_name'])]);
+    }
+
+    public function widgets(Request $request): JsonResponse
+    {
+        $value = DB::table('user_preferences')
+            ->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())
+            ->where('user_id', $request->user()->id)
+            ->where('group', 'dashboard')
+            ->where('key', 'widgets')
+            ->value('value');
+
+        return $this->success(['widgets' => $value ? json_decode((string) $value, true) : $this->defaultWidgets()]);
+    }
+
+    public function updateWidgets(Request $request): JsonResponse
+    {
+        $data = $request->validate(['widgets' => ['required', 'array'], 'widgets.*.code' => ['required', 'string', 'max:100'], 'widgets.*.position' => ['required', 'integer', 'min:1'], 'widgets.*.visible' => ['sometimes', 'boolean'], 'widgets.*.settings' => ['sometimes', 'array']]);
+        DB::table('user_preferences')->updateOrInsert(
+            ['tenant_id' => app(\App\Tenancy\TenantContext::class)->id(), 'user_id' => $request->user()->id, 'group' => 'dashboard', 'key' => 'widgets'],
+            ['value' => json_encode($data['widgets']), 'created_at' => now(), 'updated_at' => now()]
+        );
+
+        return $this->success(['widgets' => $data['widgets']], 'Dashboard widgets saved.');
+    }
+
+    public function export(Request $request): JsonResponse
+    {
+        return $this->success(['job' => $this->tenant->createJob($request, 'export', 'dashboard', $request->all())], 'Dashboard export queued.', 202);
+    }
+
+    private function groupedCount(string $table, string $group): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable($table) || ! \Illuminate\Support\Facades\Schema::hasColumn($table, $group)) {
+            return [];
+        }
+
+        return DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->selectRaw($group.' as label, count(*) as total')->groupBy($group)->orderBy($group)->get()->all();
+    }
+
+    private function recentRows(string $table, array $columns, string $order): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable($table)) {
+            return [];
+        }
+        $select = array_values(array_filter($columns, fn ($column) => \Illuminate\Support\Facades\Schema::hasColumn($table, $column)));
+
+        return DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->orderByDesc(\Illuminate\Support\Facades\Schema::hasColumn($table, $order) ? $order : 'id')->limit(10)->get($select ?: ['*'])->all();
+    }
+
+    private function revenueSeries(): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('tenant_payments')) {
+            return [];
+        }
+
+        return DB::table('tenant_payments')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as label, sum(amount) as total")->groupBy('label')->orderBy('label')->limit(12)->get()->all();
+    }
+
+    private function todayAttendanceCount(bool $present): int
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('attendance_records')) {
+            return 0;
+        }
+
+        return (int) DB::table('attendance_records')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->whereDate('attendance_date', now()->toDateString())->when($present, fn ($q) => $q->whereNotNull('check_in_at'))->count();
+    }
+
+    private function defaultWidgets(): array
+    {
+        return [
+            ['code' => 'my_tasks', 'position' => 1, 'visible' => true, 'settings' => ['limit' => 10]],
+            ['code' => 'calendar', 'position' => 2, 'visible' => true],
+            ['code' => 'notifications', 'position' => 3, 'visible' => true],
+        ];
+    }
+}
