@@ -18,6 +18,7 @@ tags:
   - name: 5. Platform Permissions
   - name: 6. Tenant Roles
   - name: 6. Tenant Permissions
+  - name: 7. Platform Billing and Catalog
 paths:
   /api/common/v1/locations/countries:
     get:
@@ -914,6 +915,154 @@ paths:
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/TenantHeader'}, {$ref: '#/components/parameters/PermissionUuid'}]
       responses: {'200': {$ref: '#/components/responses/PermissionSingle'}, '404': {$ref: '#/components/responses/NotFound'}}
+  /api/platform/v1/subscriptions:
+    get: {tags: [7. Platform Billing and Catalog], summary: List subscriptions, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [7. Platform Billing and Catalog], summary: Create subscription, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SubscriptionWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '409': {$ref: '#/components/responses/IdempotencyRequired'}}}
+  /api/platform/v1/subscriptions/export:
+    post: {tags: [7. Platform Billing and Catalog], summary: Export subscriptions, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/subscriptions/{subscription_uuid}:
+    get: {tags: [7. Platform Billing and Catalog], summary: View subscription, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [7. Platform Billing and Catalog], summary: Update subscription, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [7. Platform Billing and Catalog], summary: Update subscription, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/subscriptions/{subscription_uuid}/upgrade:
+    post: {tags: [7. Platform Billing and Catalog], summary: Upgrade subscription, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/subscriptions/{subscription_uuid}/downgrade:
+    post: {tags: [7. Platform Billing and Catalog], summary: Downgrade subscription, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/subscriptions/{subscription_uuid}/renew:
+    post: {tags: [7. Platform Billing and Catalog], summary: Renew subscription, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/subscriptions/{subscription_uuid}/pause:
+    post: {tags: [7. Platform Billing and Catalog], summary: Pause subscription, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/subscriptions/{subscription_uuid}/resume:
+    post: {tags: [7. Platform Billing and Catalog], summary: Resume subscription, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/subscriptions/{subscription_uuid}/cancel:
+    post: {tags: [7. Platform Billing and Catalog], summary: Cancel subscription, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/ReasonBody'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/subscriptions/{subscription_uuid}/addons:
+    post: {tags: [7. Platform Billing and Catalog], summary: Add subscription add-on, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/SubscriptionAddonWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/subscriptions/{subscription_uuid}/addons/{addon_id}:
+    patch: {tags: [7. Platform Billing and Catalog], summary: Update subscription add-on, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/AddonId'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [7. Platform Billing and Catalog], summary: Update subscription add-on, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/AddonId'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    delete: {tags: [7. Platform Billing and Catalog], summary: Cancel subscription add-on, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/AddonId'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/subscriptions/{subscription_uuid}/apply-coupon:
+    post: {tags: [7. Platform Billing and Catalog], summary: Apply coupon, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/ApplyCoupon'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/subscriptions/{subscription_uuid}/coupons/{coupon_uuid}:
+    delete: {tags: [7. Platform Billing and Catalog], summary: Remove coupon, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/CouponUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/subscriptions/{subscription_uuid}/usage:
+    get: {tags: [7. Platform Billing and Catalog], summary: Subscription usage, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/subscriptions/{subscription_uuid}/invoice:
+    post: {tags: [7. Platform Billing and Catalog], summary: Create subscription invoice, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/subscriptions/{subscription_uuid}/history:
+    get: {tags: [7. Platform Billing and Catalog], summary: Subscription versions and renewals, parameters: [{$ref: '#/components/parameters/SubscriptionUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/plans:
+    get: {tags: [7. Platform Billing and Catalog], summary: List plans, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [7. Platform Billing and Catalog], summary: Create plan, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/PlanWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/plans/export:
+    post: {tags: [7. Platform Billing and Catalog], summary: Export plans, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/plans/{plan_uuid}:
+    get: {tags: [7. Platform Billing and Catalog], summary: View plan, parameters: [{$ref: '#/components/parameters/PlanUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [7. Platform Billing and Catalog], summary: Update plan, parameters: [{$ref: '#/components/parameters/PlanUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [7. Platform Billing and Catalog], summary: Update plan, parameters: [{$ref: '#/components/parameters/PlanUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    delete: {tags: [7. Platform Billing and Catalog], summary: Archive plan, parameters: [{$ref: '#/components/parameters/PlanUuid'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/plans/{plan_uuid}/clone:
+    post: {tags: [7. Platform Billing and Catalog], summary: Clone plan, parameters: [{$ref: '#/components/parameters/PlanUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/CloneBody'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/plans/{plan_uuid}/features:
+    get: {tags: [7. Platform Billing and Catalog], summary: Plan features, parameters: [{$ref: '#/components/parameters/PlanUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [7. Platform Billing and Catalog], summary: Replace plan features, parameters: [{$ref: '#/components/parameters/PlanUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/PlanFeaturesWrite'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/plans/{plan_uuid}/subscriptions:
+    get: {tags: [7. Platform Billing and Catalog], summary: Plan subscriptions, parameters: [{$ref: '#/components/parameters/PlanUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/features:
+    get: {tags: [7. Platform Billing and Catalog], summary: List features, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [7. Platform Billing and Catalog], summary: Create feature, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/FeatureWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/features/{feature_uuid}:
+    get: {tags: [7. Platform Billing and Catalog], summary: View feature, parameters: [{$ref: '#/components/parameters/FeatureUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [7. Platform Billing and Catalog], summary: Update feature, parameters: [{$ref: '#/components/parameters/FeatureUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [7. Platform Billing and Catalog], summary: Update feature, parameters: [{$ref: '#/components/parameters/FeatureUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    delete: {tags: [7. Platform Billing and Catalog], summary: Deactivate feature, parameters: [{$ref: '#/components/parameters/FeatureUuid'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/addons:
+    get: {tags: [7. Platform Billing and Catalog], summary: List add-on plans, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [7. Platform Billing and Catalog], summary: Create add-on plan, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/AddonWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/addons/{addon_uuid}:
+    get: {tags: [7. Platform Billing and Catalog], summary: View add-on plan, parameters: [{$ref: '#/components/parameters/AddonUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [7. Platform Billing and Catalog], summary: Update add-on plan, parameters: [{$ref: '#/components/parameters/AddonUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [7. Platform Billing and Catalog], summary: Update add-on plan, parameters: [{$ref: '#/components/parameters/AddonUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    delete: {tags: [7. Platform Billing and Catalog], summary: Archive add-on plan, parameters: [{$ref: '#/components/parameters/AddonUuid'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/billing/invoices:
+    get: {tags: [7. Platform Billing and Catalog], summary: List platform invoices, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [7. Platform Billing and Catalog], summary: Create manual invoice, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/InvoiceWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/billing/invoices/export:
+    post: {tags: [7. Platform Billing and Catalog], summary: Export invoices, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/billing/invoices/{invoice_uuid}:
+    get: {tags: [7. Platform Billing and Catalog], summary: View invoice, parameters: [{$ref: '#/components/parameters/InvoiceUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [7. Platform Billing and Catalog], summary: Update draft invoice, parameters: [{$ref: '#/components/parameters/InvoiceUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '409': {$ref: '#/components/responses/InvoiceNotDraft'}}}
+    put: {tags: [7. Platform Billing and Catalog], summary: Update draft invoice, parameters: [{$ref: '#/components/parameters/InvoiceUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '409': {$ref: '#/components/responses/InvoiceNotDraft'}}}
+    delete: {tags: [7. Platform Billing and Catalog], summary: Cancel invoice, parameters: [{$ref: '#/components/parameters/InvoiceUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/billing/invoices/{invoice_uuid}/send:
+    post: {tags: [7. Platform Billing and Catalog], summary: Send invoice, parameters: [{$ref: '#/components/parameters/InvoiceUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/billing/invoices/{invoice_uuid}/pdf:
+    get: {tags: [7. Platform Billing and Catalog], summary: Generate invoice PDF metadata, parameters: [{$ref: '#/components/parameters/InvoiceUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/billing/invoices/{invoice_uuid}/payments:
+    post: {tags: [7. Platform Billing and Catalog], summary: Record invoice payment, parameters: [{$ref: '#/components/parameters/InvoiceUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/PaymentWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/billing/payments:
+    get: {tags: [7. Platform Billing and Catalog], summary: List payments, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [7. Platform Billing and Catalog], summary: Record payment, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/PaymentWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/billing/payments/export:
+    post: {tags: [7. Platform Billing and Catalog], summary: Export payments, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/billing/payments/{payment_uuid}:
+    get: {tags: [7. Platform Billing and Catalog], summary: View payment, parameters: [{$ref: '#/components/parameters/PaymentUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/billing/payments/{payment_uuid}/retry:
+    post: {tags: [7. Platform Billing and Catalog], summary: Retry payment placeholder, parameters: [{$ref: '#/components/parameters/PaymentUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/billing/payments/{payment_uuid}/reconcile:
+    post: {tags: [7. Platform Billing and Catalog], summary: Reconcile payment placeholder, parameters: [{$ref: '#/components/parameters/PaymentUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/billing/payments/{payment_uuid}/refund:
+    post: {tags: [7. Platform Billing and Catalog], summary: Refund payment, parameters: [{$ref: '#/components/parameters/PaymentUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/RefundWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/billing/refunds:
+    get: {tags: [7. Platform Billing and Catalog], summary: List refunds, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [7. Platform Billing and Catalog], summary: Create refund, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/RefundWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/billing/refunds/export:
+    post: {tags: [7. Platform Billing and Catalog], summary: Export refunds, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/billing/refunds/{refund_uuid}:
+    get: {tags: [7. Platform Billing and Catalog], summary: View refund, parameters: [{$ref: '#/components/parameters/RefundUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/billing/refunds/{refund_uuid}/retry:
+    post: {tags: [7. Platform Billing and Catalog], summary: Retry refund placeholder, parameters: [{$ref: '#/components/parameters/RefundUuid'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/coupons:
+    get: {tags: [7. Platform Billing and Catalog], summary: List coupons, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [7. Platform Billing and Catalog], summary: Create coupon, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/CouponWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/coupons/export:
+    post: {tags: [7. Platform Billing and Catalog], summary: Export coupons, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/coupons/{coupon_uuid}:
+    get: {tags: [7. Platform Billing and Catalog], summary: View coupon, parameters: [{$ref: '#/components/parameters/CouponUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [7. Platform Billing and Catalog], summary: Update coupon, parameters: [{$ref: '#/components/parameters/CouponUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [7. Platform Billing and Catalog], summary: Update coupon, parameters: [{$ref: '#/components/parameters/CouponUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    delete: {tags: [7. Platform Billing and Catalog], summary: Delete or archive coupon, parameters: [{$ref: '#/components/parameters/CouponUuid'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+  /api/platform/v1/coupons/{coupon_uuid}/activate:
+    post: {tags: [7. Platform Billing and Catalog], summary: Activate coupon, parameters: [{$ref: '#/components/parameters/CouponUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/coupons/{coupon_uuid}/deactivate:
+    post: {tags: [7. Platform Billing and Catalog], summary: Deactivate coupon, parameters: [{$ref: '#/components/parameters/CouponUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/coupons/{coupon_uuid}/redemptions:
+    get: {tags: [7. Platform Billing and Catalog], summary: Coupon redemptions, parameters: [{$ref: '#/components/parameters/CouponUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/coupons/{coupon_uuid}/plans:
+    put: {tags: [7. Platform Billing and Catalog], summary: Replace coupon plan assignments, parameters: [{$ref: '#/components/parameters/CouponUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/coupons/{coupon_uuid}/tenants:
+    put: {tags: [7. Platform Billing and Catalog], summary: Replace coupon tenant assignments, parameters: [{$ref: '#/components/parameters/CouponUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/modules:
+    get: {tags: [7. Platform Billing and Catalog], summary: List modules, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [7. Platform Billing and Catalog], summary: Create module, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/ModuleWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/modules/{module_uuid}:
+    get: {tags: [7. Platform Billing and Catalog], summary: View module, parameters: [{$ref: '#/components/parameters/ModuleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [7. Platform Billing and Catalog], summary: Update module, parameters: [{$ref: '#/components/parameters/ModuleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [7. Platform Billing and Catalog], summary: Update module, parameters: [{$ref: '#/components/parameters/ModuleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/modules/{module_uuid}/enable:
+    post: {tags: [7. Platform Billing and Catalog], summary: Enable module, parameters: [{$ref: '#/components/parameters/ModuleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/modules/{module_uuid}/disable:
+    post: {tags: [7. Platform Billing and Catalog], summary: Disable module, parameters: [{$ref: '#/components/parameters/ModuleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/modules/{module_uuid}/features:
+    get: {tags: [7. Platform Billing and Catalog], summary: Module features, parameters: [{$ref: '#/components/parameters/ModuleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    put: {tags: [7. Platform Billing and Catalog], summary: Replace module feature assignments, parameters: [{$ref: '#/components/parameters/ModuleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/modules/{module_uuid}/tenants:
+    get: {tags: [7. Platform Billing and Catalog], summary: Module tenants, parameters: [{$ref: '#/components/parameters/ModuleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/tenants/{tenant_uuid}/module-entitlements:
+    get: {tags: [7. Platform Billing and Catalog], summary: Tenant module entitlements, parameters: [{$ref: '#/components/parameters/TenantUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/tenants/{tenant_uuid}/modules/{module_code}:
+    put: {tags: [7. Platform Billing and Catalog], summary: Override tenant module access, parameters: [{$ref: '#/components/parameters/TenantUuid'}, {$ref: '#/components/parameters/ModuleCode'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/TenantModuleOverride'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
 components:
   securitySchemes:
     bearerAuth:
@@ -943,6 +1092,18 @@ components:
     UserUuid: {name: user_uuid, in: path, required: true, schema: {type: string, format: uuid}}
     TenantUuid: {name: tenant_uuid, in: path, required: true, schema: {type: string, format: uuid}}
     TeamUuid: {name: team_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string}, example: '{{REQUEST_ID}}-billing-action'}
+    SubscriptionUuid: {name: subscription_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    PlanUuid: {name: plan_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    FeatureUuid: {name: feature_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    AddonUuid: {name: addon_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    AddonId: {name: addon_id, in: path, required: true, schema: {type: integer}}
+    InvoiceUuid: {name: invoice_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    PaymentUuid: {name: payment_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    RefundUuid: {name: refund_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    CouponUuid: {name: coupon_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    ModuleUuid: {name: module_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    ModuleCode: {name: module_code, in: path, required: true, schema: {type: string}}
   schemas:
     Country:
       type: object
@@ -1124,6 +1285,21 @@ components:
       properties: {module: {type: string, example: billing}, name: {type: string, example: billing.adjustment.create}, display_name: {type: string, example: Create Billing Adjustment}, guard_name: {type: string, example: platform}, description: {type: string, nullable: true}, is_system: {type: boolean, example: false}, status: {type: string, enum: [active, inactive], example: active}}
     PermissionUpdate:
       allOf: [{$ref: '#/components/schemas/PermissionWrite'}]
+    PlanWrite: {type: object, required: [name, code, billing_cycle, base_price], properties: {name: {type: string}, code: {type: string}, description: {type: string}, billing_cycle: {type: string}, base_price: {type: number}, currency: {type: string, example: INR}, trial_days: {type: integer}, is_custom: {type: boolean}, is_public: {type: boolean}, status: {type: string}}}
+    FeatureWrite: {type: object, required: [module, name, code, data_type], properties: {module: {type: string}, name: {type: string}, code: {type: string}, data_type: {type: string, enum: [boolean, integer, decimal, string, json]}, unit: {type: string}, description: {type: string}, status: {type: string}}}
+    AddonWrite: {type: object, required: [name, code, pricing_type, price], properties: {name: {type: string}, code: {type: string}, pricing_type: {type: string}, price: {type: number}, currency: {type: string}, status: {type: string}}}
+    PlanFeaturesWrite: {type: object, required: [features], properties: {features: {type: array, items: {type: object, properties: {feature_uuid: {type: string, format: uuid}, value: {}, metadata: {type: object}}}}}}
+    CloneBody: {type: object, required: [name, code], properties: {name: {type: string}, code: {type: string}, status: {type: string}}}
+    SubscriptionWrite: {type: object, required: [tenant_id, plan_id], properties: {tenant_id: {type: string, format: uuid}, plan_id: {type: string, format: uuid}, type: {type: string}, billing_cycle: {type: string}, status: {type: string}, renewal_type: {type: string}, starts_at: {type: string, format: date-time}, expires_at: {type: string, format: date-time}, currency: {type: string}, auto_renew: {type: boolean}, notes: {type: string}}}
+    SubscriptionAddonWrite: {type: object, required: [addon_plan_id], properties: {addon_plan_id: {type: string, format: uuid}, quantity: {type: integer}, unit_price: {type: number}, starts_at: {type: string, format: date-time}, ends_at: {type: string, format: date-time}, status: {type: string}}}
+    ApplyCoupon: {type: object, properties: {coupon_code: {type: string}, coupon_uuid: {type: string, format: uuid}}}
+    InvoiceWrite: {type: object, required: [tenant_id, invoice_date, items], properties: {tenant_id: {type: string, format: uuid}, subscription_id: {type: string, format: uuid}, invoice_date: {type: string, format: date}, due_date: {type: string, format: date}, currency: {type: string}, status: {type: string}, discount_amount: {type: number}, tax_amount: {type: number}, items: {type: array, items: {type: object, properties: {item_type: {type: string}, description: {type: string}, quantity: {type: number}, unit_price: {type: number}, amount: {type: number}, metadata: {type: object}}}}}}
+    PaymentWrite: {type: object, required: [amount, payment_status], properties: {tenant_id: {type: string, format: uuid}, platform_invoice_id: {type: string, format: uuid}, subscription_id: {type: string, format: uuid}, gateway: {type: string}, gateway_payment_id: {type: string}, payment_method: {type: string}, amount: {type: number}, currency: {type: string}, payment_status: {type: string}, paid_at: {type: string, format: date-time}, failure_reason: {type: string}, raw_response: {type: object}}}
+    RefundWrite: {type: object, required: [amount], properties: {platform_payment_id: {type: string, format: uuid}, amount: {type: number}, currency: {type: string}, reason: {type: string}, gateway: {type: string}}}
+    CouponWrite: {type: object, required: [code, name, discount_type, discount_value], properties: {code: {type: string}, name: {type: string}, discount_type: {type: string, enum: [fixed, percent]}, discount_value: {type: number}, starts_at: {type: string, format: date-time}, expires_at: {type: string, format: date-time}, max_redemptions: {type: integer}, status: {type: string}, plan_uuids: {type: array, items: {type: string, format: uuid}}, tenant_uuids: {type: array, items: {type: string, format: uuid}}}}
+    ModuleWrite: {type: object, required: [name, code], properties: {name: {type: string}, code: {type: string}, description: {type: string}, icon: {type: string}, category: {type: string}, is_core: {type: boolean}, status: {type: string}, sort_order: {type: integer}}}
+    TenantModuleOverride: {type: object, required: [enabled], properties: {enabled: {type: boolean}, limits: {type: object}, metadata: {type: object}, reason: {type: string}}}
+    ReasonBody: {type: object, required: [reason], properties: {reason: {type: string}}}
     ApiError:
       type: object
       properties:
@@ -1133,6 +1309,9 @@ components:
         meta: {type: object, properties: {request_id: {type: string}}}
         errors: {type: object, properties: {code: {type: string}, details: {type: object}}}
   responses:
+    IdempotencyRequired: {description: Idempotency key required, content: {application/json: {example: {success: false, message: Idempotency-Key header is required for this financial mutation., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: IDEMPOTENCY_KEY_REQUIRED, details: []}}}}}
+    IdempotencyConflict: {description: Idempotency key conflict, content: {application/json: {example: {success: false, message: Idempotency-Key was already used with different request data., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: IDEMPOTENCY_KEY_CONFLICT, details: []}}}}}
+    InvoiceNotDraft: {description: Invoice not draft, content: {application/json: {example: {success: false, message: Only draft invoices can be updated., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: INVOICE_NOT_DRAFT, details: []}}}}}
     CountryListResponse:
       description: Active country list
       content:
@@ -1226,3 +1405,8 @@ components:
     RoleInUse: {description: Role has assigned users, content: {application/json: {example: {success: false, message: Assigned roles cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: ROLE_IN_USE, details: []}}}}}
     PermissionInUse: {description: Permission is assigned to roles, content: {application/json: {example: {success: false, message: Assigned permissions cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: PERMISSION_IN_USE, details: []}}}}}
     FinalOwnerAdminRequired: {description: Final tenant owner/admin protection, content: {application/json: {example: {success: false, message: Cannot remove the final owner/admin role from this tenant., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: FINAL_OWNER_ADMIN_ROLE_REQUIRED, details: []}}}}}
+
+
+
+
+

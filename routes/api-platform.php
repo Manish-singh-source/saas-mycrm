@@ -1,7 +1,12 @@
 <?php
 
 use App\Http\Controllers\Platform\PlatformDashboardController;
+use App\Http\Controllers\Platform\PlatformBillingController;
+use App\Http\Controllers\Platform\PlatformCatalogController;
+use App\Http\Controllers\Platform\PlatformCouponController;
+use App\Http\Controllers\Platform\PlatformModuleController;
 use App\Http\Controllers\Platform\PlatformStaffController;
+use App\Http\Controllers\Platform\PlatformSubscriptionController;
 use App\Http\Controllers\Platform\PlatformTeamController;
 use App\Http\Controllers\Platform\PlatformTenantController;
 use App\Http\Controllers\Platform\PlatformApiTokenController;
@@ -98,6 +103,92 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::delete('/tenants/{tenant_uuid}/impersonate/{session_uuid}', [PlatformTenantController::class, 'endRemoteLogin'])->middleware('platform.permission:tenant.impersonate')->name('tenants.impersonate.end');
     Route::get('/tenants/{tenant_uuid}/{tab}', [PlatformTenantController::class, 'tab'])->whereIn('tab', ['users','offices','subscription','billing','usage','modules','settings','integrations','security','support','files','activity'])->middleware('platform.permission:tenant.view')->name('tenants.tab');
     Route::put('/tenants/{tenant_uuid}/modules', [PlatformTenantController::class, 'moduleOverrides'])->middleware('platform.permission:module.edit')->name('tenants.modules.update');
+    Route::get('/subscriptions', [PlatformSubscriptionController::class, 'index'])->middleware('platform.permission:subscription.view')->name('subscriptions.index');
+    Route::post('/subscriptions', [PlatformSubscriptionController::class, 'store'])->middleware('platform.permission:subscription.create')->name('subscriptions.store');
+    Route::post('/subscriptions/export', [PlatformSubscriptionController::class, 'export'])->middleware('platform.permission:subscription.view')->name('subscriptions.export');
+    Route::get('/subscriptions/{subscription_uuid}', [PlatformSubscriptionController::class, 'show'])->middleware('platform.permission:subscription.view')->name('subscriptions.show');
+    Route::match(['put', 'patch'], '/subscriptions/{subscription_uuid}', [PlatformSubscriptionController::class, 'update'])->middleware('platform.permission:subscription.edit')->name('subscriptions.update');
+    Route::post('/subscriptions/{subscription_uuid}/upgrade', [PlatformSubscriptionController::class, 'upgrade'])->middleware('platform.permission:subscription.upgrade')->name('subscriptions.upgrade');
+    Route::post('/subscriptions/{subscription_uuid}/downgrade', [PlatformSubscriptionController::class, 'downgrade'])->middleware('platform.permission:subscription.downgrade')->name('subscriptions.downgrade');
+    Route::post('/subscriptions/{subscription_uuid}/renew', [PlatformSubscriptionController::class, 'renew'])->middleware('platform.permission:subscription.renew')->name('subscriptions.renew');
+    Route::post('/subscriptions/{subscription_uuid}/pause', [PlatformSubscriptionController::class, 'pause'])->middleware('platform.permission:subscription.edit')->name('subscriptions.pause');
+    Route::post('/subscriptions/{subscription_uuid}/resume', [PlatformSubscriptionController::class, 'resume'])->middleware('platform.permission:subscription.edit')->name('subscriptions.resume');
+    Route::post('/subscriptions/{subscription_uuid}/cancel', [PlatformSubscriptionController::class, 'cancel'])->middleware('platform.permission:subscription.cancel')->name('subscriptions.cancel');
+    Route::post('/subscriptions/{subscription_uuid}/addons', [PlatformSubscriptionController::class, 'addAddon'])->middleware('platform.permission:subscription.edit')->name('subscriptions.addons.store');
+    Route::match(['put', 'patch'], '/subscriptions/{subscription_uuid}/addons/{addon_id}', [PlatformSubscriptionController::class, 'updateAddon'])->whereNumber('addon_id')->middleware('platform.permission:subscription.edit')->name('subscriptions.addons.update');
+    Route::delete('/subscriptions/{subscription_uuid}/addons/{addon_id}', [PlatformSubscriptionController::class, 'removeAddon'])->whereNumber('addon_id')->middleware('platform.permission:subscription.edit')->name('subscriptions.addons.destroy');
+    Route::post('/subscriptions/{subscription_uuid}/apply-coupon', [PlatformSubscriptionController::class, 'applyCoupon'])->middleware('platform.permission:subscription.edit')->name('subscriptions.coupons.apply');
+    Route::delete('/subscriptions/{subscription_uuid}/coupons/{coupon_uuid}', [PlatformSubscriptionController::class, 'removeCoupon'])->middleware('platform.permission:subscription.edit')->name('subscriptions.coupons.remove');
+    Route::get('/subscriptions/{subscription_uuid}/usage', [PlatformSubscriptionController::class, 'usage'])->middleware('platform.permission:subscription.view')->name('subscriptions.usage');
+    Route::post('/subscriptions/{subscription_uuid}/invoice', [PlatformSubscriptionController::class, 'createInvoice'])->middleware('platform.permission:billing.invoice.create')->name('subscriptions.invoice');
+    Route::get('/subscriptions/{subscription_uuid}/history', [PlatformSubscriptionController::class, 'history'])->middleware('platform.permission:subscription.view')->name('subscriptions.history');
+
+    Route::get('/plans', [PlatformCatalogController::class, 'plans'])->middleware('platform.permission:plan.view')->name('plans.index');
+    Route::post('/plans', [PlatformCatalogController::class, 'storePlan'])->middleware('platform.permission:plan.create')->name('plans.store');
+    Route::post('/plans/export', [PlatformCatalogController::class, 'exportPlans'])->middleware('platform.permission:plan.view')->name('plans.export');
+    Route::get('/plans/{plan_uuid}', [PlatformCatalogController::class, 'showPlan'])->middleware('platform.permission:plan.view')->name('plans.show');
+    Route::match(['put', 'patch'], '/plans/{plan_uuid}', [PlatformCatalogController::class, 'updatePlan'])->middleware('platform.permission:plan.edit')->name('plans.update');
+    Route::delete('/plans/{plan_uuid}', [PlatformCatalogController::class, 'archivePlan'])->middleware('platform.permission:plan.delete')->name('plans.destroy');
+    Route::post('/plans/{plan_uuid}/clone', [PlatformCatalogController::class, 'clonePlan'])->middleware('platform.permission:plan.create')->name('plans.clone');
+    Route::get('/plans/{plan_uuid}/features', [PlatformCatalogController::class, 'planFeatures'])->middleware('platform.permission:plan.view')->name('plans.features');
+    Route::put('/plans/{plan_uuid}/features', [PlatformCatalogController::class, 'replacePlanFeatures'])->middleware('platform.permission:plan.edit')->name('plans.features.update');
+    Route::get('/plans/{plan_uuid}/subscriptions', [PlatformCatalogController::class, 'planSubscriptions'])->middleware('platform.permission:plan.view')->name('plans.subscriptions');
+    Route::get('/features', [PlatformCatalogController::class, 'features'])->middleware('platform.permission:feature.view')->name('features.index');
+    Route::post('/features', [PlatformCatalogController::class, 'storeFeature'])->middleware('platform.permission:feature.create')->name('features.store');
+    Route::get('/features/{feature_uuid}', [PlatformCatalogController::class, 'showFeature'])->middleware('platform.permission:feature.view')->name('features.show');
+    Route::match(['put', 'patch'], '/features/{feature_uuid}', [PlatformCatalogController::class, 'updateFeature'])->middleware('platform.permission:feature.edit')->name('features.update');
+    Route::delete('/features/{feature_uuid}', [PlatformCatalogController::class, 'deleteFeature'])->middleware('platform.permission:feature.delete')->name('features.destroy');
+    Route::get('/addons', [PlatformCatalogController::class, 'addons'])->middleware('platform.permission:plan.view')->name('addons.index');
+    Route::post('/addons', [PlatformCatalogController::class, 'storeAddon'])->middleware('platform.permission:plan.create')->name('addons.store');
+    Route::get('/addons/{addon_uuid}', [PlatformCatalogController::class, 'showAddon'])->middleware('platform.permission:plan.view')->name('addons.show');
+    Route::match(['put', 'patch'], '/addons/{addon_uuid}', [PlatformCatalogController::class, 'updateAddon'])->middleware('platform.permission:plan.edit')->name('addons.update');
+    Route::delete('/addons/{addon_uuid}', [PlatformCatalogController::class, 'archiveAddon'])->middleware('platform.permission:plan.delete')->name('addons.destroy');
+
+    Route::get('/billing/invoices', [PlatformBillingController::class, 'invoices'])->middleware('platform.permission:billing.invoice.view')->name('billing.invoices.index');
+    Route::post('/billing/invoices', [PlatformBillingController::class, 'storeInvoice'])->middleware('platform.permission:billing.invoice.create')->name('billing.invoices.store');
+    Route::post('/billing/invoices/export', [PlatformBillingController::class, 'exportInvoices'])->middleware('platform.permission:billing.invoice.view')->name('billing.invoices.export');
+    Route::get('/billing/invoices/{invoice_uuid}', [PlatformBillingController::class, 'showInvoice'])->middleware('platform.permission:billing.invoice.view')->name('billing.invoices.show');
+    Route::match(['put', 'patch'], '/billing/invoices/{invoice_uuid}', [PlatformBillingController::class, 'updateInvoice'])->middleware('platform.permission:billing.invoice.edit')->name('billing.invoices.update');
+    Route::delete('/billing/invoices/{invoice_uuid}', [PlatformBillingController::class, 'cancelInvoice'])->middleware('platform.permission:billing.invoice.cancel')->name('billing.invoices.cancel');
+    Route::post('/billing/invoices/{invoice_uuid}/send', [PlatformBillingController::class, 'sendInvoice'])->middleware('platform.permission:billing.invoice.send')->name('billing.invoices.send');
+    Route::get('/billing/invoices/{invoice_uuid}/pdf', [PlatformBillingController::class, 'invoicePdf'])->middleware('platform.permission:billing.invoice.view')->name('billing.invoices.pdf');
+    Route::post('/billing/invoices/{invoice_uuid}/payments', [PlatformBillingController::class, 'recordInvoicePayment'])->middleware('platform.permission:billing.payment.create')->name('billing.invoices.payments');
+    Route::get('/billing/payments', [PlatformBillingController::class, 'payments'])->middleware('platform.permission:billing.payment.view')->name('billing.payments.index');
+    Route::post('/billing/payments', [PlatformBillingController::class, 'storePayment'])->middleware('platform.permission:billing.payment.create')->name('billing.payments.store');
+    Route::post('/billing/payments/export', [PlatformBillingController::class, 'exportPayments'])->middleware('platform.permission:billing.payment.view')->name('billing.payments.export');
+    Route::get('/billing/payments/{payment_uuid}', [PlatformBillingController::class, 'showPayment'])->middleware('platform.permission:billing.payment.view')->name('billing.payments.show');
+    Route::post('/billing/payments/{payment_uuid}/retry', [PlatformBillingController::class, 'retryPayment'])->middleware('platform.permission:billing.payment.create')->name('billing.payments.retry');
+    Route::post('/billing/payments/{payment_uuid}/reconcile', [PlatformBillingController::class, 'reconcilePayment'])->middleware('platform.permission:billing.payment.create')->name('billing.payments.reconcile');
+    Route::post('/billing/payments/{payment_uuid}/refund', [PlatformBillingController::class, 'refundPayment'])->middleware('platform.permission:billing.payment.refund')->name('billing.payments.refund');
+    Route::get('/billing/refunds', [PlatformBillingController::class, 'refunds'])->middleware('platform.permission:billing.payment.view')->name('billing.refunds.index');
+    Route::post('/billing/refunds', [PlatformBillingController::class, 'storeRefund'])->middleware('platform.permission:billing.payment.refund')->name('billing.refunds.store');
+    Route::post('/billing/refunds/export', [PlatformBillingController::class, 'exportRefunds'])->middleware('platform.permission:billing.payment.view')->name('billing.refunds.export');
+    Route::get('/billing/refunds/{refund_uuid}', [PlatformBillingController::class, 'showRefund'])->middleware('platform.permission:billing.payment.view')->name('billing.refunds.show');
+    Route::post('/billing/refunds/{refund_uuid}/retry', [PlatformBillingController::class, 'retryRefund'])->middleware('platform.permission:billing.payment.refund')->name('billing.refunds.retry');
+
+    Route::get('/coupons', [PlatformCouponController::class, 'index'])->middleware('platform.permission:coupon.view')->name('coupons.index');
+    Route::post('/coupons', [PlatformCouponController::class, 'store'])->middleware('platform.permission:coupon.create')->name('coupons.store');
+    Route::post('/coupons/export', [PlatformCouponController::class, 'export'])->middleware('platform.permission:coupon.view')->name('coupons.export');
+    Route::get('/coupons/{coupon_uuid}', [PlatformCouponController::class, 'show'])->middleware('platform.permission:coupon.view')->name('coupons.show');
+    Route::match(['put', 'patch'], '/coupons/{coupon_uuid}', [PlatformCouponController::class, 'update'])->middleware('platform.permission:coupon.edit')->name('coupons.update');
+    Route::delete('/coupons/{coupon_uuid}', [PlatformCouponController::class, 'destroy'])->middleware('platform.permission:coupon.delete')->name('coupons.destroy');
+    Route::post('/coupons/{coupon_uuid}/activate', [PlatformCouponController::class, 'activate'])->middleware('platform.permission:coupon.edit')->name('coupons.activate');
+    Route::post('/coupons/{coupon_uuid}/deactivate', [PlatformCouponController::class, 'deactivate'])->middleware('platform.permission:coupon.edit')->name('coupons.deactivate');
+    Route::get('/coupons/{coupon_uuid}/redemptions', [PlatformCouponController::class, 'redemptions'])->middleware('platform.permission:coupon.view')->name('coupons.redemptions');
+    Route::put('/coupons/{coupon_uuid}/plans', [PlatformCouponController::class, 'plans'])->middleware('platform.permission:coupon.edit')->name('coupons.plans');
+    Route::put('/coupons/{coupon_uuid}/tenants', [PlatformCouponController::class, 'tenants'])->middleware('platform.permission:coupon.edit')->name('coupons.tenants');
+
+    Route::get('/modules', [PlatformModuleController::class, 'index'])->middleware('platform.permission:module.view')->name('modules.index');
+    Route::post('/modules', [PlatformModuleController::class, 'store'])->middleware('platform.permission:module.edit')->name('modules.store');
+    Route::get('/modules/{module_uuid}', [PlatformModuleController::class, 'show'])->middleware('platform.permission:module.view')->name('modules.show');
+    Route::match(['put', 'patch'], '/modules/{module_uuid}', [PlatformModuleController::class, 'update'])->middleware('platform.permission:module.edit')->name('modules.update');
+    Route::post('/modules/{module_uuid}/enable', [PlatformModuleController::class, 'enable'])->middleware('platform.permission:module.edit')->name('modules.enable');
+    Route::post('/modules/{module_uuid}/disable', [PlatformModuleController::class, 'disable'])->middleware('platform.permission:module.edit')->name('modules.disable');
+    Route::get('/modules/{module_uuid}/features', [PlatformModuleController::class, 'features'])->middleware('platform.permission:module.view')->name('modules.features');
+    Route::put('/modules/{module_uuid}/features', [PlatformModuleController::class, 'replaceFeatures'])->middleware('platform.permission:module.edit')->name('modules.features.update');
+    Route::get('/modules/{module_uuid}/tenants', [PlatformModuleController::class, 'tenants'])->middleware('platform.permission:module.view')->name('modules.tenants');
+    Route::get('/tenants/{tenant_uuid}/module-entitlements', [PlatformModuleController::class, 'tenantModules'])->middleware('platform.permission:module.view')->name('tenants.module-entitlements');
+    Route::put('/tenants/{tenant_uuid}/modules/{module_code}', [PlatformModuleController::class, 'overrideTenantModule'])->middleware('platform.permission:module.edit')->name('tenants.modules.override');
     Route::prefix('access-control')->name('access-control.')->group(function (): void {
         Route::get('/roles', [PlatformRoleController::class, 'index'])->middleware('platform.permission:platform_role.view')->name('roles.index');
         Route::post('/roles', [PlatformRoleController::class, 'store'])->middleware('platform.permission:platform_role.create')->name('roles.store');
@@ -141,3 +232,5 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::post('/api-tokens/{token_uuid}/rotate', [PlatformApiTokenController::class, 'rotate'])->name('api-tokens.rotate');
     Route::post('/api-tokens/{token_uuid}/revoke', [PlatformApiTokenController::class, 'revoke'])->name('api-tokens.revoke');
 });
+
+
