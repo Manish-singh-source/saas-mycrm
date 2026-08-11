@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: Completed API surface in the same sequence as docs/completed-api-curls.md.
 servers:
-  - url: https://darkgreen-goat-738912.hostingersite.com
+  - url: http://127.0.0.1:8000
     description: Local API root
 tags:
   - name: 0. Common Master Data
@@ -626,10 +626,10 @@ paths:
     delete: {tags: [4. Platform Admin], summary: Release platform team assignment, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TeamUuid'}, {name: assignment_id, in: path, required: true, schema: {type: integer}}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
   /api/platform/v1/platform-team-roles:
     get: {tags: [4. Platform Admin], summary: List platform team roles, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
-    post: {tags: [4. Platform Admin], summary: Create platform team role, security: [{bearerAuth: []}], responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: [4. Platform Admin], summary: Create platform team role, security: [{bearerAuth: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformTeamRoleCreate'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '422': {$ref: '#/components/responses/ValidationError'}}}
   /api/platform/v1/platform-team-roles/{role_uuid}:
-    patch: {tags: [4. Platform Admin], summary: Update platform team role, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/RoleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
-    put: {tags: [4. Platform Admin], summary: Update platform team role, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/RoleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    patch: {tags: [4. Platform Admin], summary: Update platform team role, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/RoleUuid'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformTeamRoleUpdate'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '422': {$ref: '#/components/responses/ValidationError'}}}
+    put: {tags: [4. Platform Admin], summary: Update platform team role, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/RoleUuid'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformTeamRoleUpdate'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '422': {$ref: '#/components/responses/ValidationError'}}}
   /api/platform/v1/tenants:
     get: {tags: [4. Platform Admin], summary: List tenants, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}, {$ref: '#/components/parameters/Search'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
     post: {tags: [4. Platform Admin], summary: Create tenant with owner office subscription settings and roles, security: [{bearerAuth: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformTenantCreate'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '422': {$ref: '#/components/responses/ValidationError'}}}
@@ -2236,6 +2236,28 @@ components:
         code: {type: string, example: customer-success}
         description: {type: string, nullable: true}
         status: {type: string, enum: [active, inactive]}
+    PlatformTeamRoleCreate:
+      type: object
+      required: [name, code]
+      properties:
+        name: {type: string, example: Implementation Lead}
+        code: {type: string, example: implementation_lead}
+        permissions:
+          type: array
+          nullable: true
+          items: {type: string}
+          example: [platform_team.view, platform_team.assign]
+        status: {type: string, enum: [active, inactive], example: active}
+    PlatformTeamRoleUpdate:
+      type: object
+      properties:
+        name: {type: string, example: Senior Implementation Lead}
+        permissions:
+          type: array
+          nullable: true
+          items: {type: string}
+          example: [platform_team.view, platform_team.assign]
+        status: {type: string, enum: [active, inactive], example: active}
     PlatformTenantCreate:
       type: object
       required: [organization_name, organization_code, slug, owner, office]

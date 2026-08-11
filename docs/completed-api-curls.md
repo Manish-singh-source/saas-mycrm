@@ -1236,6 +1236,30 @@ curl -X POST "{{BASE_URL}}/api/platform/v1/platform-teams" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {{PLATFORM_TOKEN}}" \
   -d '{"name":"Customer Success","code":"customer-success","description":"Tenant success operations","status":"active"}'
+
+curl -X POST "{{BASE_URL}}/api/platform/v1/platform-team-roles" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {{PLATFORM_TOKEN}}" \
+  -d '{"name":"Implementation Lead","code":"implementation_lead","permissions":["platform_team.view","platform_team.assign"],"status":"active"}'
+
+curl -X PATCH "{{BASE_URL}}/api/platform/v1/platform-team-roles/{role_uuid}" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {{PLATFORM_TOKEN}}" \
+  -d '{"name":"Senior Implementation Lead","permissions":["platform_team.view","platform_team.assign"],"status":"active"}'
+```
+
+Platform team role create body:
+
+```json
+{"name":"Implementation Lead","code":"implementation_lead","permissions":["platform_team.view","platform_team.assign"],"status":"active"}
+```
+
+Platform team role update body:
+
+```json
+{"name":"Senior Implementation Lead","permissions":["platform_team.view","platform_team.assign"],"status":"active"}
 ```
 
 Response example:
