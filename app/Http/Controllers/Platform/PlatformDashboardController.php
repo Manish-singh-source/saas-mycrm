@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Platform;
 
 use App\Http\Controllers\Shared\BaseApiController;
 use App\Services\Platform\PlatformAdminService;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
 
 class PlatformDashboardController extends BaseApiController
 {
@@ -32,13 +34,13 @@ class PlatformDashboardController extends BaseApiController
             'revenue' => [
                 'mrr' => (string) DB::table('subscriptions')->whereIn('status', ['active', 'trial'])->where('billing_cycle', 'monthly')->sum('payable_amount'),
                 'arr' => (string) (DB::table('subscriptions')->whereIn('status', ['active', 'trial'])->where('billing_cycle', 'monthly')->sum('payable_amount') * 12),
-                'collected_today' => (string) DB::table('platform_payments')->where('payment_status', 'paid')->where('paid_at', '>=', $today)->sum('amount'),
-                'collected_this_month' => (string) DB::table('platform_payments')->where('payment_status', 'paid')->where('paid_at', '>=', $month)->sum('amount'),
+                'collected_today' => (string) DB::table('platform_payments')->whereIn('payment_status', ['paid', 'success', 'completed'])->where('paid_at', '>=', $today)->sum('amount'),
+                'collected_this_month' => (string) DB::table('platform_payments')->whereIn('payment_status', ['paid', 'success', 'completed'])->where('paid_at', '>=', $month)->sum('amount'),
                 'currency' => 'INR',
             ],
             'billing' => [
-                'overdue_invoice_count' => DB::table('platform_invoices')->where('status', 'overdue')->orWhere(fn ($q) => $q->where('balance_amount', '>', 0)->whereDate('due_date', '<', now()))->count(),
-                'overdue_balance' => (string) DB::table('platform_invoices')->where('balance_amount', '>', 0)->whereDate('due_date', '<', now())->sum('balance_amount'),
+                'overdue_invoice_count' => DB::table('platform_invoices')->whereNull('deleted_at')->where(fn (Builder $query) => $query->where('status', 'overdue')->orWhere(fn (Builder $q) => $q->where('balance_amount', '>', 0)->whereDate('due_date', '<', now())))->count(),
+                'overdue_balance' => (string) DB::table('platform_invoices')->whereNull('deleted_at')->where('balance_amount', '>', 0)->whereDate('due_date', '<', now())->sum('balance_amount'),
                 'failed_payment_count' => DB::table('platform_payments')->where('payment_status', 'failed')->count(),
             ],
             'operations' => [
@@ -50,30 +52,75 @@ class PlatformDashboardController extends BaseApiController
         ]);
     }
 
-    public function charts()
+    public function charts(Request $request)
     {
+        $subscriptionStatus = $this->subscriptionStatus();
+
         return $this->success([
-            'tenant_growth' => DB::table('tenants')->selectRaw("DATE(created_at) as date, COUNT(*) as count")->groupBy('date')->orderBy('date')->limit(30)->get(),
-            'revenue' => DB::table('platform_payments')->selectRaw("DATE(paid_at) as date, SUM(amount) as amount")->where('payment_status', 'paid')->groupBy('date')->orderBy('date')->limit(30)->get(),
-            'tenant_status' => DB::table('tenants')->selectRaw('status, COUNT(*) as count')->whereNull('deleted_at')->groupBy('status')->get(),
+            'tenant_growth' => $this->tenantGrowth($request),
+            'revenue' => $this->revenue($request),
+            'plan_distribution' => $this->planDistribution($request),
+            'subscription_status' => $subscriptionStatus,
+            'tenant_status' => $subscriptionStatus,
+            'usage' => $this->usage($request),
         ]);
+    }
+
+    public function chart(Request $request, string $chart)
+    {
+        return match ($chart) {
+            'tenant-growth' => $this->success($this->tenantGrowth($request)),
+            'revenue' => $this->success($this->revenue($request)),
+            'plan-distribution' => $this->success($this->planDistribution($request)),
+            'subscription-status' => $this->success($this->subscriptionStatus()),
+            'usage' => $this->success($this->usage($request)),
+            default => $this->businessError('Dashboard chart not found.', 'DASHBOARD_CHART_NOT_FOUND', Response::HTTP_NOT_FOUND),
+        };
     }
 
     public function recent()
     {
         return $this->success([
-            'recent_tenants' => DB::table('tenants')->whereNull('deleted_at')->latest('id')->limit(10)->get(['uuid', 'organization_name', 'slug', 'status', 'created_at']),
-            'recent_payments' => DB::table('platform_payments')->join('tenants', 'tenants.id', '=', 'platform_payments.tenant_id')->latest('platform_payments.id')->limit(10)->get(['platform_payments.uuid', 'tenants.organization_name', 'amount', 'currency', 'payment_status', 'paid_at']),
-            'overdue_invoices' => DB::table('platform_invoices')->join('tenants', 'tenants.id', '=', 'platform_invoices.tenant_id')->where('balance_amount', '>', 0)->whereDate('due_date', '<', now())->latest('platform_invoices.id')->limit(10)->get(['platform_invoices.uuid', 'invoice_number', 'tenants.organization_name', 'balance_amount', 'due_date', 'platform_invoices.status']),
+            'recent_tenants' => $this->recentTenantsRows(),
+            'recent_payments' => $this->recentPaymentsRows(),
+            'overdue_invoices' => $this->overdueInvoiceRows(),
         ]);
+    }
+
+    public function recentTenants()
+    {
+        return $this->success($this->recentTenantsRows());
+    }
+
+    public function recentPayments()
+    {
+        return $this->success($this->recentPaymentsRows());
+    }
+
+    public function overdueInvoices()
+    {
+        return $this->success($this->overdueInvoiceRows());
     }
 
     public function alerts()
     {
+        $alerts = $this->activeAlertRows();
+
         return $this->success([
-            'alerts' => DB::table('monitoring_alerts')->where('status', 'open')->latest('id')->limit(20)->get(),
-            'security_events' => DB::table('security_events')->latest('id')->limit(20)->get(),
+            'alerts' => $alerts,
+            'active_alerts' => $alerts,
+            'security_events' => $this->securityEventRows(),
         ]);
+    }
+
+    public function activeAlerts()
+    {
+        return $this->success($this->activeAlertRows());
+    }
+
+    public function securityEvents()
+    {
+        return $this->success($this->securityEventRows());
     }
 
     public function export(Request $request)
@@ -105,5 +152,165 @@ class PlatformDashboardController extends BaseApiController
         $this->admin->audit($request, 'platform.dashboard_exported', 'file', $id, null, ['uuid' => $file->uuid, 'original_name' => $file->original_name]);
 
         return $this->success(['file' => ['uuid' => $file->uuid, 'original_name' => $file->original_name, 'mime_type' => $file->mime_type, 'size_bytes' => $file->size_bytes]], 'Dashboard export created.', 201);
+    }
+
+    private function tenantGrowth(Request $request)
+    {
+        return $this->dateFiltered(DB::table('tenants')->whereNull('deleted_at'), $request, 'created_at')
+            ->selectRaw('DATE(created_at) as date, COUNT(*) as count')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->limit(30)
+            ->get();
+    }
+
+    private function revenue(Request $request)
+    {
+        return $this->dateFiltered(DB::table('platform_payments')->whereIn('payment_status', ['paid', 'success', 'completed', 'failed']), $request, 'paid_at')
+            ->selectRaw("DATE(paid_at) as date, SUM(CASE WHEN payment_status IN ('paid', 'success', 'completed') THEN amount ELSE 0 END) as amount, SUM(CASE WHEN payment_status IN ('paid', 'success', 'completed') THEN 1 ELSE 0 END) as success, SUM(CASE WHEN payment_status = 'failed' THEN 1 ELSE 0 END) as failed")
+            ->whereNotNull('paid_at')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->limit(30)
+            ->get();
+    }
+
+    private function planDistribution(Request $request)
+    {
+        return $this->dateFiltered(DB::table('subscriptions'), $request, 'subscriptions.created_at')
+            ->join('plans', 'plans.id', '=', 'subscriptions.plan_id')
+            ->whereNull('subscriptions.deleted_at')
+            ->selectRaw('plans.name as name, plans.code as code, COUNT(*) as count, SUM(subscriptions.payable_amount) as revenue')
+            ->groupBy('plans.name', 'plans.code')
+            ->orderByDesc('count')
+            ->get();
+    }
+
+    private function subscriptionStatus()
+    {
+        return DB::table('subscriptions')
+            ->whereNull('deleted_at')
+            ->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->orderBy('status')
+            ->get();
+    }
+
+    private function usage(Request $request)
+    {
+        return $this->dateFiltered(DB::table('tenant_usage_snapshots'), $request, 'period_start')
+            ->selectRaw('period_start as date, SUM(api_requests) as api, ROUND(SUM(storage_bytes) / 1099511627776, 2) as storage, SUM(users_count) as users, SUM(projects_count) as projects, SUM(invoices_count) as invoices')
+            ->groupBy('period_start')
+            ->orderBy('period_start')
+            ->limit(30)
+            ->get();
+    }
+
+    private function recentTenantsRows()
+    {
+        $latestSubscriptions = DB::table('subscriptions')
+            ->selectRaw('MAX(id) as id, tenant_id')
+            ->whereNull('deleted_at')
+            ->groupBy('tenant_id');
+
+        return DB::table('tenants')
+            ->leftJoin('users as owners', fn ($join) => $join->on('owners.tenant_id', '=', 'tenants.id')->where('owners.account_type', '=', 'owner'))
+            ->leftJoinSub($latestSubscriptions, 'latest_subscriptions', fn ($join) => $join->on('latest_subscriptions.tenant_id', '=', 'tenants.id'))
+            ->leftJoin('subscriptions', 'subscriptions.id', '=', 'latest_subscriptions.id')
+            ->leftJoin('plans', 'plans.id', '=', 'subscriptions.plan_id')
+            ->whereNull('tenants.deleted_at')
+            ->latest('tenants.id')
+            ->limit(10)
+            ->get([
+                'tenants.uuid',
+                'tenants.organization_name',
+                'tenants.slug',
+                'owners.display_name as owner_name',
+                'owners.email as owner_email',
+                'plans.name as plan_name',
+                'subscriptions.status as subscription_status',
+                'tenants.status',
+                'tenants.created_at',
+            ]);
+    }
+
+    private function recentPaymentsRows()
+    {
+        return DB::table('platform_payments')
+            ->join('tenants', 'tenants.id', '=', 'platform_payments.tenant_id')
+            ->latest('platform_payments.id')
+            ->limit(10)
+            ->get([
+                'platform_payments.uuid',
+                'platform_payments.payment_number',
+                'tenants.organization_name',
+                'tenants.organization_name as tenant_name',
+                'platform_payments.amount',
+                'platform_payments.currency',
+                'platform_payments.gateway',
+                'platform_payments.payment_status',
+                'platform_payments.paid_at',
+            ]);
+    }
+
+    private function overdueInvoiceRows()
+    {
+        return DB::table('platform_invoices')
+            ->join('tenants', 'tenants.id', '=', 'platform_invoices.tenant_id')
+            ->whereNull('platform_invoices.deleted_at')
+            ->where('balance_amount', '>', 0)
+            ->whereDate('due_date', '<', now())
+            ->latest('platform_invoices.id')
+            ->limit(10)
+            ->get([
+                'platform_invoices.uuid',
+                'platform_invoices.invoice_number',
+                'tenants.organization_name',
+                'tenants.organization_name as tenant_name',
+                'platform_invoices.balance_amount',
+                'platform_invoices.currency',
+                'platform_invoices.due_date',
+                'platform_invoices.status',
+            ]);
+    }
+
+    private function activeAlertRows()
+    {
+        return DB::table('monitoring_alerts')
+            ->where('status', 'open')
+            ->latest('id')
+            ->limit(20)
+            ->get();
+    }
+
+    private function securityEventRows()
+    {
+        return DB::table('security_events')
+            ->leftJoin('tenants', 'tenants.id', '=', 'security_events.tenant_id')
+            ->leftJoin('users', 'users.id', '=', 'security_events.user_id')
+            ->latest('security_events.id')
+            ->limit(20)
+            ->get([
+                'security_events.id',
+                'security_events.event',
+                'security_events.severity',
+                'security_events.ip_address',
+                'security_events.created_at',
+                'tenants.organization_name as tenant_name',
+                'users.display_name as actor',
+            ]);
+    }
+
+    private function dateFiltered(Builder $query, Request $request, string $column): Builder
+    {
+        if ($request->filled('date_from')) {
+            $query->whereDate($column, '>=', $request->input('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate($column, '<=', $request->input('date_to'));
+        }
+
+        return $query;
     }
 }

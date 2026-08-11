@@ -1,4 +1,4 @@
-# Platform APIs
+﻿# Platform APIs
 
 This document defines the SaaS Super Admin API surface for the platform pages in `docs/platform-pages.md`, aligned with the database design in `docs/database.md`.
 
@@ -141,15 +141,15 @@ Data sources: `tenants`, `subscriptions`, `plans`, `platform_invoices`, `platfor
 | Method | Endpoint                                | Permission       | Purpose                   |
 | -------- | ----------------------------------------- | ------------------ | --------------------------- |
 | GET    | `/dashboard/summary`                    | `dashboard.view` | KPI cards                 |
-| GET    | `/dashboard/charts/tenant-growth`       | `dashboard.view` | Tenant growth chart       |
+| GET    | `/dashboard/charts`                    | `dashboard.view` | Aggregate chart payload   |`r`n| GET    | `/dashboard/charts/tenant-growth`       | `dashboard.view` | Tenant growth chart       |
 | GET    | `/dashboard/charts/revenue`             | `dashboard.view` | Revenue chart             |
 | GET    | `/dashboard/charts/plan-distribution`   | `dashboard.view` | Plan distribution         |
 | GET    | `/dashboard/charts/subscription-status` | `dashboard.view` | Subscription status chart |
 | GET    | `/dashboard/charts/usage`               | `dashboard.view` | API/storage usage chart   |
-| GET    | `/dashboard/recent-tenants`             | `dashboard.view` | Recent tenants table      |
+| GET    | `/dashboard/recent`                    | `dashboard.view` | Aggregate recent payload  |`r`n| GET    | `/dashboard/recent-tenants`             | `dashboard.view` | Recent tenants table      |
 | GET    | `/dashboard/recent-payments`            | `dashboard.view` | Recent payments table     |
 | GET    | `/dashboard/overdue-invoices`           | `dashboard.view` | Overdue invoices          |
-| GET    | `/dashboard/active-alerts`              | `dashboard.view` | Active alerts             |
+| GET    | `/dashboard/alerts`                    | `dashboard.view` | Aggregate alerts payload  |`r`n| GET    | `/dashboard/active-alerts`              | `dashboard.view` | Active alerts             |
 | GET    | `/dashboard/security-events`            | `dashboard.view` | Recent security events    |
 | POST   | `/dashboard/export`                     | `dashboard.view` | Export snapshot           |
 
@@ -1387,3 +1387,4 @@ This API surface covers every platform page described in `docs/platform-pages.md
 | Missing SaaS essentials added | Legal docs, announcements, API tokens, outbound platform webhooks                        |
 
 Implementation priority should be: auth/session APIs, access control, tenants, plans/subscriptions/billing, then monitoring/support/settings. Each mutating endpoint should enforce platform permission checks and write audit records with actor, subject, before/after changes, IP address, user agent, and request id.
+

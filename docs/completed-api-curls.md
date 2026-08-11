@@ -1149,8 +1149,18 @@ Implemented endpoints:
 ```http
 GET /dashboard/summary
 GET /dashboard/charts
+GET /dashboard/charts/tenant-growth
+GET /dashboard/charts/revenue
+GET /dashboard/charts/plan-distribution
+GET /dashboard/charts/subscription-status
+GET /dashboard/charts/usage
 GET /dashboard/recent
+GET /dashboard/recent-tenants
+GET /dashboard/recent-payments
+GET /dashboard/overdue-invoices
 GET /dashboard/alerts
+GET /dashboard/active-alerts
+GET /dashboard/security-events
 POST /dashboard/export
 ```
 
@@ -1167,6 +1177,32 @@ Response example:
 {"success":true,"message":"OK","data":{"tenants":{"total":120,"active":91,"trial":12,"suspended":4,"expired":7},"revenue":{"mrr":"120000.00","arr":"1440000.00","currency":"INR"},"billing":{"overdue_invoice_count":8,"overdue_balance":"45000.00"},"operations":{"open_incidents":2}},"meta":{"request_id":"{{REQUEST_ID}}"},"errors":null}
 ```
 
+Granular widget curl examples:
+
+```bash
+for endpoint in \
+  dashboard/charts/tenant-growth \
+  dashboard/charts/revenue \
+  dashboard/charts/plan-distribution \
+  dashboard/charts/subscription-status \
+  dashboard/charts/usage \
+  dashboard/recent-tenants \
+  dashboard/recent-payments \
+  dashboard/overdue-invoices \
+  dashboard/active-alerts \
+  dashboard/security-events; do
+  curl -X GET "{{BASE_URL}}/api/platform/v1/${endpoint}" \
+    -H "Accept: application/json" \
+    -H "Authorization: Bearer {{PLATFORM_TOKEN}}" \
+    -H "X-Request-Id: {{REQUEST_ID}}"
+done
+```
+
+Recent tenant row shape:
+
+```json
+{"success":true,"message":"OK","data":[{"uuid":"tenant_uuid","organization_name":"Acme CRM Labs","slug":"dash-acme","owner_name":"Anika Rao","owner_email":"owner.acme.dashboard@example.test","plan_name":"Dashboard Growth","subscription_status":"active","status":"active","created_at":"2026-08-11T00:00:00.000000Z"}],"meta":{"request_id":"{{REQUEST_ID}}"},"errors":null}
+```
 ## 4.2 Platform Staff
 
 Implemented endpoints:
@@ -2826,3 +2862,4 @@ Common errors:
 ```json
 {"success":false,"message":"Missing tenant permission.","data":null,"meta":{"request_id":"{{REQUEST_ID}}"},"errors":{"code":"TENANT_PERMISSION_DENIED","details":{"permissions":["lead.convert"]}}}
 ```
+

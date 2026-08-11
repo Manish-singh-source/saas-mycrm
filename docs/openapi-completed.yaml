@@ -1,10 +1,10 @@
-openapi: 3.1.0
+﻿openapi: 3.1.0
 info:
   title: SaaS MyCRM Completed APIs
   version: 1.0.0
   description: Completed API surface in the same sequence as docs/completed-api-curls.md.
 servers:
-  - url: http://127.0.0.1:8000
+  - url: https://darkgreen-goat-738912.hostingersite.com
     description: Local API root
 tags:
   - name: 0. Common Master Data
@@ -562,11 +562,29 @@ paths:
   /api/platform/v1/dashboard/summary:
     get: {tags: [4. Platform Admin], summary: Platform dashboard summary, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '403': {$ref: '#/components/responses/Forbidden'}}}
   /api/platform/v1/dashboard/charts:
-    get: {tags: [4. Platform Admin], summary: Platform dashboard charts, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    get: {tags: [4. Platform Admin], summary: Platform dashboard aggregate charts, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/dashboard/charts/{chart}:
+    get:
+      tags: [4. Platform Admin]
+      summary: Platform dashboard chart widget
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: chart, in: path, required: true, schema: {type: string, enum: [tenant-growth, revenue, plan-distribution, subscription-status, usage]}}
+      responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}
   /api/platform/v1/dashboard/recent:
-    get: {tags: [4. Platform Admin], summary: Platform dashboard recent records, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    get: {tags: [4. Platform Admin], summary: Platform dashboard aggregate recent records, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/dashboard/recent-tenants:
+    get: {tags: [4. Platform Admin], summary: Platform dashboard recent tenants, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+  /api/platform/v1/dashboard/recent-payments:
+    get: {tags: [4. Platform Admin], summary: Platform dashboard recent payments, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+  /api/platform/v1/dashboard/overdue-invoices:
+    get: {tags: [4. Platform Admin], summary: Platform dashboard overdue invoices, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '403': {$ref: '#/components/responses/Forbidden'}}}
   /api/platform/v1/dashboard/alerts:
-    get: {tags: [4. Platform Admin], summary: Platform dashboard alerts and security events, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    get: {tags: [4. Platform Admin], summary: Platform dashboard aggregate alerts and security events, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+  /api/platform/v1/dashboard/active-alerts:
+    get: {tags: [4. Platform Admin], summary: Platform dashboard active alerts, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+  /api/platform/v1/dashboard/security-events:
+    get: {tags: [4. Platform Admin], summary: Platform dashboard security events, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '403': {$ref: '#/components/responses/Forbidden'}}}
   /api/platform/v1/dashboard/export:
     post: {tags: [4. Platform Admin], summary: Export platform dashboard, security: [{bearerAuth: []}], responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
   /api/platform/v1/platform-users:
@@ -2542,6 +2560,7 @@ components:
     RoleInUse: {description: Role has assigned users, content: {application/json: {example: {success: false, message: Assigned roles cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: ROLE_IN_USE, details: []}}}}}
     PermissionInUse: {description: Permission is assigned to roles, content: {application/json: {example: {success: false, message: Assigned permissions cannot be deleted., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: PERMISSION_IN_USE, details: []}}}}}
     FinalOwnerAdminRequired: {description: Final tenant owner/admin protection, content: {application/json: {example: {success: false, message: Cannot remove the final owner/admin role from this tenant., data: null, meta: {request_id: '{{REQUEST_ID}}'}, errors: {code: FINAL_OWNER_ADMIN_ROLE_REQUIRED, details: []}}}}}
+
 
 
 

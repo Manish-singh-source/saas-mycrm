@@ -53,8 +53,14 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::prefix('dashboard')->name('dashboard.')->group(function (): void {
         Route::get('/summary', [PlatformDashboardController::class, 'summary'])->middleware('platform.permission:dashboard.view')->name('summary');
         Route::get('/charts', [PlatformDashboardController::class, 'charts'])->middleware('platform.permission:dashboard.view')->name('charts');
+        Route::get('/charts/{chart}', [PlatformDashboardController::class, 'chart'])->middleware('platform.permission:dashboard.view')->name('charts.show');
         Route::get('/recent', [PlatformDashboardController::class, 'recent'])->middleware('platform.permission:dashboard.view')->name('recent');
+        Route::get('/recent-tenants', [PlatformDashboardController::class, 'recentTenants'])->middleware('platform.permission:dashboard.view')->name('recent-tenants');
+        Route::get('/recent-payments', [PlatformDashboardController::class, 'recentPayments'])->middleware('platform.permission:dashboard.view')->name('recent-payments');
+        Route::get('/overdue-invoices', [PlatformDashboardController::class, 'overdueInvoices'])->middleware('platform.permission:dashboard.view')->name('overdue-invoices');
         Route::get('/alerts', [PlatformDashboardController::class, 'alerts'])->middleware('platform.permission:dashboard.view')->name('alerts');
+        Route::get('/active-alerts', [PlatformDashboardController::class, 'activeAlerts'])->middleware('platform.permission:dashboard.view')->name('active-alerts');
+        Route::get('/security-events', [PlatformDashboardController::class, 'securityEvents'])->middleware('platform.permission:dashboard.view')->name('security-events');
         Route::post('/export', [PlatformDashboardController::class, 'export'])->middleware('platform.permission:dashboard.view')->name('export');
     });
 
