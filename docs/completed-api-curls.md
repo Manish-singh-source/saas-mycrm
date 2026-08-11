@@ -1696,6 +1696,37 @@ Response example:
 {"success":true,"message":"User removed from role.","data":null,"meta":{"request_id":"{{REQUEST_ID}}"},"errors":null}
 ```
 
+### Export roles
+
+Supported list sorting: `sort=name|display_name|status|created_at|updated_at`, `direction=asc|desc`.
+
+Queued export:
+
+```bash
+curl -X POST "{{BASE_URL}}/api/platform/v1/access-control/roles/export" \
+  -H "Authorization: Bearer {{PLATFORM_TOKEN}}" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "X-Request-Id: {{REQUEST_ID}}" \
+  -d '{"format":"csv","delivery":"job","scope":"filtered","filters":{"status":"active","type":"custom","guard_name":"platform"},"sort":"display_name","direction":"asc","columns":["uuid","name","display_name","status"],"timezone":"Asia/Calcutta","email_when_ready":true}'
+```
+
+Immediate CSV metadata/content:
+
+```bash
+curl -X POST "{{BASE_URL}}/api/platform/v1/access-control/roles/export" \
+  -H "Authorization: Bearer {{PLATFORM_TOKEN}}" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "X-Request-Id: {{REQUEST_ID}}" \
+  -d '{"format":"csv","delivery":"download","scope":"selected","selected_ids":["role_uuid"],"columns":["uuid","name","display_name","status"]}'
+```
+
+Response example:
+
+```json
+{"success":true,"message":"Export ready.","data":{"download":{"filename":"platform-roles-20260811.csv","mime_type":"text/csv","size_bytes":128,"content":"uuid,name,display_name,status\n..."}},"meta":{"request_id":"{{REQUEST_ID}}"},"errors":null}
+```
 ## 5.2 Platform Permissions
 
 ### List permissions
@@ -1812,6 +1843,37 @@ Response example:
 {"success":true,"message":"Permission deleted.","data":null,"meta":{"request_id":"{{REQUEST_ID}}"},"errors":null}
 ```
 
+### Export permissions
+
+Supported list sorting: `sort=module|name|display_name|status|created_at|updated_at`, `direction=asc|desc`.
+
+Queued export:
+
+```bash
+curl -X POST "{{BASE_URL}}/api/platform/v1/access-control/permissions/export" \
+  -H "Authorization: Bearer {{PLATFORM_TOKEN}}" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "X-Request-Id: {{REQUEST_ID}}" \
+  -d '{"format":"csv","delivery":"job","scope":"filtered","filters":{"module":"billing","status":"active","guard_name":"platform"},"sort":"module","direction":"asc","columns":["uuid","module","name","status"]}'
+```
+
+Immediate CSV metadata/content:
+
+```bash
+curl -X POST "{{BASE_URL}}/api/platform/v1/access-control/permissions/export" \
+  -H "Authorization: Bearer {{PLATFORM_TOKEN}}" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "X-Request-Id: {{REQUEST_ID}}" \
+  -d '{"format":"csv","delivery":"download","scope":"selected","selected_ids":["permission_uuid"],"columns":["uuid","module","name","status"]}'
+```
+
+Response example:
+
+```json
+{"success":true,"message":"Export ready.","data":{"download":{"filename":"platform-permissions-20260811.csv","mime_type":"text/csv","size_bytes":128,"content":"uuid,module,name,status\n..."}},"meta":{"request_id":"{{REQUEST_ID}}"},"errors":null}
+```
 ## 5.3 Platform RBAC Errors
 
 Missing platform permission:
@@ -2628,7 +2690,9 @@ curl -X POST "{{BASE_URL}}/api/platform/v1/integrations/webhook-logs/{log_id}/re
 curl -X GET "{{BASE_URL}}/api/platform/v1/settings/platform" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Accept: application/json"
 curl -X PUT "{{BASE_URL}}/api/platform/v1/settings/platform" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Content-Type: application/json" -H "Accept: application/json" -d '{"settings":{"billing":{"invoice_prefix":"INV"},"trials":{"trial_days":14}}}'
 curl -X POST "{{BASE_URL}}/api/platform/v1/settings/backups/run" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Content-Type: application/json" -H "Accept: application/json" -d '{"backup_type":"manual"}'
-curl -X GET "{{BASE_URL}}/api/platform/v1/audit/activity-logs" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Accept: application/json"
+curl -X GET "{{BASE_URL}}/api/platform/v1/audit/activity-logs?filter[event]=auth.login_success&sort=created_at&direction=desc" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Accept: application/json"
+curl -X POST "{{BASE_URL}}/api/platform/v1/audit/export" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Content-Type: application/json" -H "Accept: application/json" -d '{"format":"csv","delivery":"job","scope":"filtered","filters":{"event":"auth.login_success"},"columns":["event","subject_type","description","created_at"]}'
+curl -X POST "{{BASE_URL}}/api/platform/v1/audit/export" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Content-Type: application/json" -H "Accept: application/json" -d '{"format":"csv","delivery":"download","scope":"filtered","filters":{"event":"auth.login_success"},"columns":["event","subject_type","description","created_at"]}'
 curl -X GET "{{BASE_URL}}/api/platform/v1/audit/security-events" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Accept: application/json"
 curl -X POST "{{BASE_URL}}/api/platform/v1/audit/security-events/{event_id}/review" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Content-Type: application/json" -H "Accept: application/json" -d '{"status":"reviewed","notes":"Expected admin action"}'
 curl -X GET "{{BASE_URL}}/api/platform/v1/onboarding/tenants" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Accept: application/json"

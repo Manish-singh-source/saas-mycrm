@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Platform;
 
 use App\Services\Platform\PlatformOperationsService;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class PlatformSettingsAuditController extends BasePlatformController
 {
@@ -26,10 +28,10 @@ class PlatformSettingsAuditController extends BasePlatformController
     public function backupRun(string $run_uuid) { return $this->success(['backup_run' => $this->ops->byUuid('backup_runs', $run_uuid)]); }
     public function backupDownload(string $run_uuid) { $run = $this->ops->byUuid('backup_runs', $run_uuid); return $this->success(['backup_run' => $run, 'download' => $run->file_id ? ['file_id' => $run->file_id] : null]); }
 
-    public function activityLogs(Request $request) { $p = DB::table('activity_logs')->latest('id')->paginate((int) $request->integer('per_page', 25)); return $this->list($p->items(), $p); }
+    public function activityLogs(Request $request) { $query = $this->auditQuery($request); $this->applyAuditSort($query, $request); $p = $query->paginate((int) $request->integer('per_page', 25)); return $this->list($p->items(), $p); }
     public function securityEvents(Request $request) { $p = DB::table('security_events')->latest('id')->paginate((int) $request->integer('per_page', 25)); $items = collect($p->items())->map(fn ($e) => tap($e, fn ($x) => $x->metadata = $this->ops->mask($x->metadata)))->all(); return $this->list($items, $p); }
     public function reviewSecurityEvent(Request $request, int $event_id) { $e = DB::table('security_events')->where('id', $event_id)->first(); abort_if(! $e, 404); $d = $request->validate(['status' => ['required', 'string'], 'notes' => ['required', 'string']]); $metadata = $this->ops->mask($e->metadata); $metadata['review'] = ['status' => $d['status'], 'notes' => $d['notes'], 'reviewed_by' => $request->user()?->id, 'reviewed_at' => now()->toISOString()]; DB::table('security_events')->where('id', $event_id)->update(['metadata' => json_encode($metadata)]); $this->ops->audit($request, 'security_event_reviewed', 'security_events', $event_id, (array) $e, $metadata, $d['notes']); return $this->success(['security_event' => DB::table('security_events')->where('id', $event_id)->first()], 'Security event reviewed.'); }
-    public function exportAudit(Request $request) { $id = DB::table('report_export_jobs')->insertGetId(['uuid' => (string) Str::uuid(), 'report_code' => 'audit-logs', 'format' => $request->input('format', 'csv'), 'filters' => json_encode($request->query()), 'status' => 'queued', 'created_by' => $request->user()?->id, 'created_at' => now(), 'updated_at' => now()]); return $this->success(['export' => DB::table('report_export_jobs')->where('id', $id)->first()], 'Audit export queued.', 201); }
+    public function exportAudit(Request $request) { $data = $this->auditExportData($request); if ($data['delivery'] === 'download') { $query = $this->auditQuery($request); $this->applyAuditSort($query, $request); $records = $query->limit(5000)->get()->map(fn ($record) => (array) $record)->all(); $content = $this->csv($records, $data['columns']); return $this->success(['download' => ['filename' => 'audit-logs-'.now()->format('Ymd-His').'.csv', 'mime_type' => 'text/csv', 'size_bytes' => strlen($content), 'content' => $content]], 'Audit export ready.', 201); } $id = DB::table('report_export_jobs')->insertGetId(['uuid' => (string) Str::uuid(), 'report_code' => 'audit-logs', 'format' => $data['format'], 'filters' => json_encode([...$request->query(), ...$data]), 'status' => 'queued', 'created_by' => $request->user()?->id, 'created_at' => now(), 'updated_at' => now()]); return $this->success(['export' => DB::table('report_export_jobs')->where('id', $id)->first()], 'Audit export queued.', 201); }
 
     public function onboardingTenants(Request $request) { $p = DB::table('tenants')->leftJoin('tenant_onboarding_steps', 'tenant_onboarding_steps.tenant_id', '=', 'tenants.id')->selectRaw('tenants.uuid, tenants.organization_name, tenants.status, COUNT(tenant_onboarding_steps.id) as steps')->groupBy('tenants.uuid', 'tenants.organization_name', 'tenants.status')->paginate((int) $request->integer('per_page', 25)); return $this->list($p->items(), $p); }
     public function onboardingTenant(string $tenant_uuid) { $tenantId = $this->ops->tenantId($tenant_uuid); return $this->success(['tenant' => DB::table('tenants')->where('id', $tenantId)->first(), 'steps' => DB::table('tenant_onboarding_steps')->where('tenant_id', $tenantId)->get()]); }
@@ -61,4 +63,85 @@ class PlatformSettingsAuditController extends BasePlatformController
     public function webhookDeliveries(string $uuid) { $e = $this->ops->byUuid('platform_webhook_endpoints', $uuid); return $this->success(['deliveries' => DB::table('platform_webhook_deliveries')->where('platform_webhook_endpoint_id', $e->id)->get()->map(fn ($d) => tap($d, fn ($x) => $x->payload = $this->ops->mask($x->payload)))]); }
     public function webhookDelivery(string $uuid) { $d = $this->ops->byUuid('platform_webhook_deliveries', $uuid); $d->payload = $this->ops->mask($d->payload); return $this->success(['delivery' => $d]); }
     public function retryWebhookDelivery(Request $request, string $uuid) { $d = $this->ops->byUuid('platform_webhook_deliveries', $uuid); DB::table('platform_webhook_deliveries')->where('id', $d->id)->update(['status' => 'retry_queued', 'retry_count' => DB::raw('retry_count + 1'), 'queued_at' => now(), 'updated_at' => now()]); return $this->success(['delivery' => DB::table('platform_webhook_deliveries')->where('id', $d->id)->first()], 'Webhook delivery retry queued.'); }
+    private function auditQuery(Request $request): Builder
+    {
+        $query = DB::table('activity_logs');
+        $value = fn (string $key) => $request->input('filter.'.$key, $request->input('filters.'.$key, $request->input($key)));
+
+        if ($search = $value('search')) {
+            $query->where(fn ($q) => $q->where('event', 'like', '%'.$search.'%')->orWhere('subject_type', 'like', '%'.$search.'%')->orWhere('description', 'like', '%'.$search.'%'));
+        }
+        foreach (['event', 'subject_type', 'subject_id', 'actor_platform_user_id'] as $field) {
+            if (($filterValue = $value($field)) !== null && $filterValue !== '') {
+                $query->where($field, $filterValue);
+            }
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->input('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->input('date_to'));
+        }
+        $selected = $request->input('selected_ids', []);
+        if ($request->input('scope') === 'selected' && is_array($selected) && $selected !== []) {
+            $query->whereIn('id', $selected);
+        }
+
+        return $query;
+    }
+
+    private function applyAuditSort(Builder $query, Request $request): void
+    {
+        $allowed = ['id', 'event', 'subject_type', 'created_at'];
+        $sort = (string) $request->input('sort', 'created_at');
+        if (! in_array($sort, $allowed, true)) {
+            $sort = 'created_at';
+        }
+        $direction = strtolower((string) $request->input('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $query->orderBy($sort, $direction)->orderBy('id', 'desc');
+    }
+
+    private function auditExportData(Request $request): array
+    {
+        $columns = ['id', 'actor_platform_user_id', 'subject_type', 'subject_id', 'event', 'description', 'ip_address', 'request_id', 'created_at'];
+        $data = $request->validate([
+            'format' => ['nullable', Rule::in(['csv'])],
+            'delivery' => ['nullable', Rule::in(['job', 'download'])],
+            'scope' => ['nullable', Rule::in(['filtered', 'selected'])],
+            'filters' => ['nullable', 'array'],
+            'sort' => ['nullable', Rule::in(['id', 'event', 'subject_type', 'created_at'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
+            'columns' => ['nullable', 'array'],
+            'columns.*' => ['string'],
+            'selected_ids' => ['nullable', 'array'],
+            'selected_ids.*' => ['string'],
+            'timezone' => ['nullable', 'string', 'max:100'],
+            'email_when_ready' => ['nullable', 'boolean'],
+        ]);
+        $requested = array_values(array_intersect($data['columns'] ?? [], $columns));
+
+        return [
+            ...$data,
+            'format' => $data['format'] ?? 'csv',
+            'delivery' => $data['delivery'] ?? 'job',
+            'scope' => $data['scope'] ?? 'filtered',
+            'columns' => $requested !== [] ? $requested : $columns,
+        ];
+    }
+
+    private function csv(array $records, array $columns): string
+    {
+        $lines = [implode(',', $columns)];
+        foreach ($records as $record) {
+            $lines[] = implode(',', array_map(fn ($column) => $this->csvValue($record[$column] ?? null), $columns));
+        }
+        return implode("\n", $lines)."\n";
+    }
+
+    private function csvValue(mixed $value): string
+    {
+        if ($value === null) $value = '';
+        if (is_array($value) || is_object($value)) $value = json_encode($value);
+        return '"'.str_replace('"', '""', (string) $value).'"';
+    }
 }

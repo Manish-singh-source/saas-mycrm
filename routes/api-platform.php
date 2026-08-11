@@ -202,6 +202,7 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::put('/tenants/{tenant_uuid}/modules/{module_code}', [PlatformModuleController::class, 'overrideTenantModule'])->middleware('platform.permission:module.edit')->name('tenants.modules.override');
     Route::prefix('access-control')->name('access-control.')->group(function (): void {
         Route::get('/roles', [PlatformRoleController::class, 'index'])->middleware('platform.permission:platform_role.view')->name('roles.index');
+        Route::post('/roles/export', [PlatformRoleController::class, 'export'])->middleware('platform.permission:platform_role.view')->name('roles.export');
         Route::post('/roles', [PlatformRoleController::class, 'store'])->middleware('platform.permission:platform_role.create')->name('roles.store');
         Route::get('/roles/{role_uuid}', [PlatformRoleController::class, 'show'])->middleware('platform.permission:platform_role.view')->name('roles.show');
         Route::match(['put', 'patch'], '/roles/{role_uuid}', [PlatformRoleController::class, 'update'])->middleware('platform.permission:platform_role.edit')->name('roles.update');
@@ -217,6 +218,7 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
 
         Route::get('/permissions/grouped', [PlatformPermissionController::class, 'grouped'])->middleware('platform.permission:platform_permission.view')->name('permissions.grouped');
         Route::get('/permissions', [PlatformPermissionController::class, 'index'])->middleware('platform.permission:platform_permission.view')->name('permissions.index');
+        Route::post('/permissions/export', [PlatformPermissionController::class, 'export'])->middleware('platform.permission:platform_permission.view')->name('permissions.export');
         Route::post('/permissions', [PlatformPermissionController::class, 'store'])->middleware('platform.permission:platform_permission.create')->name('permissions.store');
         Route::get('/permissions/{permission_uuid}', [PlatformPermissionController::class, 'show'])->middleware('platform.permission:platform_permission.view')->name('permissions.show');
         Route::match(['put', 'patch'], '/permissions/{permission_uuid}', [PlatformPermissionController::class, 'update'])->middleware('platform.permission:platform_permission.edit')->name('permissions.update');

@@ -1,4 +1,4 @@
-﻿openapi: 3.1.0
+openapi: 3.1.0
 info:
   title: SaaS MyCRM Completed APIs
   version: 1.0.0
@@ -682,7 +682,7 @@ paths:
       tags: [5. Platform Roles]
       summary: List platform roles
       security: [{bearerAuth: []}]
-      parameters: [{$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}, {$ref: '#/components/parameters/Search'}, {$ref: '#/components/parameters/StatusFilter'}, {$ref: '#/components/parameters/RoleTypeFilter'}, {$ref: '#/components/parameters/GuardFilter'}]
+      parameters: [{$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}, {$ref: '#/components/parameters/Search'}, {$ref: '#/components/parameters/StatusFilter'}, {$ref: '#/components/parameters/RoleTypeFilter'}, {$ref: '#/components/parameters/GuardFilter'}, {$ref: '#/components/parameters/Sort'}, {$ref: '#/components/parameters/Direction'}]
       responses: {'200': {$ref: '#/components/responses/RoleList'}, '403': {$ref: '#/components/responses/Forbidden'}}
     post:
       tags: [5. Platform Roles]
@@ -690,7 +690,13 @@ paths:
       security: [{bearerAuth: []}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RoleWrite'}}}}
       responses: {'201': {$ref: '#/components/responses/RoleSingle'}, '422': {$ref: '#/components/responses/ValidationError'}}
-  /api/platform/v1/access-control/roles/{role_uuid}:
+  /api/platform/v1/access-control/roles/export:
+    post:
+      tags: [5. Platform Roles]
+      summary: Export platform roles as queued job or immediate CSV download
+      security: [{bearerAuth: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ExportBody'}}}}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}  /api/platform/v1/access-control/roles/{role_uuid}:
     parameters: [{$ref: '#/components/parameters/RoleUuid'}]
     get:
       tags: [5. Platform Roles]
@@ -780,7 +786,7 @@ paths:
       tags: [5. Platform Permissions]
       summary: List platform permissions
       security: [{bearerAuth: []}]
-      parameters: [{$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}, {$ref: '#/components/parameters/Search'}, {$ref: '#/components/parameters/ModuleFilter'}, {$ref: '#/components/parameters/StatusFilter'}, {$ref: '#/components/parameters/GuardFilter'}]
+      parameters: [{$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}, {$ref: '#/components/parameters/Search'}, {$ref: '#/components/parameters/ModuleFilter'}, {$ref: '#/components/parameters/StatusFilter'}, {$ref: '#/components/parameters/GuardFilter'}, {$ref: '#/components/parameters/Sort'}, {$ref: '#/components/parameters/Direction'}]
       responses: {'200': {$ref: '#/components/responses/PermissionList'}}
     post:
       tags: [5. Platform Permissions]
@@ -788,7 +794,13 @@ paths:
       security: [{bearerAuth: []}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PermissionWrite'}}}}
       responses: {'201': {$ref: '#/components/responses/PermissionSingle'}, '422': {$ref: '#/components/responses/ValidationError'}}
-  /api/platform/v1/access-control/permissions/grouped:
+  /api/platform/v1/access-control/permissions/export:
+    post:
+      tags: [5. Platform Permissions]
+      summary: Export platform permissions as queued job or immediate CSV download
+      security: [{bearerAuth: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ExportBody'}}}}
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}  /api/platform/v1/access-control/permissions/grouped:
     get:
       tags: [5. Platform Permissions]
       summary: List platform permissions grouped by module
@@ -2439,7 +2451,7 @@ components:
     NotesRequiredBody: {type: object, required: [notes], properties: {notes: {type: string}}}
     KbCategoryWrite: {type: object, required: [name], properties: {parent_uuid: {type: string, format: uuid}, name: {type: string}, slug: {type: string}, audience: {type: string}, status: {type: string}}}
     KbArticleWrite: {type: object, required: [title, body], properties: {category_uuid: {type: string, format: uuid}, title: {type: string}, slug: {type: string}, body: {type: string}, audience: {type: string}, status: {type: string}}}
-    ExportBody: {type: object, properties: {format: {type: string, enum: [csv, xlsx, pdf]}}}
+    ExportBody: {type: object, properties: {format: {type: string, enum: [csv]}, delivery: {type: string, enum: [job, download]}, scope: {type: string, enum: [filtered, selected]}, filters: {type: object}, sort: {type: string}, direction: {type: string, enum: [asc, desc]}, columns: {type: array, items: {type: string}}, selected_ids: {type: array, items: {type: string}}, timezone: {type: string}, email_when_ready: {type: boolean}}}
     IncidentWrite: {type: object, required: [title, severity], properties: {title: {type: string}, severity: {type: string}, status: {type: string}, summary: {type: string}}}
     IntegrationProviderWrite: {type: object, required: [name, code, category, auth_type], properties: {name: {type: string}, code: {type: string}, category: {type: string}, auth_type: {type: string}, status: {type: string}, metadata: {type: object}}}
     TenantIntegrationWrite: {type: object, required: [tenant_uuid, provider_code, name], properties: {tenant_uuid: {type: string, format: uuid}, provider_code: {type: string}, name: {type: string}, status: {type: string}, credentials: {type: object, description: Write-only encrypted credentials}}}

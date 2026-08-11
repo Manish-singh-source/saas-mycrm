@@ -1,4 +1,4 @@
-﻿# Platform APIs
+# Platform APIs
 
 This document defines the SaaS Super Admin API surface for the platform pages in `docs/platform-pages.md`, aligned with the database design in `docs/database.md`.
 
@@ -190,12 +190,9 @@ Data sources: `platform_roles`, `platform_permissions`, `platform_role_has_permi
 | GET       | `/access-control/roles/{role_uuid}/users`                      | `platform_role.view`   | Assigned users      |
 | POST      | `/access-control/roles/{role_uuid}/users`                      | `platform_role.edit`   | Assign users        |
 | DELETE    | `/access-control/roles/{role_uuid}/users/{platform_user_uuid}` | `platform_role.edit`   | Remove user role    |
-| GET       | `/access-control/roles/{role_uuid}/activity`                   | `audit_log.view`       | Role audit/activity |
-| POST      | `/access-control/roles/bulk/activate`                          | `platform_role.edit`   | Bulk activate       |
-| POST      | `/access-control/roles/bulk/deactivate`                        | `platform_role.edit`   | Bulk deactivate     |
 | POST      | `/access-control/roles/export`                                 | `platform_role.view`   | Export roles        |
 
-List filters: `status`, `type=system|custom`, `guard_name`, `permission_module`, `created_from`, `created_to`, `updated_from`, `updated_to`.
+List filters: `search`, `filter[status]`, `filter[type]=system|custom`, `filter[guard_name]`, `page`, `per_page`. Server-side sorting supports `sort=name|display_name|status|created_at|updated_at` and `direction=asc|desc`. Frontend bulk Activate/Deactivate calls the per-role activate/deactivate endpoints for each selected role.
 
 Create body:
 
@@ -230,6 +227,13 @@ Assign users body:
 ```
 
 Validation: display name required/unique, role name required/unique by guard, guard required, at least one permission, system roles cannot be renamed/deleted.
+Export request body for roles, permissions, and audit logs:
+
+```json
+{"format":"csv","delivery":"job|download","scope":"filtered|selected","filters":{"status":"active"},"sort":"name","direction":"asc","columns":["uuid","name","status"],"selected_ids":["uuid"],"timezone":"Asia/Calcutta","email_when_ready":true}
+```
+
+`delivery=job` creates a `report_export_jobs` row. `delivery=download` returns CSV metadata/content in `data.download`. Immediate export currently supports CSV only.
 
 ## 2.2 Platform Permissions
 
@@ -243,6 +247,8 @@ Validation: display name required/unique, role name required/unique by guard, gu
 | DELETE    | `/access-control/permissions/{permission_uuid}` | `platform_permission.delete` | Delete custom unused permission |
 | GET       | `/access-control/permissions/grouped`           | `platform_permission.view`   | Grouped by module               |
 | POST      | `/access-control/permissions/export`            | `platform_permission.view`   | Export permissions              |
+
+List filters: `search`, `filter[module]`, `filter[guard_name]`, `filter[status]`, `page`, `per_page`. Server-side sorting supports `sort=module|name|display_name|status|created_at|updated_at` and `direction=asc|desc`.
 
 Create/update body:
 
@@ -612,6 +618,7 @@ Source tables: `coupons`, `coupon_redemptions`, `coupon_plans`, `coupon_tenants`
 | `PUT`       | `/coupons/{coupon_uuid}/plans`       | Restrict coupon to selected plans                                                                            |
 | `PUT`       | `/coupons/{coupon_uuid}/tenants`     | Restrict coupon to selected tenants                                                                          |
 | `POST`      | `/coupons/export`                    | Export coupons/redemptionsar                                                                                 |
+
 
 Create/update body:
 
@@ -1110,7 +1117,7 @@ Source tables: `platform_activity_logs`, `platform_security_events`, `subscripti
 Common filters:
 
 ```http
-GET /audit/activity-logs?actor_uuid=platform_user_uuid&subject_type=tenant&event=updated&date_from=2026-08-01&date_to=2026-08-31&ip_address=127.0.0.1
+GET /audit/activity-logs?filter[event]=auth.login_success&sort=created_at&direction=desc
 ```
 
 Review security event body:
