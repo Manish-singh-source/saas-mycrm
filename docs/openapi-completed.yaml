@@ -698,7 +698,8 @@ paths:
       summary: Export platform roles as queued job or immediate CSV download
       security: [{bearerAuth: []}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ExportBody'}}}}
-      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}  /api/platform/v1/access-control/roles/{role_uuid}:
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/platform/v1/access-control/roles/{role_uuid}:
     parameters: [{$ref: '#/components/parameters/RoleUuid'}]
     get:
       tags: [5. Platform Roles]
@@ -802,7 +803,8 @@ paths:
       summary: Export platform permissions as queued job or immediate CSV download
       security: [{bearerAuth: []}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ExportBody'}}}}
-      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}  /api/platform/v1/access-control/permissions/grouped:
+      responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '403': {$ref: '#/components/responses/Forbidden'}, '422': {$ref: '#/components/responses/ValidationError'}}
+  /api/platform/v1/access-control/permissions/grouped:
     get:
       tags: [5. Platform Permissions]
       summary: List platform permissions grouped by module
@@ -2180,6 +2182,8 @@ components:
     Page: {name: page, in: query, schema: {type: integer, example: 1}}
     PerPage: {name: per_page, in: query, schema: {type: integer, example: 25}}
     Search: {name: search, in: query, schema: {type: string, example: billing}}
+    Sort: {name: sort, in: query, required: false, schema: {type: string, example: created_at}}
+    Direction: {name: direction, in: query, required: false, schema: {type: string, enum: [asc, desc], example: desc}}
     StatusFilter: {name: 'filter[status]', in: query, schema: {type: string, enum: [active, inactive]}}
     RoleTypeFilter: {name: 'filter[type]', in: query, schema: {type: string, enum: [system, custom]}}
     GuardFilter: {name: 'filter[guard_name]', in: query, schema: {type: string, example: platform}}
