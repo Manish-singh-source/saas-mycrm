@@ -97,7 +97,9 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::delete('/platform-teams/{team_uuid}/assignments/{assignment_id}', [PlatformTeamController::class, 'releaseAssignment'])->whereNumber('assignment_id')->middleware('platform.permission:platform_team.assign')->name('platform-teams.assignments.destroy');
     Route::get('/platform-team-roles', [PlatformTeamController::class, 'teamRoles'])->middleware('platform.permission:platform_team.view')->name('platform-team-roles.index');
     Route::post('/platform-team-roles', [PlatformTeamController::class, 'createTeamRole'])->middleware('platform.permission:platform_team.create')->name('platform-team-roles.store');
+    Route::get('/platform-team-roles/{role_uuid}', [PlatformTeamController::class, 'showTeamRole'])->middleware('platform.permission:platform_team.view')->name('platform-team-roles.show');
     Route::match(['put', 'patch'], '/platform-team-roles/{role_uuid}', [PlatformTeamController::class, 'updateTeamRole'])->middleware('platform.permission:platform_team.edit')->name('platform-team-roles.update');
+    Route::delete('/platform-team-roles/{role_uuid}', [PlatformTeamController::class, 'deleteTeamRole'])->middleware('platform.permission:platform_team.delete')->name('platform-team-roles.destroy');
 
     Route::get('/tenants', [PlatformTenantController::class, 'index'])->middleware('platform.permission:tenant.view')->name('tenants.index');
     Route::post('/tenants', [PlatformTenantController::class, 'store'])->middleware('platform.permission:tenant.create')->name('tenants.store');

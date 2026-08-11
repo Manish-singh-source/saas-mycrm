@@ -262,6 +262,8 @@ Create/update body:
 
 Recommended data sources: `platform_teams`, `platform_team_roles`, `platform_team_members`, `platform_team_assignments`.
 
+Team list filters: `search`, `filter[status]`, `filter[visibility]`, `page`, `per_page`, `sort=name|code|status|visibility|created_at|updated_at`, `direction=asc|desc`. Team-role list filters: `search`, `filter[status]`, `page`, `per_page`, `sort=name|code|status|sort_order|created_at|updated_at`, `direction=asc|desc`.
+
 
 | Method    | Endpoint                                                    | Permission             | Purpose             |
 | ----------- | ------------------------------------------------------------- | ------------------------ | --------------------- |
@@ -272,13 +274,14 @@ Recommended data sources: `platform_teams`, `platform_team_roles`, `platform_tea
 | DELETE    | `/platform-teams/{team_uuid}`                               | `platform_team.delete` | Archive/delete team |
 | GET       | `/platform-teams/{team_uuid}/members`                       | `platform_team.view`   | Team members        |
 | POST      | `/platform-teams/{team_uuid}/members`                       | `platform_team.assign` | Add members         |
-| PUT/PATCH | `/platform-teams/{team_uuid}/members/{member_uuid}`         | `platform_team.assign` | Update member       |
-| DELETE    | `/platform-teams/{team_uuid}/members/{member_uuid}`         | `platform_team.assign` | Remove member       |
+| PUT/PATCH | `/platform-teams/{team_uuid}/members/{member_id}`         | `platform_team.assign` | Update member       |
+| DELETE    | `/platform-teams/{team_uuid}/members/{member_id}`         | `platform_team.assign` | Remove member       |
 | GET       | `/platform-teams/{team_uuid}/assignments`                   | `platform_team.view`   | Assignments         |
 | POST      | `/platform-teams/{team_uuid}/assignments`                   | `platform_team.assign` | Create assignment   |
-| DELETE    | `/platform-teams/{team_uuid}/assignments/{assignment_uuid}` | `platform_team.assign` | Release assignment  |
+| DELETE    | `/platform-teams/{team_uuid}/assignments/{assignment_id}` | `platform_team.assign` | Release assignment  |
 | GET       | `/platform-team-roles`                                      | `platform_team.view`   | List team roles     |
 | POST      | `/platform-team-roles`                                      | `platform_team.create` | Create team role    |
+| GET       | `/platform-team-roles/{role_uuid}`                          | `platform_team.view`   | View team role      |
 | PUT/PATCH | `/platform-team-roles/{role_uuid}`                          | `platform_team.edit`   | Update team role    |
 | DELETE    | `/platform-team-roles/{role_uuid}`                          | `platform_team.delete` | Delete team role    |
 

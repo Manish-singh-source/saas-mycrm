@@ -621,7 +621,7 @@ paths:
   /api/platform/v1/platform-users/{platform_user_uuid}/activity:
     get: {tags: [4. Platform Admin], summary: Platform staff activity, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/PlatformUserUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
   /api/platform/v1/platform-teams:
-    get: {tags: [4. Platform Admin], summary: List platform teams, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    get: {tags: [4. Platform Admin], summary: List platform teams, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}, {$ref: '#/components/parameters/Search'}, {$ref: '#/components/parameters/StatusFilter'}, {$ref: '#/components/parameters/Sort'}, {$ref: '#/components/parameters/Direction'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
     post: {tags: [4. Platform Admin], summary: Create platform team, security: [{bearerAuth: []}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/PlatformTeamWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
   /api/platform/v1/platform-teams/{team_uuid}:
     parameters: [{$ref: '#/components/parameters/TeamUuid'}]
@@ -643,11 +643,13 @@ paths:
   /api/platform/v1/platform-teams/{team_uuid}/assignments/{assignment_id}:
     delete: {tags: [4. Platform Admin], summary: Release platform team assignment, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/TeamUuid'}, {name: assignment_id, in: path, required: true, schema: {type: integer}}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
   /api/platform/v1/platform-team-roles:
-    get: {tags: [4. Platform Admin], summary: List platform team roles, security: [{bearerAuth: []}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    get: {tags: [4. Platform Admin], summary: List platform team roles, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}, {$ref: '#/components/parameters/Search'}, {$ref: '#/components/parameters/StatusFilter'}, {$ref: '#/components/parameters/Sort'}, {$ref: '#/components/parameters/Direction'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
     post: {tags: [4. Platform Admin], summary: Create platform team role, security: [{bearerAuth: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformTeamRoleCreate'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '422': {$ref: '#/components/responses/ValidationError'}}}
   /api/platform/v1/platform-team-roles/{role_uuid}:
+    get: {tags: [4. Platform Admin], summary: View platform team role, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/RoleUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '404': {$ref: '#/components/responses/NotFound'}}}
     patch: {tags: [4. Platform Admin], summary: Update platform team role, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/RoleUuid'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformTeamRoleUpdate'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '422': {$ref: '#/components/responses/ValidationError'}}}
     put: {tags: [4. Platform Admin], summary: Update platform team role, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/RoleUuid'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformTeamRoleUpdate'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}, '422': {$ref: '#/components/responses/ValidationError'}}}
+    delete: {tags: [4. Platform Admin], summary: Delete custom unused platform team role, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/RoleUuid'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/GenericSuccess'}}}
   /api/platform/v1/tenants:
     get: {tags: [4. Platform Admin], summary: List tenants, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}, {$ref: '#/components/parameters/Search'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
     post: {tags: [4. Platform Admin], summary: Create tenant with owner office subscription settings and roles, security: [{bearerAuth: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PlatformTenantCreate'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}, '422': {$ref: '#/components/responses/ValidationError'}}}
@@ -2265,6 +2267,13 @@ components:
         name: {type: string, example: Customer Success}
         code: {type: string, example: customer-success}
         description: {type: string, nullable: true}
+        lead_platform_user_id: {type: integer, nullable: true}
+        assistant_lead_platform_user_id: {type: integer, nullable: true}
+        email: {type: string, format: email, nullable: true}
+        phone: {type: string, nullable: true}
+        color: {type: string, nullable: true}
+        icon: {type: string, nullable: true}
+        visibility: {type: string, enum: [internal, private]}
         status: {type: string, enum: [active, inactive]}
     PlatformTeamRoleCreate:
       type: object
@@ -2272,21 +2281,19 @@ components:
       properties:
         name: {type: string, example: Implementation Lead}
         code: {type: string, example: implementation_lead}
-        permissions:
-          type: array
-          nullable: true
-          items: {type: string}
-          example: [platform_team.view, platform_team.assign]
+        description: {type: string, nullable: true}
+        permissions: {type: object, nullable: true, example: {platform_team: [view, assign]}}
+        sort_order: {type: integer, example: 10}
+        is_system: {type: boolean, example: false}
         status: {type: string, enum: [active, inactive], example: active}
     PlatformTeamRoleUpdate:
       type: object
       properties:
         name: {type: string, example: Senior Implementation Lead}
-        permissions:
-          type: array
-          nullable: true
-          items: {type: string}
-          example: [platform_team.view, platform_team.assign]
+        description: {type: string, nullable: true}
+        permissions: {type: object, nullable: true, example: {platform_team: [view, assign]}}
+        sort_order: {type: integer, example: 10}
+        is_system: {type: boolean, example: false}
         status: {type: string, enum: [active, inactive], example: active}
     PlatformTenantCreate:
       type: object
