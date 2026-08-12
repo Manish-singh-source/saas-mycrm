@@ -119,6 +119,7 @@ class TenantBusinessController extends BaseTenantController
 
     public function cancelInvoice(Request $request, string $invoice_uuid): JsonResponse
     {
+        $request->validate(['reason' => ['required', 'string', 'max:1000']]);
         $invoice = $this->find('tenant_invoices', $invoice_uuid);
         DB::table('tenant_invoices')->where('id', $invoice->id)->update(['status' => 'cancelled', 'updated_at' => now()]);
 
@@ -187,6 +188,7 @@ class TenantBusinessController extends BaseTenantController
 
     public function voidPayment(Request $request, string $payment_uuid): JsonResponse
     {
+        $request->validate(['reason' => ['required', 'string', 'max:1000']]);
         $payment = $this->find('tenant_payments', $payment_uuid);
         DB::table('tenant_payments')->where('id', $payment->id)->update(['status' => 'void', 'updated_at' => now()]);
         if ($payment->invoice_id) $this->recalculateInvoice((int) $payment->invoice_id);
@@ -243,8 +245,8 @@ class TenantBusinessController extends BaseTenantController
         return $this->success(['expense' => $this->expenseBundle($expense->id)], 'Expense updated.');
     }
 
-    public function approveExpense(Request $request, string $expense_uuid): JsonResponse { return $this->expenseStatus($expense_uuid, 'approved'); }
-    public function rejectExpense(Request $request, string $expense_uuid): JsonResponse { return $this->expenseStatus($expense_uuid, 'rejected'); }
+    public function approveExpense(Request $request, string $expense_uuid): JsonResponse { $request->validate(['reason' => ['required', 'string', 'max:1000']]); return $this->expenseStatus($expense_uuid, 'approved'); }
+    public function rejectExpense(Request $request, string $expense_uuid): JsonResponse { $request->validate(['reason' => ['required', 'string', 'max:1000']]); return $this->expenseStatus($expense_uuid, 'rejected'); }
     public function exportExpenses(Request $request): JsonResponse { return $this->queued($request, 'export', 'expenses'); }
 
     public function bankAccounts(Request $request): JsonResponse
@@ -281,8 +283,9 @@ class TenantBusinessController extends BaseTenantController
         return $this->success(null, 'Bank account deleted.');
     }
 
-    public function setPrimaryBankAccount(int $account_id): JsonResponse
+    public function setPrimaryBankAccount(Request $request, int $account_id): JsonResponse
     {
+        $request->validate(['reason' => ['required', 'string', 'max:1000']]);
         $row = $this->scoped('bank_accounts', $account_id);
         $this->clearOtherPrimary($row->id, $row->owner_type, $row->owner_id);
         DB::table('bank_accounts')->where('id', $row->id)->update(['is_primary' => true, 'updated_at' => now()]);
@@ -385,8 +388,9 @@ class TenantBusinessController extends BaseTenantController
         return $this->settingsLookups($request);
     }
 
-    public function deleteLookup(string $lookup_uuid): JsonResponse
+    public function deleteLookup(Request $request, string $lookup_uuid): JsonResponse
     {
+        $request->validate(['reason' => ['required', 'string', 'max:1000']]);
         $lookup = $this->find('tenant_lookups', $lookup_uuid);
         $used = collect(['parties' => ['source_id', 'status_id'], 'projects' => ['category_id', 'type_id', 'status_id', 'priority_id'], 'tenant_expenses' => ['category_id', 'status_id']])
             ->sum(fn ($columns, $table) => collect($columns)->sum(fn ($column) => Schema::hasColumn($table, $column) ? $this->base($table)->where($column, $lookup->id)->count() : 0));
@@ -439,6 +443,7 @@ class TenantBusinessController extends BaseTenantController
 
     public function restoreBackup(Request $request): JsonResponse
     {
+        $request->validate(['backup_uuid' => ['required', 'uuid'], 'reason' => ['required', 'string', 'max:1000']]);
         $backup = $this->byUuid('tenant_backup_runs', $request->input('backup_uuid'));
         $id = DB::table('tenant_restore_requests')->insertGetId(['uuid' => (string) Str::uuid(), 'tenant_id' => $this->tenantId(), 'tenant_backup_run_id' => $backup?->id, 'status' => 'pending', 'requested_by' => $request->user()?->id, 'requested_at' => now()]);
         return $this->success(['restore_request' => DB::table('tenant_restore_requests')->where('id', $id)->first()], 'Restore request submitted.', 202);
@@ -467,7 +472,7 @@ class TenantBusinessController extends BaseTenantController
     public function showIntegration(string $integration_uuid): JsonResponse { return $this->success(['integration' => $this->integrationBundle($this->find('tenant_integrations', $integration_uuid)->id)]); }
     public function updateIntegration(Request $request, string $integration_uuid): JsonResponse { $i = $this->find('tenant_integrations', $integration_uuid); DB::table('tenant_integrations')->where('id', $i->id)->update([...$request->only(['name', 'status']), 'updated_at' => now()]); return $this->success(['integration' => $this->integrationBundle($i->id)], 'Integration updated.'); }
     public function rotateCredentials(Request $request, string $integration_uuid): JsonResponse { $i = $this->find('tenant_integrations', $integration_uuid); $this->storeCredentials($i->id, $request->validate(['credentials' => ['required', 'array']])['credentials']); return $this->success(['credentials' => DB::table('integration_credentials')->where('tenant_integration_id', $i->id)->get(['key', 'expires_at'])], 'Credentials rotated.'); }
-    public function disconnectIntegration(string $integration_uuid): JsonResponse { $i = $this->find('tenant_integrations', $integration_uuid); DB::table('tenant_integrations')->where('id', $i->id)->update(['status' => 'disconnected', 'updated_at' => now()]); return $this->success(['integration' => $this->integrationBundle($i->id)], 'Integration disconnected.'); }
+    public function disconnectIntegration(Request $request, string $integration_uuid): JsonResponse { $request->validate(['reason' => ['required', 'string', 'max:1000']]); $i = $this->find('tenant_integrations', $integration_uuid); DB::table('tenant_integrations')->where('id', $i->id)->update(['status' => 'disconnected', 'updated_at' => now()]); return $this->success(['integration' => $this->integrationBundle($i->id)], 'Integration disconnected.'); }
     public function webhooks(Request $request): JsonResponse { return $this->integrationChildIndex($request, 'integration_webhooks', 'webhooks'); }
     public function syncJobs(Request $request): JsonResponse { return $this->integrationChildIndex($request, 'integration_sync_jobs', 'sync_jobs'); }
     public function retrySyncJob(int $job_id): JsonResponse { DB::table('integration_sync_jobs')->whereIn('tenant_integration_id', $this->base('tenant_integrations')->pluck('id'))->where('id', $job_id)->update(['status' => 'retry_queued']); return $this->success(['job' => DB::table('integration_sync_jobs')->where('id', $job_id)->first()], 'Sync retry queued.'); }

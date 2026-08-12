@@ -618,23 +618,6 @@ Required UI:
 ## Prompt 20: Cross-Module Workflow Polish
 
 ```text
-
-
-
-implement this in frontend also check in backend for apis. [completed-api-curls.md](saas-mycrm/docs/completed-api-curls.md) refer this file.
-add missing apis in backend and integrate them. 
-1. check view pages render all data. 
-2. check all buttons are functional
-3. check all navigation are working. 
-4. check every feature is working properly. 
-5. check inner pages are rendering data and also working correctly. 
-6. check export/import functionalities working properly if needed only. If downloads in queue then give me command to check and complete.
-7. and don't use static data anywhere use actual database data. 
-8. don't display direct json data display proper view format in UI. 
-9. also use dropdowns for relational data such as users uuid input column but user don't remember or search for that uuid instead use users names list dropdown so user will select easily and payload still uses uuid. 
-10. and use proper UI/UX designing. 
-
-
 Add cross-module workflow polish across the full React SaaS frontend.
 
 Use docs/additional-ui-changes.md, especially Global UI Rules, Common Popup and Drawer Patterns, Cross-Module Assignment Matrix, Confirmation Rules, Missing Persistent UI Support, and Implementation Priority.
@@ -654,6 +637,24 @@ Do not add unrelated visual redesign. Keep the UI enterprise-focused and operati
 ## Prompt 21: Testing, Accessibility, Performance, and Release Readiness
 
 ```text
+
+
+
+
+implement this in frontend also check in backend for apis. [completed-api-curls.md](saas-mycrm/docs/completed-api-curls.md) refer this file.
+add missing apis in backend and integrate them. 
+1. check view pages render all data. 
+2. check all buttons are functional
+3. check all navigation are working. 
+4. check every feature is working properly. 
+5. check inner pages are rendering data and also working correctly. 
+6. check export/import functionalities working properly if needed only. If downloads in queue then give me command to check and complete.
+7. and don't use static data anywhere use actual database data. 
+8. don't display direct json data display proper view format in UI. 
+9. also use dropdowns for relational data such as users uuid input column but user don't remember or search for that uuid instead use users names list dropdown so user will select easily and payload still uses uuid. 
+10. and use proper UI/UX designing. 
+
+
 Prepare the React SaaS frontend for enterprise release quality.
 
 Add or verify:
