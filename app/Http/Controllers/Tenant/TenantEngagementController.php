@@ -22,8 +22,7 @@ class TenantEngagementController extends BaseApiController
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search): void {
-                $q->where('title', 'like', '%'.$search.'%')
-                    ->orWhere('message', 'like', '%'.$search.'%')
+                $q->where('data', 'like', '%'.$search.'%')
                     ->orWhere('type', 'like', '%'.$search.'%');
             });
         }
@@ -43,14 +42,14 @@ class TenantEngagementController extends BaseApiController
         ]);
     }
 
-    public function markRead(int $notification_id)
+    public function markRead(string $notification_id)
     {
         $this->notificationQuery($notification_id)->update(['read_at' => now(), 'updated_at' => now()]);
 
         return $this->success(['notification' => $this->notificationQuery($notification_id)->first()], 'Notification marked read.');
     }
 
-    public function markUnread(int $notification_id)
+    public function markUnread(string $notification_id)
     {
         $this->notificationQuery($notification_id)->update(['read_at' => null, 'updated_at' => now()]);
 
@@ -59,7 +58,7 @@ class TenantEngagementController extends BaseApiController
 
     public function bulkRead(Request $request)
     {
-        $data = $request->validate(['ids' => ['nullable', 'array'], 'ids.*' => ['integer']]);
+        $data = $request->validate(['ids' => ['nullable', 'array'], 'ids.*' => ['string']]);
         $query = DB::table('notifications')->where('tenant_id', $this->tenant->id())->whereNull('read_at');
 
         if (($data['ids'] ?? []) !== []) {
@@ -71,7 +70,7 @@ class TenantEngagementController extends BaseApiController
         return $this->success(['updated' => $updated], 'Notifications marked read.');
     }
 
-    public function deleteNotification(int $notification_id)
+    public function deleteNotification(string $notification_id)
     {
         $this->notificationQuery($notification_id)->delete();
 
@@ -141,7 +140,6 @@ class TenantEngagementController extends BaseApiController
 
         DB::table('communication_logs')->where('id', $log->id)->update([
             'status' => 'retry_queued',
-            'updated_at' => now(),
         ]);
 
         return $this->success(['log' => DB::table('communication_logs')->where('id', $log->id)->first()], 'Communication retry queued.');
@@ -208,8 +206,8 @@ class TenantEngagementController extends BaseApiController
         if ($this->tableExists('platform_tickets')) {
             $id = DB::table('platform_tickets')->insertGetId([
                 'uuid' => (string) \Illuminate\Support\Str::uuid(),
+                'ticket_number' => 'TCK-'.now()->format('ymd').'-'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT),
                 'tenant_id' => $this->tenant->id(),
-                'opened_by_user_id' => $request->user()?->id,
                 'subject' => $data['subject'],
                 'description' => $data['description'],
                 'priority' => $data['priority'] ?? 'medium',
@@ -236,7 +234,7 @@ class TenantEngagementController extends BaseApiController
         ]);
     }
 
-    private function notificationQuery(int $id)
+    private function notificationQuery(string $id)
     {
         $query = DB::table('notifications')->where('tenant_id', $this->tenant->id())->where('id', $id);
         abort_if(! $query->exists(), 404);
