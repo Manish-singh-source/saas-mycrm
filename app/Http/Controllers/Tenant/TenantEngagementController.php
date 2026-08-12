@@ -157,7 +157,7 @@ class TenantEngagementController extends BaseApiController
         }
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search): void {
-                $q->where('title', 'like', '%'.$search.'%')->orWhere('content', 'like', '%'.$search.'%');
+                $q->where('title', 'like', '%'.$search.'%')->orWhere('body', 'like', '%'.$search.'%');
             });
         }
         $paginator = $query->latest('id')->paginate((int) $request->integer('per_page', 25));
@@ -204,7 +204,7 @@ class TenantEngagementController extends BaseApiController
 
         $id = null;
         if ($this->tableExists('platform_tickets')) {
-            $id = DB::table('platform_tickets')->insertGetId([
+            $ticket = [
                 'uuid' => (string) \Illuminate\Support\Str::uuid(),
                 'ticket_number' => 'TCK-'.now()->format('ymd').'-'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT),
                 'tenant_id' => $this->tenant->id(),
@@ -212,11 +212,12 @@ class TenantEngagementController extends BaseApiController
                 'description' => $data['description'],
                 'priority' => $data['priority'] ?? 'medium',
                 'status' => 'open',
-                'source' => 'tenant_help_center',
-                'opened_at' => now(),
                 'created_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ];
+            if ($this->columnExists('platform_tickets', 'source')) $ticket['source'] = 'tenant_help_center';
+            if ($this->columnExists('platform_tickets', 'opened_at')) $ticket['opened_at'] = now();
+            $id = DB::table('platform_tickets')->insertGetId($ticket);
         }
 
         return $this->success(['ticket_id' => $id, 'queued' => $id === null], 'Support request submitted.', 201);

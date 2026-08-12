@@ -71,7 +71,7 @@ class TenantBusinessController extends BaseTenantController
     {
         $invoice = $this->find('tenant_invoices', $invoice_uuid);
         DB::table('tenant_invoices')->where('id', $invoice->id)->update([
-            ...$this->invoicePayload($request, true),
+            ...Arr::except($this->invoicePayload($request, true), ['items']),
             'updated_by' => $request->user()?->id,
             'updated_at' => now(),
         ]);
@@ -505,6 +505,8 @@ class TenantBusinessController extends BaseTenantController
             'clients' => $this->base('parties')->where('party_type', 'client')->orderBy('display_name')->limit(200)->get(['uuid', 'display_name', 'email', 'phone']),
             'vendors' => $this->base('parties')->where('party_type', 'vendor')->orderBy('display_name')->limit(200)->get(['uuid', 'display_name', 'email', 'phone']),
             'projects' => $this->base('projects')->orderBy('name')->limit(200)->get(['uuid', 'name', 'project_number']),
+            'staff' => $this->base('staff')->orderBy('display_name')->limit(200)->get(['uuid', 'display_name', 'employee_code']),
+            'invoices' => $this->invoiceRows()->orderByDesc('tenant_invoices.id')->limit(200)->get(['tenant_invoices.uuid', 'tenant_invoices.invoice_number', 'tenant_invoices.balance_amount', 'parties.display_name as client_name']),
             'accounts' => collect($this->base('bank_accounts')->orderBy('bank_name')->limit(200)->get())->map(fn ($row) => $this->bankAccount((int) $row->id))->all(),
             'providers' => DB::table('integration_providers')->where('status', 'active')->orderBy('name')->limit(200)->get(['id', 'name', 'code', 'category']),
             'lookups' => $this->base('tenant_lookups')->orderBy('group')->orderBy('name')->limit(400)->get(['uuid', 'id', 'group', 'name', 'code']),
