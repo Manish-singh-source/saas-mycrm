@@ -5,6 +5,7 @@ use App\Http\Controllers\Tenant\TenantClientController;
 use App\Http\Controllers\Tenant\TenantDashboardController;
 use App\Http\Controllers\Tenant\TenantEngagementController;
 use App\Http\Controllers\Tenant\TenantLeadController;
+use App\Http\Controllers\Tenant\TenantOperationsController;
 use App\Http\Controllers\Tenant\TenantPermissionController;
 use App\Http\Controllers\Tenant\TenantRoleController;
 use App\Http\Controllers\Tenant\TenantAuthController;
@@ -194,6 +195,126 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::post('/leads/{lead_uuid}/activities', [TenantLeadController::class, 'storeActivity'])->middleware('tenant.permission:lead.edit')->name('leads.activities.store');
     Route::match(['put', 'patch'], '/leads/{lead_uuid}/activities/{activity_uuid}', [TenantLeadController::class, 'updateActivity'])->middleware('tenant.permission:lead.edit')->name('leads.activities.update');
     Route::get('/leads/{lead_uuid}/activity', [TenantLeadController::class, 'activity'])->middleware('tenant.permission:activity_log.view')->name('leads.activity');
+
+    Route::get('/projects/dashboard', [TenantOperationsController::class, 'projectDashboard'])->middleware('tenant.permission:project.view')->name('projects.dashboard');
+    Route::get('/projects/kanban', [TenantOperationsController::class, 'projectKanban'])->middleware('tenant.permission:project.view')->name('projects.kanban');
+    Route::get('/projects/gantt', [TenantOperationsController::class, 'projectGantt'])->middleware('tenant.permission:project.view')->name('projects.gantt');
+    Route::get('/projects/calendar', [TenantOperationsController::class, 'projectCalendar'])->middleware('tenant.permission:project.view')->name('projects.calendar');
+    Route::post('/projects/export', [TenantOperationsController::class, 'exportProjects'])->middleware('tenant.permission:project.view')->name('projects.export');
+    Route::get('/projects', [TenantOperationsController::class, 'projects'])->middleware('tenant.permission:project.view')->name('projects.index');
+    Route::post('/projects', [TenantOperationsController::class, 'storeProject'])->middleware('tenant.permission:project.create')->name('projects.store');
+    Route::get('/projects/{project_uuid}', [TenantOperationsController::class, 'showProject'])->middleware('tenant.permission:project.view')->name('projects.show');
+    Route::match(['put', 'patch'], '/projects/{project_uuid}', [TenantOperationsController::class, 'updateProject'])->middleware('tenant.permission:project.edit')->name('projects.update');
+    Route::delete('/projects/{project_uuid}', [TenantOperationsController::class, 'archiveProject'])->middleware('tenant.permission:project.delete')->name('projects.destroy');
+    Route::post('/projects/{project_uuid}/archive', [TenantOperationsController::class, 'archiveProject'])->middleware('tenant.permission:project.archive')->name('projects.archive');
+    foreach (['members', 'phases', 'milestones', 'time-logs', 'expenses'] as $resource) {
+        Route::get('/projects/{project_uuid}/'.$resource, [TenantOperationsController::class, 'projectChildren'])->defaults('resource', $resource)->middleware('tenant.permission:project.view')->name('projects.'.$resource.'.index');
+        Route::post('/projects/{project_uuid}/'.$resource, [TenantOperationsController::class, 'storeProjectChild'])->defaults('resource', $resource)->middleware('tenant.permission:project.edit')->name('projects.'.$resource.'.store');
+        Route::match(['put', 'patch'], '/projects/{project_uuid}/'.$resource.'/{id}', [TenantOperationsController::class, 'updateProjectChild'])->whereNumber('id')->defaults('resource', $resource)->middleware('tenant.permission:project.edit')->name('projects.'.$resource.'.update');
+        Route::delete('/projects/{project_uuid}/'.$resource.'/{id}', [TenantOperationsController::class, 'deleteProjectChild'])->whereNumber('id')->defaults('resource', $resource)->middleware('tenant.permission:project.edit')->name('projects.'.$resource.'.destroy');
+    }
+    Route::post('/projects/{project_uuid}/milestones/{milestone_id}/complete', [TenantOperationsController::class, 'completeMilestone'])->whereNumber('milestone_id')->middleware('tenant.permission:project.edit')->name('projects.milestones.complete');
+    Route::get('/projects/{project_uuid}/tasks', [TenantOperationsController::class, 'projectTasks'])->middleware('tenant.permission:task.view')->name('projects.tasks.index');
+    Route::post('/projects/{project_uuid}/tasks', [TenantOperationsController::class, 'storeProjectTask'])->middleware('tenant.permission:task.create')->name('projects.tasks.store');
+
+    Route::get('/tasks/dashboard', [TenantOperationsController::class, 'taskDashboard'])->middleware('tenant.permission:task.view')->name('tasks.dashboard');
+    Route::get('/tasks/kanban', [TenantOperationsController::class, 'taskKanban'])->middleware('tenant.permission:task.view')->name('tasks.kanban');
+    Route::get('/tasks/calendar', [TenantOperationsController::class, 'taskCalendar'])->middleware('tenant.permission:task.view')->name('tasks.calendar');
+    Route::get('/tasks/my', [TenantOperationsController::class, 'tasks'])->defaults('scope', 'my')->middleware('tenant.permission:task.view')->name('tasks.my');
+    Route::get('/tasks/team', [TenantOperationsController::class, 'tasks'])->defaults('scope', 'team')->middleware('tenant.permission:task.view')->name('tasks.team');
+    Route::post('/tasks/bulk/update', [TenantOperationsController::class, 'bulkUpdateTasks'])->middleware('tenant.permission:task.edit')->name('tasks.bulk.update');
+    Route::post('/tasks/export', [TenantOperationsController::class, 'exportTasks'])->middleware('tenant.permission:task.view')->name('tasks.export');
+    Route::get('/tasks', [TenantOperationsController::class, 'tasks'])->middleware('tenant.permission:task.view')->name('tasks.index');
+    Route::post('/tasks', [TenantOperationsController::class, 'storeTask'])->middleware('tenant.permission:task.create')->name('tasks.store');
+    Route::get('/tasks/{task_uuid}', [TenantOperationsController::class, 'showTask'])->middleware('tenant.permission:task.view')->name('tasks.show');
+    Route::match(['put', 'patch'], '/tasks/{task_uuid}', [TenantOperationsController::class, 'updateTask'])->middleware('tenant.permission:task.edit')->name('tasks.update');
+    Route::delete('/tasks/{task_uuid}', [TenantOperationsController::class, 'archiveTask'])->middleware('tenant.permission:task.delete')->name('tasks.destroy');
+    Route::post('/tasks/{task_uuid}/assign', [TenantOperationsController::class, 'assignTask'])->middleware('tenant.permission:task.assign')->name('tasks.assign');
+    Route::post('/tasks/{task_uuid}/status', [TenantOperationsController::class, 'taskStatus'])->middleware('tenant.permission:task.edit')->name('tasks.status');
+    Route::post('/tasks/{task_uuid}/complete', [TenantOperationsController::class, 'completeTask'])->middleware('tenant.permission:task.edit')->name('tasks.complete');
+    Route::post('/tasks/{task_uuid}/clone', [TenantOperationsController::class, 'cloneTask'])->middleware('tenant.permission:task.create')->name('tasks.clone');
+    foreach (['checklists', 'comments', 'dependencies', 'watchers', 'time-logs'] as $resource) {
+        Route::get('/tasks/{task_uuid}/'.$resource, [TenantOperationsController::class, 'taskChildren'])->defaults('resource', $resource)->middleware('tenant.permission:task.view')->name('tasks.'.$resource.'.index');
+        Route::post('/tasks/{task_uuid}/'.$resource, [TenantOperationsController::class, 'storeTaskChild'])->defaults('resource', $resource)->middleware('tenant.permission:task.edit')->name('tasks.'.$resource.'.store');
+    }
+    Route::post('/tasks/{task_uuid}/checklists/{checklist_id}/items', [TenantOperationsController::class, 'addChecklistItem'])->whereNumber('checklist_id')->middleware('tenant.permission:task.edit')->name('tasks.checklists.items.store');
+    Route::match(['put', 'patch'], '/tasks/{task_uuid}/checklist-items/{item_id}', [TenantOperationsController::class, 'updateChecklistItem'])->whereNumber('item_id')->middleware('tenant.permission:task.edit')->name('tasks.checklist-items.update');
+    Route::post('/tasks/{task_uuid}/checklist-items/{item_id}/complete', [TenantOperationsController::class, 'completeChecklistItem'])->whereNumber('item_id')->middleware('tenant.permission:task.edit')->name('tasks.checklist-items.complete');
+    Route::match(['put', 'patch'], '/tasks/{task_uuid}/{resource}/{id}', [TenantOperationsController::class, 'updateTaskChild'])->whereIn('resource', ['comments', 'time-logs'])->whereNumber('id')->middleware('tenant.permission:task.edit')->name('tasks.children.update');
+    Route::delete('/tasks/{task_uuid}/{resource}/{id}', [TenantOperationsController::class, 'deleteTaskChild'])->whereIn('resource', ['comments', 'dependencies'])->whereNumber('id')->middleware('tenant.permission:task.edit')->name('tasks.children.destroy');
+    Route::delete('/tasks/{task_uuid}/watchers/{user_uuid}', [TenantOperationsController::class, 'deleteWatcher'])->middleware('tenant.permission:task.edit')->name('tasks.watchers.destroy');
+
+    Route::get('/todo-lists/dashboard', [TenantOperationsController::class, 'todoDashboard'])->middleware('tenant.permission:todo.view')->name('todo-lists.dashboard');
+    Route::get('/todo-lists/kanban', [TenantOperationsController::class, 'todoKanban'])->middleware('tenant.permission:todo.view')->name('todo-lists.kanban');
+    Route::get('/todo-lists/calendar', [TenantOperationsController::class, 'todoCalendar'])->middleware('tenant.permission:todo.view')->name('todo-lists.calendar');
+    Route::post('/todo-lists/export', [TenantOperationsController::class, 'exportTodo'])->middleware('tenant.permission:todo.view')->name('todo-lists.export');
+    Route::get('/todo-lists', [TenantOperationsController::class, 'todoLists'])->middleware('tenant.permission:todo.view')->name('todo-lists.index');
+    Route::post('/todo-lists', [TenantOperationsController::class, 'storeTodo'])->middleware('tenant.permission:todo.create')->name('todo-lists.store');
+    Route::get('/todo-lists/{todo_list_uuid}', [TenantOperationsController::class, 'showTodo'])->middleware('tenant.permission:todo.view')->name('todo-lists.show');
+    Route::match(['put', 'patch'], '/todo-lists/{todo_list_uuid}', [TenantOperationsController::class, 'updateTodo'])->middleware('tenant.permission:todo.edit')->name('todo-lists.update');
+    Route::delete('/todo-lists/{todo_list_uuid}', [TenantOperationsController::class, 'archiveTodo'])->middleware('tenant.permission:todo.delete')->name('todo-lists.destroy');
+    Route::get('/todo-lists/{todo_list_uuid}/tasks', [TenantOperationsController::class, 'todoTasks'])->middleware('tenant.permission:todo.view')->name('todo-lists.tasks');
+
+    Route::get('/issues/dashboard', [TenantOperationsController::class, 'issueDashboard'])->middleware('tenant.permission:issue.view')->name('issues.dashboard');
+    Route::get('/issues/kanban', [TenantOperationsController::class, 'issueKanban'])->middleware('tenant.permission:issue.view')->name('issues.kanban');
+    Route::post('/issues/export', [TenantOperationsController::class, 'exportIssues'])->middleware('tenant.permission:issue.view')->name('issues.export');
+    Route::get('/issues', [TenantOperationsController::class, 'issues'])->middleware('tenant.permission:issue.view')->name('issues.index');
+    Route::post('/issues', [TenantOperationsController::class, 'storeIssue'])->middleware('tenant.permission:issue.create')->name('issues.store');
+    Route::get('/issues/{issue_uuid}', [TenantOperationsController::class, 'showIssue'])->middleware('tenant.permission:issue.view')->name('issues.show');
+    Route::match(['put', 'patch'], '/issues/{issue_uuid}', [TenantOperationsController::class, 'updateIssue'])->middleware('tenant.permission:issue.edit')->name('issues.update');
+    Route::delete('/issues/{issue_uuid}', [TenantOperationsController::class, 'archiveIssue'])->middleware('tenant.permission:issue.delete')->name('issues.destroy');
+    Route::post('/issues/{issue_uuid}/assign', [TenantOperationsController::class, 'assignIssue'])->middleware('tenant.permission:issue.assign')->name('issues.assign');
+    Route::post('/issues/{issue_uuid}/status', [TenantOperationsController::class, 'issueStatus'])->middleware('tenant.permission:issue.edit')->name('issues.status');
+    Route::post('/issues/{issue_uuid}/resolve', [TenantOperationsController::class, 'resolveIssue'])->middleware('tenant.permission:issue.close')->name('issues.resolve');
+    Route::post('/issues/{issue_uuid}/close', [TenantOperationsController::class, 'closeIssue'])->middleware('tenant.permission:issue.close')->name('issues.close');
+    Route::post('/issues/{issue_uuid}/reopen', [TenantOperationsController::class, 'reopenIssue'])->middleware('tenant.permission:issue.close')->name('issues.reopen');
+    Route::get('/issues/{issue_uuid}/time-logs', [TenantOperationsController::class, 'issueTimeLogs'])->middleware('tenant.permission:issue.view')->name('issues.time-logs.index');
+    Route::post('/issues/{issue_uuid}/time-logs', [TenantOperationsController::class, 'storeIssueTimeLog'])->middleware('tenant.permission:task.log_time')->name('issues.time-logs.store');
+    Route::post('/issues/{issue_uuid}/create-task', [TenantOperationsController::class, 'createIssueTask'])->middleware('tenant.permission:task.create')->name('issues.create-task');
+    Route::get('/issues/{issue_uuid}/activity', [TenantOperationsController::class, 'issueActivity'])->middleware('tenant.permission:activity_log.view')->name('issues.activity');
+
+    Route::get('/renewals/dashboard', [TenantOperationsController::class, 'renewalDashboard'])->middleware('tenant.permission:renewal.view')->name('renewals.dashboard');
+    Route::get('/renewals/calendar', [TenantOperationsController::class, 'renewalCalendar'])->middleware('tenant.permission:renewal.view')->name('renewals.calendar');
+    Route::get('/client-renewals', [TenantOperationsController::class, 'renewals'])->defaults('renewal_type', 'client')->middleware('tenant.permission:renewal.view')->name('renewals.clients');
+    Route::get('/vendor-renewals', [TenantOperationsController::class, 'renewals'])->defaults('renewal_type', 'vendor')->middleware('tenant.permission:renewal.view')->name('renewals.vendors');
+    Route::post('/renewals/export', [TenantOperationsController::class, 'exportRenewals'])->middleware('tenant.permission:renewal.view')->name('renewals.export');
+    Route::get('/renewals', [TenantOperationsController::class, 'renewals'])->middleware('tenant.permission:renewal.view')->name('renewals.index');
+    Route::post('/renewals', [TenantOperationsController::class, 'storeRenewal'])->middleware('tenant.permission:renewal.create')->name('renewals.store');
+    Route::get('/renewals/{renewal_uuid}', [TenantOperationsController::class, 'showRenewal'])->middleware('tenant.permission:renewal.view')->name('renewals.show');
+    Route::match(['put', 'patch'], '/renewals/{renewal_uuid}', [TenantOperationsController::class, 'updateRenewal'])->middleware('tenant.permission:renewal.edit')->name('renewals.update');
+    Route::delete('/renewals/{renewal_uuid}', [TenantOperationsController::class, 'archiveRenewal'])->middleware('tenant.permission:renewal.delete')->name('renewals.destroy');
+    Route::post('/renewals/{renewal_uuid}/renew', [TenantOperationsController::class, 'renewRenewal'])->middleware('tenant.permission:renewal.renew')->name('renewals.renew');
+    Route::post('/renewals/{renewal_uuid}/cancel', [TenantOperationsController::class, 'cancelRenewal'])->middleware('tenant.permission:renewal.edit')->name('renewals.cancel');
+    foreach (['items', 'reminders'] as $resource) {
+        Route::get('/renewals/{renewal_uuid}/'.$resource, [TenantOperationsController::class, 'renewalChildren'])->defaults('resource', $resource)->middleware('tenant.permission:renewal.view')->name('renewals.'.$resource.'.index');
+        Route::post('/renewals/{renewal_uuid}/'.$resource, [TenantOperationsController::class, 'storeRenewalChild'])->defaults('resource', $resource)->middleware('tenant.permission:renewal.edit')->name('renewals.'.$resource.'.store');
+        Route::match(['put', 'patch'], '/renewals/{renewal_uuid}/'.$resource.'/{id}', [TenantOperationsController::class, 'updateRenewalChild'])->whereNumber('id')->defaults('resource', $resource)->middleware('tenant.permission:renewal.edit')->name('renewals.'.$resource.'.update');
+    }
+    Route::delete('/renewals/{renewal_uuid}/items/{id}', [TenantOperationsController::class, 'deleteRenewalChild'])->whereNumber('id')->defaults('resource', 'items')->middleware('tenant.permission:renewal.edit')->name('renewals.items.destroy');
+    Route::get('/renewals/{renewal_uuid}/history', [TenantOperationsController::class, 'renewalChildren'])->defaults('resource', 'history')->middleware('tenant.permission:renewal.view')->name('renewals.history');
+    Route::post('/renewals/{renewal_uuid}/send-reminder', [TenantOperationsController::class, 'sendRenewalReminder'])->middleware('tenant.permission:renewal.edit')->name('renewals.send-reminder');
+
+    Route::get('/calendars', [TenantOperationsController::class, 'calendars'])->middleware('tenant.permission:calendar.view')->name('calendars.index');
+    Route::post('/calendars', [TenantOperationsController::class, 'storeCalendar'])->middleware('tenant.permission:calendar.create')->name('calendars.store');
+    Route::get('/calendars/{calendar_uuid}', [TenantOperationsController::class, 'showCalendar'])->middleware('tenant.permission:calendar.view')->name('calendars.show');
+    Route::match(['put', 'patch'], '/calendars/{calendar_uuid}', [TenantOperationsController::class, 'updateCalendar'])->middleware('tenant.permission:calendar.edit')->name('calendars.update');
+    Route::delete('/calendars/{calendar_uuid}', [TenantOperationsController::class, 'deleteCalendar'])->middleware('tenant.permission:calendar.delete')->name('calendars.destroy');
+    Route::get('/calendar-events', [TenantOperationsController::class, 'events'])->middleware('tenant.permission:calendar.view')->name('calendar-events.index');
+    Route::post('/calendar-events', [TenantOperationsController::class, 'storeEvent'])->middleware('tenant.permission:calendar.create')->name('calendar-events.store');
+    Route::get('/calendar-events/{event_uuid}', [TenantOperationsController::class, 'showEvent'])->middleware('tenant.permission:calendar.view')->name('calendar-events.show');
+    Route::match(['put', 'patch'], '/calendar-events/{event_uuid}', [TenantOperationsController::class, 'updateEvent'])->middleware('tenant.permission:calendar.edit')->name('calendar-events.update');
+    Route::delete('/calendar-events/{event_uuid}', [TenantOperationsController::class, 'deleteEvent'])->middleware('tenant.permission:calendar.delete')->name('calendar-events.destroy');
+    Route::post('/calendar-events/{event_uuid}/reschedule', [TenantOperationsController::class, 'rescheduleEvent'])->middleware('tenant.permission:calendar.edit')->name('calendar-events.reschedule');
+    foreach (['attendees', 'reminders'] as $resource) {
+        Route::get('/calendar-events/{event_uuid}/'.$resource, [TenantOperationsController::class, 'eventChildren'])->defaults('resource', $resource)->middleware('tenant.permission:calendar.view')->name('calendar-events.'.$resource.'.index');
+        Route::post('/calendar-events/{event_uuid}/'.$resource, [TenantOperationsController::class, 'storeEventChild'])->defaults('resource', $resource)->middleware('tenant.permission:calendar.edit')->name('calendar-events.'.$resource.'.store');
+    }
+    Route::match(['put', 'patch'], '/calendar-events/{event_uuid}/attendees/{id}', [TenantOperationsController::class, 'updateEventChild'])->whereNumber('id')->defaults('resource', 'attendees')->middleware('tenant.permission:calendar.edit')->name('calendar-events.attendees.update');
+    Route::post('/calendar-events/{event_uuid}/video-meeting', [TenantOperationsController::class, 'videoMeeting'])->middleware('tenant.permission:calendar.edit')->name('calendar-events.video-meeting');
+    Route::post('/calendar-events/{event_uuid}/room-booking', [TenantOperationsController::class, 'roomBooking'])->middleware('tenant.permission:calendar.edit')->name('calendar-events.room-booking');
+    Route::get('/meeting-rooms', [TenantOperationsController::class, 'meetingRooms'])->middleware('tenant.permission:calendar.view')->name('meeting-rooms.index');
+    Route::post('/meeting-rooms', [TenantOperationsController::class, 'storeMeetingRoom'])->middleware('tenant.permission:calendar.manage_team')->name('meeting-rooms.store');
+    Route::match(['put', 'patch'], '/meeting-rooms/{room_id}', [TenantOperationsController::class, 'updateMeetingRoom'])->whereNumber('room_id')->middleware('tenant.permission:calendar.manage_team')->name('meeting-rooms.update');
     Route::get('/files', [SharedPrimitiveController::class, 'files'])->middleware('tenant.permission:document.view')->name('files.index');
     Route::post('/files', [SharedPrimitiveController::class, 'upload'])->middleware('tenant.permission:document.upload')->name('files.store');
     Route::get('/files/{file_uuid}', [SharedPrimitiveController::class, 'file'])->middleware('tenant.permission:document.view')->name('files.show');

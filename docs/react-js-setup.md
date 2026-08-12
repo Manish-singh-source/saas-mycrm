@@ -530,21 +530,6 @@ Use shared party/contact/address forms so client, vendor, and lead identity stay
 ## Prompt 17: Tenant Renewals, Projects, Tasks, Issues, Calendar
 
 ```text
-
-
-implement this in frontend also check in backend for apis. [completed-api-curls.md](saas-mycrm/docs/completed-api-curls.md) refer this file.
-add missing apis in backend and integrate them. 
-1. check view pages render all data. 
-2. check all buttons are functional
-3. check all navigation are working. 
-4. check every feature is working properly. 
-5. check inner pages are rendering data and also working correctly. 
-6. check export/import functionalities working properly if needed only. If downloads in queue then give me command to check and complete.
-7. and don't use static data anywhere use actual database data. 
-8. don't display direct json data display proper view format in UI. 
-9. also use dropdowns for relational data such as users uuid input column but user don't remember or search for that uuid instead use users names list dropdown so user will select easily and payload still uses uuid. 
-10. and use proper UI/UX designing. 
-
 Implement Tenant operational modules: Renewals, Projects, Tasks, To-Do, Client Issues, Calendar.
 
 Use docs/tenant-pages.md sections Renewals, Projects, Tasks and To-Do, Client Issues, Calendar and Appointments; docs/tenant-apis.md matching sections; and docs/additional-ui-changes.md matching UI additions.
@@ -606,6 +591,21 @@ Required UI:
 ## Prompt 19: Tenant Finance, Documents, Communication, Reports, Settings
 
 ```text
+
+implement this in frontend also check in backend for apis. [completed-api-curls.md](saas-mycrm/docs/completed-api-curls.md) refer this file.
+add missing apis in backend and integrate them. 
+1. check view pages render all data. 
+2. check all buttons are functional
+3. check all navigation are working. 
+4. check every feature is working properly. 
+5. check inner pages are rendering data and also working correctly. 
+6. check export/import functionalities working properly if needed only. If downloads in queue then give me command to check and complete.
+7. and don't use static data anywhere use actual database data. 
+8. don't display direct json data display proper view format in UI. 
+9. also use dropdowns for relational data such as users uuid input column but user don't remember or search for that uuid instead use users names list dropdown so user will select easily and payload still uses uuid. 
+10. and use proper UI/UX designing. 
+
+
 Implement Tenant Finance, Files/Documents, Notifications/Communication, Reports, Settings, Integrations, Audit, and Help Center.
 
 Use docs/tenant-pages.md sections Tenant Finance, Files and Documents, Notifications and Communication, Reports, Settings, Audit Logs, Profile, Help Center; docs/tenant-apis.md matching sections; and docs/additional-ui-changes.md matching UI additions.
