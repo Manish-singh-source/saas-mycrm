@@ -17,9 +17,11 @@ class TenantDashboardController extends BaseTenantController
             'modules' => app(\App\Tenancy\TenantContext::class)->enabledModules(),
             'subscription' => app(\App\Tenancy\TenantContext::class)->subscription(),
             'badges' => [
-                'overdue_tasks' => $this->tenant->count('tasks', ['status' => ['open', 'in_progress']]),
+                'overdue_tasks' => $this->overdueTasksCount(),
                 'open_issues' => $this->tenant->count('client_issues', ['status' => ['open', 'in_progress']]),
                 'pending_leave' => $this->tenant->count('leave_requests'),
+                'unread_notifications' => $this->unreadNotificationsCount(),
+                'renewals_due_soon' => $this->renewalsDueSoonCount(),
             ],
         ]]);
     }
@@ -143,6 +145,52 @@ class TenantDashboardController extends BaseTenantController
         }
 
         return (int) DB::table('attendance_records')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->whereDate('attendance_date', now()->toDateString())->when($present, fn ($q) => $q->whereNotNull('check_in_at'))->count();
+    }
+
+    private function overdueTasksCount(): int
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('tasks')) {
+            return 0;
+        }
+
+        $query = DB::table('tasks')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id());
+        if (\Illuminate\Support\Facades\Schema::hasColumn('tasks', 'status')) {
+            $query->whereIn('status', ['open', 'in_progress']);
+        }
+        if (\Illuminate\Support\Facades\Schema::hasColumn('tasks', 'due_date')) {
+            $query->whereDate('due_date', '<', now()->toDateString());
+        }
+
+        return (int) $query->count();
+    }
+
+    private function unreadNotificationsCount(): int
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('notifications')) {
+            return 0;
+        }
+
+        return (int) DB::table('notifications')
+            ->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())
+            ->whereNull('read_at')
+            ->count();
+    }
+
+    private function renewalsDueSoonCount(): int
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('renewals')) {
+            return 0;
+        }
+
+        $query = DB::table('renewals')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id());
+        if (\Illuminate\Support\Facades\Schema::hasColumn('renewals', 'renewal_date')) {
+            $query->whereBetween('renewal_date', [now()->toDateString(), now()->addDays(30)->toDateString()]);
+        }
+        if (\Illuminate\Support\Facades\Schema::hasColumn('renewals', 'status')) {
+            $query->whereNotIn('status', ['cancelled', 'completed']);
+        }
+
+        return (int) $query->count();
     }
 
     private function defaultWidgets(): array

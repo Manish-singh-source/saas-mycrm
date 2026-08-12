@@ -3,6 +3,7 @@
 use App\Http\Controllers\Tenant\TenantApiTokenController;
 use App\Http\Controllers\Tenant\TenantClientController;
 use App\Http\Controllers\Tenant\TenantDashboardController;
+use App\Http\Controllers\Tenant\TenantEngagementController;
 use App\Http\Controllers\Tenant\TenantLeadController;
 use App\Http\Controllers\Tenant\TenantPermissionController;
 use App\Http\Controllers\Tenant\TenantRoleController;
@@ -210,6 +211,20 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::post('/reminders', [SharedPrimitiveController::class, 'createReminder'])->middleware('tenant.permission:document.upload')->name('reminders.store');
     Route::match(['put', 'patch'], '/reminders/{reminder_uuid}', [SharedPrimitiveController::class, 'updateReminder'])->middleware('tenant.permission:document.upload')->name('reminders.update');
     Route::delete('/reminders/{reminder_uuid}', [SharedPrimitiveController::class, 'deleteReminder'])->middleware('tenant.permission:document.delete')->name('reminders.destroy');
+    Route::get('/notifications', [TenantEngagementController::class, 'notifications'])->middleware('tenant.permission:notification.view')->name('notifications.index');
+    Route::get('/notifications/unread-count', [TenantEngagementController::class, 'unreadCount'])->middleware('tenant.permission:notification.view')->name('notifications.unread-count');
+    Route::post('/notifications/bulk/read', [TenantEngagementController::class, 'bulkRead'])->middleware('tenant.permission:notification.manage')->name('notifications.bulk.read');
+    Route::post('/notifications/{notification_id}/read', [TenantEngagementController::class, 'markRead'])->whereNumber('notification_id')->middleware('tenant.permission:notification.manage')->name('notifications.read');
+    Route::post('/notifications/{notification_id}/unread', [TenantEngagementController::class, 'markUnread'])->whereNumber('notification_id')->middleware('tenant.permission:notification.manage')->name('notifications.unread');
+    Route::delete('/notifications/{notification_id}', [TenantEngagementController::class, 'deleteNotification'])->whereNumber('notification_id')->middleware('tenant.permission:notification.manage')->name('notifications.delete');
+    Route::get('/communication/logs', [TenantEngagementController::class, 'communicationLogs'])->middleware('tenant.permission:setting.view')->name('communication.logs');
+    Route::post('/communication/logs/{log_uuid}/retry', [TenantEngagementController::class, 'retryCommunication'])->middleware('tenant.permission:setting.edit')->name('communication.logs.retry');
+    Route::get('/help/articles', [TenantEngagementController::class, 'helpArticles'])->name('help.articles');
+    Route::get('/help/articles/{slug}', [TenantEngagementController::class, 'helpArticle'])->name('help.articles.show');
+    Route::get('/help/faqs', [TenantEngagementController::class, 'faqs'])->name('help.faqs');
+    Route::get('/help/release-notes', [TenantEngagementController::class, 'releaseNotes'])->name('help.release-notes');
+    Route::post('/help/contact-support', [TenantEngagementController::class, 'contactSupport'])->name('help.contact-support');
+    Route::get('/help/system-status', [TenantEngagementController::class, 'systemStatus'])->name('help.system-status');
     Route::get('/profile/api-tokens', [TenantApiTokenController::class, 'index'])->name('profile.api-tokens.index');
     Route::post('/profile/api-tokens', [TenantApiTokenController::class, 'store'])->name('profile.api-tokens.store');
     Route::post('/profile/api-tokens/{token_uuid}/rotate', [TenantApiTokenController::class, 'rotate'])->name('profile.api-tokens.rotate');

@@ -464,6 +464,17 @@ Ensure tenant route guards hide disabled modules and permission-restricted pages
 ## Prompt 15: Tenant Access Control, Teams, Staff
 
 ```text
+
+implement this in frontend also check in backend for apis. [completed-api-curls.md](saas-mycrm/docs/completed-api-curls.md) refer this file.
+add missing apis in backend and integrate them. 
+1. check view pages render all data. 
+2. check all buttons are functional
+3. check all navigations are working. 
+4. check every feature is working properly. 
+5. check inner pages are rendering data and also working correctly. 
+6. check exportexport/import functionalities working properly if needed only. If downloads in queue then give me command to check and complete.
+7. and don't use static data anywhere use actual database data. 
+
 Implement Tenant Access Control, Teams, Staff, and Tenant Users.
 
 Use docs/tenant-pages.md Access Control and Staff Management, docs/tenant-apis.md Access Control/Teams/Staff, and docs/additional-ui-changes.md tenant access/team/staff additions.
