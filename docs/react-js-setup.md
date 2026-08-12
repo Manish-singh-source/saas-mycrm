@@ -675,11 +675,7 @@ Create a final checklist showing which platform and tenant modules are complete,
 
 ```text
 Review the completed React frontend against all source docs:
-- docs/platform-pages.md
-- docs/platform-apis.md
-- docs/tenant-pages.md
-- docs/tenant-apis.md
-- docs/additional-ui-changes.md
+- docs/
 
 Produce a final acceptance report with these sections:
 - Platform pages completed.
