@@ -199,6 +199,30 @@ class SharedPrimitiveController extends BaseApiController
         return $this->success(['tags' => $query->orderBy('name')->get()]);
     }
 
+    public function lookups(Request $request)
+    {
+        $scope = $this->shared->scope($request);
+        abort_if($scope['surface'] !== 'tenant', 404);
+        $query = DB::table('tenant_lookups')
+            ->where(fn ($q) => $q->whereNull('tenant_id')->orWhere('tenant_id', $scope['tenant_id']))
+            ->where('status', 'active');
+
+        if ($request->filled('group')) {
+            $query->where('group', $request->input('group'));
+        }
+        if ($request->filled('groups')) {
+            $groups = array_filter(explode(',', (string) $request->input('groups')));
+            if ($groups !== []) {
+                $query->whereIn('group', $groups);
+            }
+        }
+        if ($search = $request->input('search')) {
+            $query->where(fn ($q) => $q->where('name', 'like', '%'.$search.'%')->orWhere('code', 'like', '%'.$search.'%'));
+        }
+
+        return $this->success(['lookups' => $query->orderBy('group')->orderBy('sort_order')->orderBy('name')->get()]);
+    }
+
     public function createTag(Request $request)
     {
         $scope = $this->shared->scope($request);

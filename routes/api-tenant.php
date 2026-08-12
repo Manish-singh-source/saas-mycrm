@@ -113,6 +113,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::delete('/staff/{staff_uuid}', [TenantStaffController::class, 'destroy'])->middleware('tenant.permission:staff.delete')->name('staff.destroy');
     Route::post('/staff/{staff_uuid}/restore', [TenantStaffController::class, 'restore'])->middleware('tenant.permission:staff.edit')->name('staff.restore');
     Route::get('/staff/{staff_uuid}/activity', [TenantStaffController::class, 'activity'])->middleware('tenant.permission:activity_log.view')->name('staff.activity');
+    Route::get('/staff/{staff_uuid}/tabs/{tab}', [TenantStaffController::class, 'tab'])->whereIn('tab', ['user-access', 'teams', 'documents', 'bank-details', 'salary-structure', 'leave-history', 'attendance', 'payroll', 'projects-tasks', 'assets', 'certifications', 'appraisals', 'training', 'notes', 'files'])->middleware('tenant.permission:staff.view')->name('staff.tabs.show');
     Route::get('/staff/{staff_uuid}/bank-accounts', [TenantStaffController::class, 'childIndex'])->defaults('resource', 'bank-accounts')->middleware('tenant.permission:staff.manage_bank')->name('staff.bank-accounts.index');
     Route::post('/staff/{staff_uuid}/bank-accounts', [TenantStaffController::class, 'childStore'])->defaults('resource', 'bank-accounts')->middleware('tenant.permission:staff.manage_bank')->name('staff.bank-accounts.store');
     Route::match(['put', 'patch'], '/staff/{staff_uuid}/bank-accounts/{id}', [TenantStaffController::class, 'childUpdate'])->whereNumber('id')->defaults('resource', 'bank-accounts')->middleware('tenant.permission:staff.manage_bank')->name('staff.bank-accounts.update');
@@ -156,11 +157,15 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::get('/vendors/{vendor_uuid}/contacts', [TenantVendorController::class, 'contacts'])->middleware('tenant.permission:vendor.view')->name('vendors.contacts.index');
     Route::post('/vendors/{vendor_uuid}/contacts', [TenantVendorController::class, 'storeContact'])->middleware('tenant.permission:vendor.edit')->name('vendors.contacts.store');
     Route::match(['put', 'patch'], '/vendors/{vendor_uuid}/contacts/{contact_uuid}', [TenantVendorController::class, 'updateContact'])->middleware('tenant.permission:vendor.edit')->name('vendors.contacts.update');
+    Route::delete('/vendors/{vendor_uuid}/contacts/{contact_uuid}', [TenantVendorController::class, 'deleteContact'])->middleware('tenant.permission:vendor.edit')->name('vendors.contacts.destroy');
     Route::get('/vendors/{vendor_uuid}/addresses', [TenantVendorController::class, 'addresses'])->middleware('tenant.permission:vendor.view')->name('vendors.addresses.index');
     Route::post('/vendors/{vendor_uuid}/addresses', [TenantVendorController::class, 'storeAddress'])->middleware('tenant.permission:vendor.edit')->name('vendors.addresses.store');
     Route::match(['put', 'patch'], '/vendors/{vendor_uuid}/addresses/{address_id}', [TenantVendorController::class, 'updateAddress'])->whereNumber('address_id')->middleware('tenant.permission:vendor.edit')->name('vendors.addresses.update');
+    Route::delete('/vendors/{vendor_uuid}/addresses/{address_id}', [TenantVendorController::class, 'deleteAddress'])->whereNumber('address_id')->middleware('tenant.permission:vendor.edit')->name('vendors.addresses.destroy');
     Route::get('/vendors/{vendor_uuid}/bank-accounts', [TenantVendorController::class, 'bankAccounts'])->middleware('tenant.permission:finance.bank_account.view')->name('vendors.bank-accounts.index');
     Route::post('/vendors/{vendor_uuid}/bank-accounts', [TenantVendorController::class, 'storeBankAccount'])->middleware('tenant.permission:finance.bank_account.create')->name('vendors.bank-accounts.store');
+    Route::match(['put', 'patch'], '/vendors/{vendor_uuid}/bank-accounts/{account_id}', [TenantVendorController::class, 'updateBankAccount'])->whereNumber('account_id')->middleware('tenant.permission:finance.bank_account.edit')->name('vendors.bank-accounts.update');
+    Route::delete('/vendors/{vendor_uuid}/bank-accounts/{account_id}', [TenantVendorController::class, 'deleteBankAccount'])->whereNumber('account_id')->middleware('tenant.permission:finance.bank_account.delete')->name('vendors.bank-accounts.destroy');
     Route::get('/vendors/{vendor_uuid}/{resource}', [TenantVendorController::class, 'related'])->whereIn('resource', ['expenses', 'renewals'])->middleware('tenant.permission:vendor.view')->name('vendors.related');
     Route::get('/vendors/{vendor_uuid}/activity', [TenantVendorController::class, 'activity'])->middleware('tenant.permission:activity_log.view')->name('vendors.activity');
 
@@ -177,6 +182,14 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::post('/leads/{lead_uuid}/duplicate', [TenantLeadController::class, 'duplicate'])->middleware('tenant.permission:lead.create')->name('leads.duplicate');
     Route::post('/leads/{lead_uuid}/convert', [TenantLeadController::class, 'convert'])->middleware('tenant.permission:lead.convert')->name('leads.convert');
     Route::post('/leads/{lead_uuid}/mark-lost', [TenantLeadController::class, 'markLost'])->middleware('tenant.permission:lead.edit')->name('leads.mark-lost');
+    Route::get('/leads/{lead_uuid}/contacts', [TenantLeadController::class, 'contacts'])->middleware('tenant.permission:lead.view')->name('leads.contacts.index');
+    Route::post('/leads/{lead_uuid}/contacts', [TenantLeadController::class, 'storeContact'])->middleware('tenant.permission:lead.edit')->name('leads.contacts.store');
+    Route::match(['put', 'patch'], '/leads/{lead_uuid}/contacts/{contact_uuid}', [TenantLeadController::class, 'updateContact'])->middleware('tenant.permission:lead.edit')->name('leads.contacts.update');
+    Route::delete('/leads/{lead_uuid}/contacts/{contact_uuid}', [TenantLeadController::class, 'deleteContact'])->middleware('tenant.permission:lead.edit')->name('leads.contacts.destroy');
+    Route::get('/leads/{lead_uuid}/addresses', [TenantLeadController::class, 'addresses'])->middleware('tenant.permission:lead.view')->name('leads.addresses.index');
+    Route::post('/leads/{lead_uuid}/addresses', [TenantLeadController::class, 'storeAddress'])->middleware('tenant.permission:lead.edit')->name('leads.addresses.store');
+    Route::match(['put', 'patch'], '/leads/{lead_uuid}/addresses/{address_id}', [TenantLeadController::class, 'updateAddress'])->whereNumber('address_id')->middleware('tenant.permission:lead.edit')->name('leads.addresses.update');
+    Route::delete('/leads/{lead_uuid}/addresses/{address_id}', [TenantLeadController::class, 'deleteAddress'])->whereNumber('address_id')->middleware('tenant.permission:lead.edit')->name('leads.addresses.destroy');
     Route::get('/leads/{lead_uuid}/activities', [TenantLeadController::class, 'activities'])->middleware('tenant.permission:lead.view')->name('leads.activities.index');
     Route::post('/leads/{lead_uuid}/activities', [TenantLeadController::class, 'storeActivity'])->middleware('tenant.permission:lead.edit')->name('leads.activities.store');
     Route::match(['put', 'patch'], '/leads/{lead_uuid}/activities/{activity_uuid}', [TenantLeadController::class, 'updateActivity'])->middleware('tenant.permission:lead.edit')->name('leads.activities.update');
@@ -196,6 +209,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::get('/activity-logs', [SharedPrimitiveController::class, 'activityLogs'])->middleware('tenant.permission:audit_log.view')->name('activity-logs.index');
     Route::get('/activity-logs/{activity_id}/compare', [SharedPrimitiveController::class, 'activityCompare'])->whereNumber('activity_id')->middleware('tenant.permission:audit_log.view')->name('activity-logs.compare');
     Route::get('/tags', [SharedPrimitiveController::class, 'tags'])->middleware('tenant.permission:setting.view')->name('tags.index');
+    Route::get('/lookups', [SharedPrimitiveController::class, 'lookups'])->middleware('tenant.permission:setting.view')->name('lookups.index');
     Route::post('/tags', [SharedPrimitiveController::class, 'createTag'])->middleware('tenant.permission:setting.edit')->name('tags.store');
     Route::match(['put', 'patch'], '/tags/{tag_uuid}', [SharedPrimitiveController::class, 'updateTag'])->middleware('tenant.permission:setting.edit')->name('tags.update');
     Route::delete('/tags/{tag_uuid}', [SharedPrimitiveController::class, 'deleteTag'])->middleware('tenant.permission:setting.edit')->name('tags.destroy');
@@ -218,6 +232,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::post('/notifications/{notification_id}/unread', [TenantEngagementController::class, 'markUnread'])->whereNumber('notification_id')->middleware('tenant.permission:notification.manage')->name('notifications.unread');
     Route::delete('/notifications/{notification_id}', [TenantEngagementController::class, 'deleteNotification'])->whereNumber('notification_id')->middleware('tenant.permission:notification.manage')->name('notifications.delete');
     Route::get('/communication/logs', [TenantEngagementController::class, 'communicationLogs'])->middleware('tenant.permission:setting.view')->name('communication.logs');
+    Route::post('/communication/email', [TenantEngagementController::class, 'sendEmail'])->name('communication.email');
     Route::post('/communication/logs/{log_uuid}/retry', [TenantEngagementController::class, 'retryCommunication'])->middleware('tenant.permission:setting.edit')->name('communication.logs.retry');
     Route::get('/help/articles', [TenantEngagementController::class, 'helpArticles'])->name('help.articles');
     Route::get('/help/articles/{slug}', [TenantEngagementController::class, 'helpArticle'])->name('help.articles.show');

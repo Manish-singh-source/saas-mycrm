@@ -62,10 +62,12 @@ class TenantVendorController extends BaseTenantController
     public function contacts(string $vendor_uuid): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); return $this->success(['contacts' => DB::table('party_contacts')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $vendor->party_id)->whereNull('deleted_at')->get()]); }
     public function storeContact(Request $request, string $vendor_uuid): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); return $this->success(['contact' => $this->crm->saveContact($request, $vendor->party_id, $this->crm->contactData($request))], 'Contact created.', 201); }
     public function updateContact(Request $request, string $vendor_uuid, string $contact_uuid): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); $contact = $this->contact($vendor->party_id, $contact_uuid); return $this->success(['contact' => $this->crm->saveContact($request, $vendor->party_id, $this->crm->contactData($request), $contact->id)], 'Contact updated.'); }
+    public function deleteContact(string $vendor_uuid, string $contact_uuid): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); $contact = $this->contact($vendor->party_id, $contact_uuid); DB::table('party_contacts')->where('id', $contact->id)->update(['deleted_at' => now(), 'updated_at' => now()]); return $this->success(null, 'Contact deleted.'); }
 
     public function addresses(string $vendor_uuid): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); return $this->success(['addresses' => DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $vendor->party_id)->get()]); }
     public function storeAddress(Request $request, string $vendor_uuid): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); return $this->success(['address' => $this->crm->saveAddress($vendor->party_id, $this->crm->addressData($request))], 'Address created.', 201); }
     public function updateAddress(Request $request, string $vendor_uuid, int $address_id): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); return $this->success(['address' => $this->crm->saveAddress($vendor->party_id, $this->crm->addressData($request), $address_id)], 'Address updated.'); }
+    public function deleteAddress(string $vendor_uuid, int $address_id): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $vendor->party_id)->where('id', $address_id)->delete(); return $this->success(null, 'Address deleted.'); }
 
     public function bankAccounts(string $vendor_uuid): JsonResponse
     {
@@ -83,6 +85,36 @@ class TenantVendorController extends BaseTenantController
         $this->crm->audit($request, 'tenant_vendor_bank_account_created', 'bank_account', $id, null, ['masked' => true]);
 
         return $this->success(['bank_account' => $this->crm->bankPayload($row)], 'Bank account created.', 201);
+    }
+
+    public function updateBankAccount(Request $request, string $vendor_uuid, int $account_id): JsonResponse
+    {
+        $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid);
+        $row = $this->bankAccount($vendor->party_id, $account_id);
+        $data = $request->validate(['bank_name' => ['sometimes', 'string'], 'account_number' => ['nullable', 'string'], 'routing_number' => ['nullable', 'string'], 'ifsc_code' => ['nullable', 'string', 'max:30'], 'is_primary' => ['nullable', 'boolean']]);
+        $payload = array_filter([
+            'bank_name' => $data['bank_name'] ?? null,
+            'account_number_encrypted' => array_key_exists('account_number', $data) && $data['account_number'] !== null ? Crypt::encryptString($data['account_number']) : null,
+            'routing_number_encrypted' => array_key_exists('routing_number', $data) && $data['routing_number'] !== null ? Crypt::encryptString($data['routing_number']) : null,
+            'ifsc_code' => array_key_exists('ifsc_code', $data) ? $data['ifsc_code'] : null,
+            'is_primary' => array_key_exists('is_primary', $data) ? (bool) $data['is_primary'] : null,
+        ], fn ($value) => $value !== null);
+        $payload['updated_at'] = now();
+        DB::table('bank_accounts')->where('id', $row->id)->update($payload);
+        $fresh = DB::table('bank_accounts')->where('id', $row->id)->first();
+        $this->crm->audit($request, 'tenant_vendor_bank_account_updated', 'bank_account', $row->id, ['masked' => true], ['masked' => true]);
+
+        return $this->success(['bank_account' => $this->crm->bankPayload($fresh)], 'Bank account updated.');
+    }
+
+    public function deleteBankAccount(Request $request, string $vendor_uuid, int $account_id): JsonResponse
+    {
+        $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid);
+        $row = $this->bankAccount($vendor->party_id, $account_id);
+        DB::table('bank_accounts')->where('id', $row->id)->delete();
+        $this->crm->audit($request, 'tenant_vendor_bank_account_deleted', 'bank_account', $row->id, ['masked' => true], null);
+
+        return $this->success(null, 'Bank account deleted.');
     }
 
     public function related(string $vendor_uuid, string $resource): JsonResponse
@@ -114,5 +146,10 @@ class TenantVendorController extends BaseTenantController
     private function bankRows(int $partyId): array
     {
         return DB::table('bank_accounts')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('owner_type', 'vendor_party')->where('owner_id', $partyId)->get()->map(fn ($row) => $this->crm->bankPayload($row))->all();
+    }
+
+    private function bankAccount(int $partyId, int $accountId): object
+    {
+        return DB::table('bank_accounts')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('owner_type', 'vendor_party')->where('owner_id', $partyId)->where('id', $accountId)->first() ?: abort(404, 'Bank account not found.');
     }
 }

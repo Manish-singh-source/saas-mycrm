@@ -6,6 +6,7 @@ use App\Http\Controllers\Shared\BaseApiController;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class TenantEngagementController extends BaseApiController
 {
@@ -92,6 +93,41 @@ class TenantEngagementController extends BaseApiController
         $paginator = $query->latest('id')->paginate((int) $request->integer('per_page', 25));
 
         return $this->list($paginator->items(), $paginator);
+    }
+
+    public function sendEmail(Request $request)
+    {
+        $data = $request->validate([
+            'to' => ['required', 'email', 'max:150'],
+            'subject' => ['required', 'string', 'max:255'],
+            'body' => ['required', 'string'],
+            'party_uuid' => ['nullable', 'uuid'],
+            'metadata' => ['nullable', 'array'],
+        ]);
+        $partyId = null;
+        if (! empty($data['party_uuid'])) {
+            $partyId = DB::table('parties')
+                ->where('tenant_id', $this->tenant->id())
+                ->where('uuid', $data['party_uuid'])
+                ->value('id');
+            abort_if(! $partyId, 404, 'Party not found.');
+        }
+        $id = DB::table('communication_logs')->insertGetId([
+            'uuid' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id(),
+            'user_id' => $request->user()?->id,
+            'party_id' => $partyId,
+            'channel' => 'email',
+            'direction' => 'outbound',
+            'subject' => $data['subject'],
+            'body' => $data['body'],
+            'provider' => 'manual',
+            'status' => 'queued',
+            'metadata' => json_encode(['to' => $data['to'], ...($data['metadata'] ?? [])]),
+            'created_at' => now(),
+        ]);
+
+        return $this->success(['log' => DB::table('communication_logs')->where('id', $id)->first()], 'Email queued.', 202);
     }
 
     public function retryCommunication(Request $request, string $log_uuid)

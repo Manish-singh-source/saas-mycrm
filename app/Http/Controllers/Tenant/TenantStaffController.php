@@ -196,6 +196,43 @@ class TenantStaffController extends BaseTenantController
         return $this->success(['activities' => DB::table('activity_logs')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('subject_type', 'staff')->where('subject_id', $staff->id)->orderByDesc('created_at')->limit(50)->get()]);
     }
 
+    public function tab(string $staff_uuid, string $tab): JsonResponse
+    {
+        $staff = $this->findStaff($staff_uuid);
+        $tenantId = app(\App\Tenancy\TenantContext::class)->id();
+
+        $rows = match ($tab) {
+            'user-access' => [
+                'users' => $this->tableRows('users', fn ($q) => $q->where('staff_id', $staff->id), 25),
+                'roles' => $this->userRolesForStaff($staff->id),
+            ],
+            'teams' => $this->joinedRows('team_members', fn ($q) => $q
+                ->leftJoin('teams', 'teams.id', '=', 'team_members.team_id')
+                ->leftJoin('team_roles', 'team_roles.id', '=', 'team_members.team_role_id')
+                ->where('team_members.staff_id', $staff->id)
+                ->select('team_members.*', 'teams.uuid as team_uuid', 'teams.name as team_name', 'team_roles.name as team_role_name')),
+            'documents' => $this->tableRows('staff_documents', fn ($q) => $q->where('staff_id', $staff->id), 50),
+            'bank-details' => $this->tableRows('staff_bank_accounts', fn ($q) => $q->where('staff_id', $staff->id), 50)->map(fn ($row) => $this->tenant->bankPayload($row))->all(),
+            'salary-structure' => $this->tableRows('staff_salary_structures', fn ($q) => $q->where('staff_id', $staff->id), 50),
+            'leave-history' => $this->tableRows('leave_requests', fn ($q) => $q->where('staff_id', $staff->id), 50),
+            'attendance' => $this->tableRows('attendance_records', fn ($q) => $q->where('staff_id', $staff->id), 50),
+            'payroll' => $this->tableRows('payrolls', fn ($q) => $q->where('staff_id', $staff->id), 50),
+            'projects-tasks' => [
+                'projects' => $this->projectRowsForStaff($staff->id),
+                'tasks' => $this->taskRowsForStaff($staff->id),
+            ],
+            'assets' => $this->tableRows('staff_assets', fn ($q) => $q->where('staff_id', $staff->id), 50),
+            'certifications' => $this->tableRows('staff_certifications', fn ($q) => $q->where('staff_id', $staff->id), 50),
+            'appraisals' => $this->tableRows('staff_appraisals', fn ($q) => $q->where('staff_id', $staff->id), 50),
+            'training' => $this->tableRows('staff_training', fn ($q) => $q->where('staff_id', $staff->id), 50),
+            'notes' => $this->tableRows('notes', fn ($q) => $q->where('notable_type', 'staff')->where('notable_id', $staff->id), 50),
+            'files' => $this->staffFiles($tenantId, $staff->id),
+            default => [],
+        };
+
+        return $this->success(['tab' => $tab, 'data' => $rows]);
+    }
+
     private function staffData(Request $request, bool $partial = false): array
     {
         $data = $request->validate(['employee_code' => [$partial ? 'sometimes' : 'required', 'string', 'max:80'], 'first_name' => [$partial ? 'sometimes' : 'required', 'string', 'max:100'], 'last_name' => ['nullable', 'string', 'max:100'], 'display_name' => ['nullable', 'string', 'max:200'], 'personal_email' => ['nullable', 'email', 'max:150'], 'work_email' => ['nullable', 'email', 'max:150'], 'mobile' => ['nullable', 'string', 'max:20'], 'gender' => ['nullable', 'string', 'max:30'], 'date_of_birth' => ['nullable', 'date'], 'joining_date' => ['nullable', 'date'], 'exit_date' => ['nullable', 'date'], 'department_id' => ['nullable', 'string'], 'designation_id' => ['nullable', 'string'], 'office_id' => ['nullable', 'string'], 'primary_team_id' => ['nullable', 'string'], 'reporting_manager_id' => ['nullable', 'string'], 'employment_type' => ['nullable', 'string', 'max:50'], 'employment_status' => ['nullable', 'string', 'max:50']]);
@@ -309,6 +346,104 @@ class TenantStaffController extends BaseTenantController
         }
 
         return DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->orderBy($order)->limit($limit)->get($columns)->all();
+    }
+
+    private function tableRows(string $table, callable $scope, int $limit)
+    {
+        if (! Schema::hasTable($table)) {
+            return collect([['implementation_placeholder' => true, 'message' => $table.' table is not available yet.']]);
+        }
+
+        $query = DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id());
+        $scope($query);
+
+        return $query->orderByDesc(Schema::hasColumn($table, 'created_at') ? 'created_at' : 'id')->limit($limit)->get();
+    }
+
+    private function joinedRows(string $baseTable, callable $scope)
+    {
+        if (! Schema::hasTable($baseTable)) {
+            return [['implementation_placeholder' => true, 'message' => $baseTable.' table is not available yet.']];
+        }
+
+        $query = DB::table($baseTable)->where($baseTable.'.tenant_id', app(\App\Tenancy\TenantContext::class)->id());
+        $scope($query);
+
+        return $query->orderByDesc($baseTable.'.id')->limit(50)->get();
+    }
+
+    private function userRolesForStaff(int $staffId): array
+    {
+        if (! Schema::hasTable('users') || ! Schema::hasTable('roles') || ! Schema::hasTable('model_has_roles')) {
+            return [];
+        }
+
+        return DB::table('users')
+            ->join('model_has_roles', 'model_has_roles.model_id', '=', 'users.id')
+            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->where('users.tenant_id', app(\App\Tenancy\TenantContext::class)->id())
+            ->where('users.staff_id', $staffId)
+            ->where('model_has_roles.model_type', User::class)
+            ->get(['roles.uuid', 'roles.name', 'roles.display_name', 'roles.status'])
+            ->all();
+    }
+
+    private function projectRowsForStaff(int $staffId): array
+    {
+        if (! Schema::hasTable('project_members') || ! Schema::hasTable('users')) {
+            return [];
+        }
+
+        $userIds = DB::table('users')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('staff_id', $staffId)->pluck('id');
+        if ($userIds->isEmpty()) {
+            return [];
+        }
+
+        return DB::table('project_members')
+            ->join('projects', 'projects.id', '=', 'project_members.project_id')
+            ->where('project_members.tenant_id', app(\App\Tenancy\TenantContext::class)->id())
+            ->whereIn('project_members.user_id', $userIds)
+            ->orderByDesc('project_members.id')
+            ->limit(50)
+            ->get(['project_members.*', 'projects.uuid as project_uuid', 'projects.project_number', 'projects.name'])
+            ->all();
+    }
+
+    private function taskRowsForStaff(int $staffId): array
+    {
+        if (! Schema::hasTable('tasks') || ! Schema::hasTable('users')) {
+            return [];
+        }
+
+        $userIds = DB::table('users')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('staff_id', $staffId)->pluck('id');
+        if ($userIds->isEmpty()) {
+            return [];
+        }
+
+        return DB::table('tasks')
+            ->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())
+            ->whereIn('assigned_to', $userIds)
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get(['uuid', 'task_number', 'title', 'status_id', 'priority_id', 'due_at', 'progress'])
+            ->all();
+    }
+
+    private function staffFiles(int $tenantId, int $staffId): array
+    {
+        if (! Schema::hasTable('attachments') || ! Schema::hasTable('files')) {
+            return [['implementation_placeholder' => true, 'message' => 'attachments/files tables are not available yet.']];
+        }
+
+        return DB::table('attachments')
+            ->join('files', 'files.id', '=', 'attachments.file_id')
+            ->where('attachments.tenant_id', $tenantId)
+            ->where('attachments.attachable_type', 'staff')
+            ->where('attachments.attachable_id', $staffId)
+            ->orderByDesc('attachments.id')
+            ->limit(50)
+            ->get(['attachments.*', 'files.uuid as file_uuid', 'files.original_name', 'files.mime_type', 'files.size_bytes'])
+            ->all();
     }
 
     private function dateCount(string $table, string $column, \DateTimeInterface $from, \DateTimeInterface $to): int

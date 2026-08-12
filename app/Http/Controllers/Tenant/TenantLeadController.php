@@ -162,6 +162,16 @@ class TenantLeadController extends BaseTenantController
         return $this->success(null, 'Leads merged.');
     }
 
+    public function contacts(string $lead_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); return $this->success(['contacts' => DB::table('party_contacts')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $lead->party_id)->whereNull('deleted_at')->get()]); }
+    public function storeContact(Request $request, string $lead_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); return $this->success(['contact' => $this->crm->saveContact($request, $lead->party_id, $this->crm->contactData($request))], 'Contact created.', 201); }
+    public function updateContact(Request $request, string $lead_uuid, string $contact_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); $contact = $this->contact($lead->party_id, $contact_uuid); return $this->success(['contact' => $this->crm->saveContact($request, $lead->party_id, $this->crm->contactData($request), $contact->id)], 'Contact updated.'); }
+    public function deleteContact(string $lead_uuid, string $contact_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); $contact = $this->contact($lead->party_id, $contact_uuid); DB::table('party_contacts')->where('id', $contact->id)->update(['deleted_at' => now(), 'updated_at' => now()]); return $this->success(null, 'Contact deleted.'); }
+
+    public function addresses(string $lead_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); return $this->success(['addresses' => DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $lead->party_id)->get()]); }
+    public function storeAddress(Request $request, string $lead_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); return $this->success(['address' => $this->crm->saveAddress($lead->party_id, $this->crm->addressData($request))], 'Address created.', 201); }
+    public function updateAddress(Request $request, string $lead_uuid, int $address_id): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); return $this->success(['address' => $this->crm->saveAddress($lead->party_id, $this->crm->addressData($request), $address_id)], 'Address updated.'); }
+    public function deleteAddress(string $lead_uuid, int $address_id): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $lead->party_id)->where('id', $address_id)->delete(); return $this->success(null, 'Address deleted.'); }
+
     public function activities(string $lead_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); return $this->success(['activities' => $this->activityRows($lead->id)]); }
     public function storeActivity(Request $request, string $lead_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); $id = DB::table('lead_activities')->insertGetId([...$this->activityData($request), 'uuid' => (string) Str::uuid(), 'tenant_id' => app(\App\Tenancy\TenantContext::class)->id(), 'lead_profile_id' => $lead->id, 'created_by' => $request->user()?->id, 'created_at' => now(), 'updated_at' => now()]); return $this->success(['activity' => DB::table('lead_activities')->where('id', $id)->first()], 'Lead activity created.', 201); }
     public function updateActivity(Request $request, string $lead_uuid, string $activity_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); $activity = DB::table('lead_activities')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('lead_profile_id', $lead->id)->where('uuid', $activity_uuid)->first() ?: abort(404, 'Activity not found.'); DB::table('lead_activities')->where('id', $activity->id)->update([...$this->activityData($request, true), 'updated_at' => now()]); return $this->success(['activity' => DB::table('lead_activities')->where('id', $activity->id)->first()], 'Lead activity updated.'); }
@@ -190,6 +200,11 @@ class TenantLeadController extends BaseTenantController
     private function activityRows(int $leadId): array
     {
         return DB::table('lead_activities')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('lead_profile_id', $leadId)->orderByDesc('scheduled_at')->get()->all();
+    }
+
+    private function contact(int $partyId, string $uuid): object
+    {
+        return DB::table('party_contacts')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $partyId)->where('uuid', $uuid)->whereNull('deleted_at')->first() ?: abort(404, 'Contact not found.');
     }
 
     private function grouped(string $column): array
