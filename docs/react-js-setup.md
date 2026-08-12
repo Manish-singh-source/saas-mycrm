@@ -592,6 +592,8 @@ Required UI:
 
 ```text
 
+
+
 implement this in frontend also check in backend for apis. [completed-api-curls.md](saas-mycrm/docs/completed-api-curls.md) refer this file.
 add missing apis in backend and integrate them. 
 1. check view pages render all data. 
