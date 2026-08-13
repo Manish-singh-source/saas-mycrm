@@ -68,7 +68,18 @@ final class ApiResponse
         array $meta = [],
         array $headers = []
     ): JsonResponse {
-        return self::error($message, 'VALIDATION_ERROR', self::normalizeErrors($errors), $status, $meta, $headers);
+        return response()->json([
+            'success' => false,
+            'message' => $message,
+            'data' => null,
+            'meta' => self::meta([
+                'error_code' => 'VALIDATION_ERROR',
+                ...$meta,
+            ]),
+            'errors' => [
+                'details' => self::normalizeErrors($errors),
+            ],
+        ], $status, $headers);
     }
 
     /**

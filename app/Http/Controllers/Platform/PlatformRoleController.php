@@ -326,7 +326,7 @@ class PlatformRoleController extends BaseApiController
             'description' => ['nullable', 'string', 'max:255'],
             'is_system' => ['sometimes', 'boolean'],
             'status' => ['sometimes', Rule::in(['active', 'inactive'])],
-            'permission_ids' => ['sometimes', 'array', 'min:1'],
+            'permission_ids' => ['sometimes', 'array'],
             'permission_ids.*' => ['required', 'string'],
             'audit_reason' => ['nullable', 'string', 'max:500'],
         ]);

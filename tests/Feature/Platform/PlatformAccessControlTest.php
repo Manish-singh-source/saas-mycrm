@@ -68,6 +68,27 @@ class PlatformAccessControlTest extends TestCase
         $this->assertStringContainsString('export_role', $download->json('data.download.content'));
     }
 
+    public function test_role_create_allows_empty_permission_ids(): void
+    {
+        Sanctum::actingAs($this->platformUser(), ['platform:*']);
+
+        $response = $this->postJson('/api/platform/v1/access-control/roles', [
+            'name' => 'empty_permission_role',
+            'display_name' => 'Empty Permission Role',
+            'guard_name' => 'platform',
+            'description' => 'Role can be created without initial permissions.',
+            'is_system' => false,
+            'status' => 'active',
+            'permission_ids' => [],
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.role.name', 'empty_permission_role');
+
+        $role = PlatformRole::query()->where('name', 'empty_permission_role')->firstOrFail();
+        $this->assertSame(0, $role->permissions()->count());
+    }
+
     public function test_permission_exports_and_delete_guards_work(): void
     {
         Sanctum::actingAs($this->platformUser(), ['platform:*']);

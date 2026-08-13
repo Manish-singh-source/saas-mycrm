@@ -8,6 +8,7 @@ use App\Models\PlatformPermission;
 use App\Models\PlatformRole;
 use App\Models\PlatformUser;
 use App\Services\Platform\PlatformAdminService;
+use App\Services\Shared\SharedPrimitiveService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -18,7 +19,10 @@ use Illuminate\Validation\Rule;
 
 class PlatformStaffController extends BaseApiController
 {
-    public function __construct(private readonly PlatformAdminService $admin) {}
+    public function __construct(
+        private readonly PlatformAdminService $admin,
+        private readonly SharedPrimitiveService $shared,
+    ) {}
 
     public function index(Request $request)
     {
@@ -29,8 +33,9 @@ class PlatformStaffController extends BaseApiController
         }
         foreach (['status', 'department'] as $field) if ($request->filled('filter.' . $field)) $query->where($field, $request->input('filter.' . $field));
         $paginator = $query->latest('id')->paginate((int) $request->integer('per_page', 25));
+        $items = collect($paginator->items())->map(fn (PlatformUser $user) => $this->staffListPayload($user))->all();
 
-        return $this->list($paginator->items(), $paginator);
+        return $this->list($items, $paginator);
     }
 
     public function store(Request $request)
@@ -188,9 +193,16 @@ class PlatformStaffController extends BaseApiController
 
     public function syncPermissions(Request $request, string $platform_user_uuid)
     {
-        $data = $request->validate(['permission_uuids' => ['required', 'array'], 'permission_uuids.*' => ['uuid']]);
+        $data = $request->validate([
+            'permission_uuids' => ['nullable', 'array'],
+            'permission_uuids.*' => ['uuid'],
+            'permission_ids' => ['nullable', 'array'],
+            'permission_ids.*' => ['uuid'],
+            'audit_reason' => ['nullable', 'string', 'max:500'],
+        ]);
         $user = PlatformUser::query()->where('uuid', $platform_user_uuid)->firstOrFail();
-        $ids = PlatformPermission::query()->whereIn('uuid', $data['permission_uuids'])->pluck('id')->all();
+        $permissionUuids = $data['permission_uuids'] ?? $data['permission_ids'] ?? [];
+        $ids = PlatformPermission::query()->whereIn('uuid', $permissionUuids)->pluck('id')->all();
         $user->platformDirectPermissions()->syncWithPivotValues($ids, ['model_type' => PlatformUser::class]);
         $this->admin->audit($request, 'platform_user_permissions_synced', PlatformUser::class, $user->id, null, ['permission_ids' => $ids]);
         return $this->success(['permissions' => $user->platformDirectPermissions()->get()]);
@@ -238,12 +250,45 @@ class PlatformStaffController extends BaseApiController
 
     private function staffPayload(PlatformUser $user): array
     {
+        $payload = $this->staffListPayload($user);
+
         return [
-            'user' => $user,
+            'user' => $payload,
             'roles' => $user->platformRoles()->get(),
             'teams' => $this->userTeams($user),
             'permissions' => $user->platformDirectPermissions()->get(),
         ];
+    }
+
+    private function staffListPayload(PlatformUser $user): array
+    {
+        $payload = $user->toArray();
+        $payload['profile_photo_url'] = $this->profilePhotoUrl($user);
+
+        return [
+            ...$payload,
+            'roles' => $user->platformRoles()->get(['platform_roles.uuid', 'platform_roles.name', 'platform_roles.display_name', 'platform_roles.status']),
+            'teams' => $this->userTeams($user),
+            'direct_permissions_count' => $user->platformDirectPermissions()->count(),
+        ];
+    }
+
+    private function profilePhotoUrl(PlatformUser $user): ?string
+    {
+        if (! $user->profile_photo_file_id) {
+            return null;
+        }
+
+        $file = DB::table('files')
+            ->where('id', $user->profile_photo_file_id)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (! $file) {
+            return null;
+        }
+
+        return $this->shared->signedDownloadUrl($file->uuid);
     }
 
     private function requestedUuids(Request $request, string $primary, string $alias): ?array

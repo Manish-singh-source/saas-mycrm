@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PlatformTeamController extends BaseApiController
 {
@@ -35,7 +36,9 @@ class PlatformTeamController extends BaseApiController
 
         $this->sort($query, $request, ['name', 'code', 'status', 'visibility', 'created_at', 'updated_at'], 'created_at');
         $page = $query->paginate((int) $request->integer('per_page', 25));
-        return $this->list($page->items(), $page);
+        $items = collect($page->items())->map(fn($team) => $this->teamPayload($team))->all();
+
+        return $this->list($items, $page);
     }
 
     public function store(Request $request)
@@ -52,16 +55,12 @@ class PlatformTeamController extends BaseApiController
         $team = DB::table('platform_teams')->where('id', $id)->first();
         $this->admin->audit($request, 'platform_team_created', 'platform_team', $id, null, (array) $team);
 
-        return $this->success(['team' => $team], 'Platform team created.', 201);
+        return $this->success(['team' => $this->teamPayload($team)], 'Platform team created.', 201);
     }
 
     public function show(string $team_uuid)
     {
-        $team = $this->team($team_uuid);
-        $team->members_count = DB::table('platform_team_members')->where('platform_team_id', $team->id)->count();
-        $team->assignments_count = DB::table('platform_team_assignments')->where('platform_team_id', $team->id)->count();
-
-        return $this->success(['team' => $team]);
+        return $this->success(['team' => $this->teamPayload($this->team($team_uuid))]);
     }
 
     public function update(Request $request, string $team_uuid)
@@ -73,7 +72,7 @@ class PlatformTeamController extends BaseApiController
         $fresh = DB::table('platform_teams')->where('id', $team->id)->first();
         $this->admin->audit($request, 'platform_team_updated', 'platform_team', $team->id, (array) $team, (array) $fresh);
 
-        return $this->success(['team' => $fresh], 'Platform team updated.');
+        return $this->success(['team' => $this->teamPayload($fresh)], 'Platform team updated.');
     }
 
     public function destroy(Request $request, string $team_uuid)
@@ -262,6 +261,9 @@ class PlatformTeamController extends BaseApiController
     public function createTeamRole(Request $request)
     {
         $data = $this->teamRoleData($request);
+        $data['code'] = $this->uniqueTeamRoleCode($data['name']);
+        $data['sort_order'] = $this->nextTeamRoleSortOrder();
+
         $id = DB::table('platform_team_roles')->insertGetId([
             'uuid' => (string) Str::uuid(),
             ...$data,
@@ -270,21 +272,28 @@ class PlatformTeamController extends BaseApiController
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        $role = DB::table('platform_team_roles')->where('id', $id)->first();
+        $this->admin->audit($request, 'platform_team_role_created', 'platform_team_role', $id, null, (array) $role);
 
-        return $this->success(['team_role' => $this->teamRolePayload(DB::table('platform_team_roles')->where('id', $id)->first())], 'Team role created.', 201);
+        return $this->success(['team_role' => $this->teamRolePayload($role)], 'Team role created.', 201);
     }
 
     public function updateTeamRole(Request $request, string $role_uuid)
     {
         $role = $this->teamRole($role_uuid);
         $data = $this->teamRoleData($request, $role->id, true);
+        if (isset($data['name']) && $data['name'] !== $role->name) {
+            $data['code'] = $this->uniqueTeamRoleCode($data['name'], $role->id);
+        }
         if (isset($data['permissions'])) {
             $data['permissions'] = json_encode($data['permissions']);
         }
         $data['updated_at'] = now();
         DB::table('platform_team_roles')->where('id', $role->id)->update($data);
+        $fresh = DB::table('platform_team_roles')->where('id', $role->id)->first();
+        $this->admin->audit($request, 'platform_team_role_updated', 'platform_team_role', $role->id, (array) $role, (array) $fresh, $request->input('audit_reason'));
 
-        return $this->success(['team_role' => $this->teamRolePayload(DB::table('platform_team_roles')->where('id', $role->id)->first())], 'Team role updated.');
+        return $this->success(['team_role' => $this->teamRolePayload($fresh)], 'Team role updated.');
     }
 
     public function deleteTeamRole(Request $request, string $role_uuid)
@@ -336,7 +345,7 @@ class PlatformTeamController extends BaseApiController
 
     private function teamData(Request $request, ?int $ignore = null, bool $partial = false): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'name' => [$partial ? 'sometimes' : 'required', 'string', 'max:150'],
             'code' => [$partial ? 'sometimes' : 'required', 'string', 'max:80', Rule::unique('platform_teams')->ignore($ignore)],
             'description' => ['nullable', 'string', 'max:255'],
@@ -349,19 +358,58 @@ class PlatformTeamController extends BaseApiController
             'visibility' => ['nullable', Rule::in(['internal', 'private'])],
             'status' => ['nullable', Rule::in(['active', 'inactive'])],
         ]);
+
+        $current = $ignore ? DB::table('platform_teams')->where('id', $ignore)->first() : null;
+        $leadUserId = $data['lead_platform_user_id'] ?? $current?->lead_platform_user_id;
+        $assistantLeadUserId = $data['assistant_lead_platform_user_id'] ?? $current?->assistant_lead_platform_user_id;
+
+        if ($leadUserId && $assistantLeadUserId && (int) $leadUserId === (int) $assistantLeadUserId) {
+            throw ValidationException::withMessages([
+                'assistant_lead_platform_user_id' => ['Assistant lead must be different from the lead user.'],
+            ]);
+        }
+
+        return $data;
     }
 
     private function teamRoleData(Request $request, ?int $ignore = null, bool $partial = false): array
     {
         return $request->validate([
             'name' => [$partial ? 'sometimes' : 'required', 'string', 'max:150'],
-            'code' => [$partial ? 'sometimes' : 'required', 'string', 'max:80', Rule::unique('platform_team_roles', 'code')->ignore($ignore, 'id')->whereNull('deleted_at')],
             'description' => ['nullable', 'string', 'max:255'],
             'permissions' => ['nullable', 'array'],
-            'sort_order' => ['nullable', 'integer'],
             'is_system' => ['nullable', 'boolean'],
             'status' => ['nullable', Rule::in(['active', 'inactive'])],
         ]);
+    }
+
+    private function uniqueTeamRoleCode(string $name, ?int $ignore = null): string
+    {
+        $base = Str::slug($name);
+        if ($base === '') {
+            $base = 'team-role';
+        }
+
+        $base = Str::limit($base, 72, '');
+        $code = $base;
+        $suffix = 2;
+
+        while (
+            DB::table('platform_team_roles')
+                ->where('code', $code)
+                ->when($ignore, fn($query) => $query->where('id', '!=', $ignore))
+                ->exists()
+        ) {
+            $code = Str::limit($base, 72, '') . '-' . $suffix;
+            $suffix++;
+        }
+
+        return $code;
+    }
+
+    private function nextTeamRoleSortOrder(): int
+    {
+        return ((int) DB::table('platform_team_roles')->whereNull('deleted_at')->max('sort_order')) + 1;
     }
 
     private function teamRolePayload(object $role): object
@@ -379,6 +427,35 @@ class PlatformTeamController extends BaseApiController
 
         return $role;
     }
+
+    private function teamPayload(object $team): object
+    {
+        $leadIds = array_values(array_filter([
+            $team->lead_platform_user_id ?? null,
+            $team->assistant_lead_platform_user_id ?? null,
+        ]));
+        $users = $leadIds
+            ? DB::table('platform_users')
+                ->whereIn('id', $leadIds)
+                ->get(['id', 'uuid', 'display_name', 'email'])
+                ->keyBy('id')
+            : collect();
+
+        $lead = $users->get($team->lead_platform_user_id ?? null);
+        $assistantLead = $users->get($team->assistant_lead_platform_user_id ?? null);
+
+        $team->lead_uuid = $lead->uuid ?? null;
+        $team->lead_name = $lead->display_name ?? null;
+        $team->lead_email = $lead->email ?? null;
+        $team->assistant_lead_uuid = $assistantLead->uuid ?? null;
+        $team->assistant_lead_name = $assistantLead->display_name ?? null;
+        $team->assistant_lead_email = $assistantLead->email ?? null;
+        $team->members_count = DB::table('platform_team_members')->where('platform_team_id', $team->id)->count();
+        $team->assignments_count = DB::table('platform_team_assignments')->where('platform_team_id', $team->id)->count();
+
+        return $team;
+    }
+
     private function sort(Builder $query, Request $request, array $allowed, string $default): void
     {
         $sort = (string) $request->input('sort', $default);

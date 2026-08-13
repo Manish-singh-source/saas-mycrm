@@ -45,13 +45,26 @@ class PlatformTeamsTest extends TestCase
             'icon' => 'users',
             'visibility' => 'private',
             'status' => 'active',
-        ])->assertCreated()->json('data.team');
+        ])->assertCreated()
+            ->assertJsonPath('data.team.lead_name', $actor->display_name)
+            ->assertJsonPath('data.team.assistant_lead_name', $member->display_name)
+            ->json('data.team');
 
         $this->patchJson('/api/platform/v1/platform-teams/'.$created['uuid'], [
             'name' => 'Customer Operations',
             'visibility' => 'internal',
             'status' => 'active',
         ])->assertOk()->assertJsonPath('data.team.visibility', 'internal');
+
+        $this->getJson('/api/platform/v1/platform-teams/'.$created['uuid'])
+            ->assertOk()
+            ->assertJsonPath('data.team.lead_name', $actor->display_name)
+            ->assertJsonPath('data.team.assistant_lead_name', $member->display_name);
+
+        $this->patchJson('/api/platform/v1/platform-teams/'.$created['uuid'], [
+            'assistant_lead_platform_user_id' => $actor->id,
+        ])->assertUnprocessable()
+            ->assertJsonPath('errors.details.assistant_lead_platform_user_id.0', 'Assistant lead must be different from the lead user.');
 
         $this->postJson('/api/platform/v1/platform-teams/'.$created['uuid'].'/members', [
             'platform_user_uuid' => $member->uuid,
@@ -127,6 +140,30 @@ class PlatformTeamsTest extends TestCase
         DB::table('platform_team_members')->where('platform_team_role_id', $role->id)->delete();
         $this->deleteJson('/api/platform/v1/platform-team-roles/'.$role->uuid, ['audit_reason' => 'test cleanup'])
             ->assertOk();
+    }
+
+    public function test_team_role_create_generates_code_and_sort_order(): void
+    {
+        Sanctum::actingAs($this->platformUser(), ['platform:*']);
+        $this->teamRole(['name' => 'Existing Role', 'code' => 'existing-role', 'sort_order' => 7]);
+
+        $response = $this->postJson('/api/platform/v1/platform-team-roles', [
+            'name' => 'Escalation Manager',
+            'description' => 'Owns team escalation routing',
+            'permissions' => ['platform_team.view', 'platform_team.assign'],
+            'is_system' => false,
+            'status' => 'active',
+        ])->assertCreated();
+
+        $response
+            ->assertJsonPath('data.team_role.code', 'escalation-manager')
+            ->assertJsonPath('data.team_role.sort_order', 8);
+
+        $this->assertDatabaseHas('platform_team_roles', [
+            'name' => 'Escalation Manager',
+            'code' => 'escalation-manager',
+            'sort_order' => 8,
+        ]);
     }
 
     public function test_team_and_team_role_routes_require_platform_permissions(): void
