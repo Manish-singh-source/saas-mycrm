@@ -45,7 +45,7 @@ class PlatformBillingController extends BasePlatformController
             'tax_amount' => $subscription->tax_amount,
             'items' => [[
                 'item_type' => 'plan',
-                'description' => ($plan->name ?? 'Subscription').' subscription',
+                'description' => ($plan->name ?? 'Subscription') . ' subscription',
                 'quantity' => 1,
                 'unit_price' => $subscription->base_amount,
                 'amount' => $subscription->base_amount,
@@ -74,7 +74,7 @@ class PlatformBillingController extends BasePlatformController
                 DB::table('platform_invoice_items')->where('platform_invoice_id', $invoice->id)->delete();
                 foreach ($data['items'] as $item) $this->insertLine($invoice->id, $item);
             }
-            $items = DB::table('platform_invoice_items')->where('platform_invoice_id', $invoice->id)->get()->map(fn ($i) => (array) $i)->all();
+            $items = DB::table('platform_invoice_items')->where('platform_invoice_id', $invoice->id)->get()->map(fn($i) => (array) $i)->all();
             $totals = $this->billing->invoiceTotals($items, (float) ($data['discount_amount'] ?? $invoice->discount_amount), (float) ($data['tax_amount'] ?? $invoice->tax_amount));
             DB::table('platform_invoices')->where('id', $invoice->id)->update([...collect($data)->except('items')->all(), ...$totals, 'updated_at' => now()]);
             $fresh = DB::table('platform_invoices')->where('id', $invoice->id)->first();
@@ -107,7 +107,7 @@ class PlatformBillingController extends BasePlatformController
     {
         $invoice = $this->billing->byUuid('platform_invoices', $invoice_uuid);
         if (! $invoice->pdf_file_id) {
-            $fileId = DB::table('files')->insertGetId(['uuid' => (string) Str::uuid(), 'tenant_id' => $invoice->tenant_id, 'disk' => config('filesystems.default', 'local'), 'path' => 'platform/invoices/'.$invoice->invoice_number.'.pdf', 'original_name' => $invoice->invoice_number.'.pdf', 'mime_type' => 'application/pdf', 'extension' => 'pdf', 'size_bytes' => 0, 'visibility' => 'private', 'platform_uploaded_by' => $request->user()?->id, 'created_at' => now(), 'updated_at' => now()]);
+            $fileId = DB::table('files')->insertGetId(['uuid' => (string) Str::uuid(), 'tenant_id' => $invoice->tenant_id, 'disk' => config('filesystems.default', 'local'), 'path' => 'platform/invoices/' . $invoice->invoice_number . '.pdf', 'original_name' => $invoice->invoice_number . '.pdf', 'mime_type' => 'application/pdf', 'extension' => 'pdf', 'size_bytes' => 0, 'visibility' => 'private', 'platform_uploaded_by' => $request->user()?->id, 'created_at' => now(), 'updated_at' => now()]);
             DB::table('platform_invoices')->where('id', $invoice->id)->update(['pdf_file_id' => $fileId, 'updated_at' => now()]);
             $invoice = DB::table('platform_invoices')->where('id', $invoice->id)->first();
         }
@@ -115,7 +115,11 @@ class PlatformBillingController extends BasePlatformController
         return $this->success(['pdf_file' => $file], 'Invoice PDF generated.');
     }
 
-    public function recordInvoicePayment(Request $request, string $invoice_uuid) { $request->merge(['platform_invoice_id' => $invoice_uuid]); return $this->storePayment($request); }
+    public function recordInvoicePayment(Request $request, string $invoice_uuid)
+    {
+        $request->merge(['platform_invoice_id' => $invoice_uuid]);
+        return $this->storePayment($request);
+    }
 
     public function payments(Request $request)
     {
@@ -123,7 +127,7 @@ class PlatformBillingController extends BasePlatformController
         foreach (['payment_status', 'gateway', 'currency'] as $filter) if ($request->filled($filter)) $q->where($filter, $request->input($filter));
         if ($request->filled('tenant_uuid')) $q->where('tenant_id', $this->billing->tenantId((string) $request->input('tenant_uuid')));
         $p = $q->latest('id')->paginate((int) $request->integer('per_page', 25));
-        $items = collect($p->items())->map(fn ($payment) => tap($payment, fn ($p) => $p->raw_response = $this->billing->maskRaw($p->raw_response)))->all();
+        $items = collect($p->items())->map(fn($payment) => tap($payment, fn($p) => $p->raw_response = $this->billing->maskRaw($p->raw_response)))->all();
         return $this->list($items, $p);
     }
 
@@ -137,7 +141,7 @@ class PlatformBillingController extends BasePlatformController
             $subscription = ! empty($data['subscription_id']) ? $this->billing->byUuid('subscriptions', $data['subscription_id']) : null;
             $tenantId = $invoice->tenant_id ?? $subscription->tenant_id ?? (! empty($data['tenant_id']) ? $this->billing->tenantId($data['tenant_id']) : null);
             abort_if(! $tenantId, 422, 'tenant_id, platform_invoice_id, or subscription_id is required.');
-            $id = DB::table('platform_payments')->insertGetId(['uuid' => (string) Str::uuid(), 'payment_number' => 'PAY-'.Str::upper(Str::random(10)), 'tenant_id' => $tenantId, 'platform_invoice_id' => $invoice->id ?? null, 'subscription_id' => $subscription->id ?? $invoice->subscription_id ?? null, 'gateway' => $data['gateway'] ?? null, 'gateway_payment_id' => $data['gateway_payment_id'] ?? null, 'payment_method' => $data['payment_method'] ?? null, 'amount' => $data['amount'], 'currency' => $data['currency'] ?? $invoice->currency ?? $subscription->currency ?? 'INR', 'payment_status' => $data['payment_status'], 'paid_at' => $data['paid_at'] ?? now(), 'failure_reason' => $data['failure_reason'] ?? null, 'raw_response' => isset($data['raw_response']) ? json_encode($data['raw_response']) : null, 'created_at' => now(), 'updated_at' => now()]);
+            $id = DB::table('platform_payments')->insertGetId(['uuid' => (string) Str::uuid(), 'payment_number' => 'PAY-' . Str::upper(Str::random(10)), 'tenant_id' => $tenantId, 'platform_invoice_id' => $invoice->id ?? null, 'subscription_id' => $subscription->id ?? $invoice->subscription_id ?? null, 'gateway' => $data['gateway'] ?? null, 'gateway_payment_id' => $data['gateway_payment_id'] ?? null, 'payment_method' => $data['payment_method'] ?? null, 'amount' => $data['amount'], 'currency' => $data['currency'] ?? $invoice->currency ?? $subscription->currency ?? 'INR', 'payment_status' => $data['payment_status'], 'paid_at' => $data['paid_at'] ?? now(), 'failure_reason' => $data['failure_reason'] ?? null, 'raw_response' => isset($data['raw_response']) ? json_encode($data['raw_response']) : null, 'created_at' => now(), 'updated_at' => now()]);
             if ($invoice) $this->billing->applyInvoicePayment($invoice->id);
             $payment = DB::table('platform_payments')->where('id', $id)->first();
             $payment->raw_response = $this->billing->maskRaw($payment->raw_response);
@@ -174,7 +178,7 @@ class PlatformBillingController extends BasePlatformController
     public function refunds(Request $request)
     {
         $p = DB::table('platform_refunds')->latest('id')->paginate((int) $request->integer('per_page', 25));
-        $items = collect($p->items())->map(fn ($refund) => tap($refund, fn ($r) => $r->raw_response = $this->billing->maskRaw($r->raw_response)))->all();
+        $items = collect($p->items())->map(fn($refund) => tap($refund, fn($r) => $r->raw_response = $this->billing->maskRaw($r->raw_response)))->all();
         return $this->list($items, $p);
     }
 
@@ -185,7 +189,7 @@ class PlatformBillingController extends BasePlatformController
 
         return $this->billing->storeIdempotency($request, 'refund.store', DB::transaction(function () use ($request, $data) {
             $payment = $this->billing->byUuid('platform_payments', $data['platform_payment_id']);
-            $id = DB::table('platform_refunds')->insertGetId(['uuid' => (string) Str::uuid(), 'refund_number' => 'REF-'.Str::upper(Str::random(10)), 'tenant_id' => $payment->tenant_id, 'platform_payment_id' => $payment->id, 'amount' => $data['amount'], 'currency' => $data['currency'] ?? $payment->currency, 'reason' => $data['reason'] ?? null, 'status' => 'pending', 'raw_response' => json_encode(['gateway' => $data['gateway'] ?? $payment->gateway, 'status' => 'placeholder']), 'created_at' => now(), 'updated_at' => now()]);
+            $id = DB::table('platform_refunds')->insertGetId(['uuid' => (string) Str::uuid(), 'refund_number' => 'REF-' . Str::upper(Str::random(10)), 'tenant_id' => $payment->tenant_id, 'platform_payment_id' => $payment->id, 'amount' => $data['amount'], 'currency' => $data['currency'] ?? $payment->currency, 'reason' => $data['reason'] ?? null, 'status' => 'pending', 'raw_response' => json_encode(['gateway' => $data['gateway'] ?? $payment->gateway, 'status' => 'placeholder']), 'created_at' => now(), 'updated_at' => now()]);
             $refund = DB::table('platform_refunds')->where('id', $id)->first();
             $refund->raw_response = $this->billing->maskRaw($refund->raw_response);
             $this->billing->audit($request, 'refund_created', 'platform_refunds', $id, null, (array) $refund);
@@ -198,11 +202,31 @@ class PlatformBillingController extends BasePlatformController
         $request->merge(['platform_payment_id' => $payment_uuid]);
         return $this->storeRefund($request);
     }
-    public function showRefund(string $refund_uuid) { $refund = $this->billing->byUuid('platform_refunds', $refund_uuid); $refund->raw_response = $this->billing->maskRaw($refund->raw_response); return $this->success(['refund' => $refund]); }
-    public function retryRefund(Request $request, string $refund_uuid) { if ($hit = $this->billing->idempotencyHit($request, 'refund.retry')) return $hit; $refund = $this->billing->byUuid('platform_refunds', $refund_uuid); DB::table('platform_refunds')->where('id', $refund->id)->update(['status' => 'retry_queued', 'updated_at' => now()]); return $this->billing->storeIdempotency($request, 'refund.retry', $this->success(['refund' => DB::table('platform_refunds')->where('id', $refund->id)->first()], 'Refund retry queued.')); }
-    public function exportInvoices() { return $this->success(['export' => ['status' => 'queued', 'format' => 'csv']], 'Invoice export queued.'); }
-    public function exportPayments() { return $this->success(['export' => ['status' => 'queued', 'format' => 'csv']], 'Payment export queued.'); }
-    public function exportRefunds() { return $this->success(['export' => ['status' => 'queued', 'format' => 'csv']], 'Refund export queued.'); }
+    public function showRefund(string $refund_uuid)
+    {
+        $refund = $this->billing->byUuid('platform_refunds', $refund_uuid);
+        $refund->raw_response = $this->billing->maskRaw($refund->raw_response);
+        return $this->success(['refund' => $refund]);
+    }
+    public function retryRefund(Request $request, string $refund_uuid)
+    {
+        if ($hit = $this->billing->idempotencyHit($request, 'refund.retry')) return $hit;
+        $refund = $this->billing->byUuid('platform_refunds', $refund_uuid);
+        DB::table('platform_refunds')->where('id', $refund->id)->update(['status' => 'retry_queued', 'updated_at' => now()]);
+        return $this->billing->storeIdempotency($request, 'refund.retry', $this->success(['refund' => DB::table('platform_refunds')->where('id', $refund->id)->first()], 'Refund retry queued.'));
+    }
+    public function exportInvoices()
+    {
+        return $this->success(['export' => ['status' => 'queued', 'format' => 'csv']], 'Invoice export queued.');
+    }
+    public function exportPayments()
+    {
+        return $this->success(['export' => ['status' => 'queued', 'format' => 'csv']], 'Payment export queued.');
+    }
+    public function exportRefunds()
+    {
+        return $this->success(['export' => ['status' => 'queued', 'format' => 'csv']], 'Refund export queued.');
+    }
 
     private function writeInvoice(Request $request, array $data)
     {
@@ -210,7 +234,7 @@ class PlatformBillingController extends BasePlatformController
             $tenantId = $this->billing->tenantId($data['tenant_id']);
             $subscription = ! empty($data['subscription_id']) ? $this->billing->byUuid('subscriptions', $data['subscription_id']) : null;
             $totals = $this->billing->invoiceTotals($data['items'], (float) ($data['discount_amount'] ?? 0), (float) ($data['tax_amount'] ?? 0));
-            $id = DB::table('platform_invoices')->insertGetId(['uuid' => (string) Str::uuid(), 'invoice_number' => 'INV-'.Str::upper(Str::random(10)), 'tenant_id' => $tenantId, 'subscription_id' => $subscription->id ?? null, 'invoice_date' => $data['invoice_date'], 'due_date' => $data['due_date'] ?? null, ...$totals, 'paid_amount' => 0, 'currency' => $data['currency'] ?? $subscription->currency ?? 'INR', 'status' => $data['status'] ?? 'draft', 'created_at' => now(), 'updated_at' => now()]);
+            $id = DB::table('platform_invoices')->insertGetId(['uuid' => (string) Str::uuid(), 'invoice_number' => 'INV-' . Str::upper(Str::random(10)), 'tenant_id' => $tenantId, 'subscription_id' => $subscription->id ?? null, 'invoice_date' => $data['invoice_date'], 'due_date' => $data['due_date'] ?? null, ...$totals, 'paid_amount' => 0, 'currency' => $data['currency'] ?? $subscription->currency ?? 'INR', 'status' => $data['status'] ?? 'draft', 'created_at' => now(), 'updated_at' => now()]);
             foreach ($data['items'] as $item) $this->insertLine($id, $item);
             $invoice = DB::table('platform_invoices')->where('id', $id)->first();
             $this->billing->audit($request, 'invoice_created', 'platform_invoices', $id, null, (array) $invoice);
@@ -225,7 +249,7 @@ class PlatformBillingController extends BasePlatformController
 
     private function paymentsForInvoice(int $invoiceId)
     {
-        return DB::table('platform_payments')->where('platform_invoice_id', $invoiceId)->latest('id')->get()->map(fn ($p) => tap($p, fn ($x) => $x->raw_response = $this->billing->maskRaw($x->raw_response)));
+        return DB::table('platform_payments')->where('platform_invoice_id', $invoiceId)->latest('id')->get()->map(fn($p) => tap($p, fn($x) => $x->raw_response = $this->billing->maskRaw($x->raw_response)));
     }
 
     private function invoiceData(Request $request): array
@@ -233,4 +257,3 @@ class PlatformBillingController extends BasePlatformController
         return $request->validate(['tenant_id' => ['required', 'uuid'], 'subscription_id' => ['nullable', 'uuid'], 'invoice_date' => ['required', 'date'], 'due_date' => ['nullable', 'date'], 'currency' => ['nullable', 'string', 'size:3'], 'status' => ['nullable', Rule::in(['draft', 'sent', 'paid', 'partially_paid', 'overdue', 'cancelled', 'void'])], 'discount_amount' => ['nullable', 'numeric', 'min:0'], 'tax_amount' => ['nullable', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'items' => ['required', 'array', 'min:1'], 'items.*.item_type' => ['required', 'string'], 'items.*.description' => ['required', 'string'], 'items.*.quantity' => ['nullable', 'numeric'], 'items.*.unit_price' => ['nullable', 'numeric'], 'items.*.amount' => ['nullable', 'numeric'], 'items.*.metadata' => ['nullable', 'array']]);
     }
 }
-

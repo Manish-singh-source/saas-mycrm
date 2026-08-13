@@ -19,15 +19,15 @@ class TenantTeamController extends BaseTenantController
             ->leftJoin('tenant_offices', 'tenant_offices.id', '=', 'teams.office_id')
             ->leftJoin('users as leads', 'leads.id', '=', 'teams.lead_user_id')
             ->select('teams.*', 'departments.uuid as department_uuid', 'departments.name as department_name', 'tenant_offices.uuid as office_uuid', 'tenant_offices.name as office_name', 'leads.uuid as lead_user_uuid', 'leads.display_name as lead_name')
-            ->selectSub(fn ($q) => $q->from('team_members')->selectRaw('count(*)')->whereColumn('team_members.team_id', 'teams.id')->where('team_members.tenant_id', app(\App\Tenancy\TenantContext::class)->id()), 'members_count');
+            ->selectSub(fn($q) => $q->from('team_members')->selectRaw('count(*)')->whereColumn('team_members.team_id', 'teams.id')->where('team_members.tenant_id', app(\App\Tenancy\TenantContext::class)->id()), 'members_count');
 
         foreach (['status', 'visibility'] as $field) {
-            if ($request->filled('filter.'.$field)) {
-                $query->where('teams.'.$field, $request->input('filter.'.$field));
+            if ($request->filled('filter.' . $field)) {
+                $query->where('teams.' . $field, $request->input('filter.' . $field));
             }
         }
         if ($request->filled('search')) {
-            $query->where(fn ($q) => $q->where('teams.name', 'like', '%'.$request->search.'%')->orWhere('teams.code', 'like', '%'.$request->search.'%'));
+            $query->where(fn($q) => $q->where('teams.name', 'like', '%' . $request->search . '%')->orWhere('teams.code', 'like', '%' . $request->search . '%'));
         }
 
         $page = $query->orderBy('teams.name')->paginate((int) $request->integer('per_page', 25));
@@ -124,7 +124,7 @@ class TenantTeamController extends BaseTenantController
         $team = $this->tenant->byUuid('teams', $team_uuid, false);
         $items = DB::table('team_permissions')->join('permissions', 'permissions.id', '=', 'team_permissions.permission_id')->where('team_permissions.tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('team_permissions.team_id', $team->id)->orderBy('permissions.module')->orderBy('permissions.name')->get(['permissions.uuid', 'permissions.module', 'permissions.name', 'permissions.display_name', 'permissions.description']);
 
-        return $this->success(['permissions' => $items->groupBy('module')->map(fn ($rows) => $rows->values()->all())->all()]);
+        return $this->success(['permissions' => $items->groupBy('module')->map(fn($rows) => $rows->values()->all())->all()]);
     }
 
     public function syncPermissions(Request $request, string $team_uuid): JsonResponse
@@ -145,7 +145,7 @@ class TenantTeamController extends BaseTenantController
     {
         $team = $this->tenant->byUuid('teams', $team_uuid, false);
 
-        return $this->success(['settings' => DB::table('team_settings')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('team_id', $team->id)->get()->map(fn ($row) => [...(array) $row, 'value' => json_decode((string) $row->value, true)])->all()]);
+        return $this->success(['settings' => DB::table('team_settings')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('team_id', $team->id)->get()->map(fn($row) => [...(array) $row, 'value' => json_decode((string) $row->value, true)])->all()]);
     }
 
     public function updateSettings(Request $request, string $team_uuid): JsonResponse

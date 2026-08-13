@@ -18,12 +18,12 @@ class TenantUserController extends BaseTenantController
     {
         $query = User::query()->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id());
         foreach (['status', 'account_type'] as $field) {
-            if ($request->filled('filter.'.$field)) {
-                $query->where($field, $request->input('filter.'.$field));
+            if ($request->filled('filter.' . $field)) {
+                $query->where($field, $request->input('filter.' . $field));
             }
         }
         if ($request->filled('search')) {
-            $query->where(fn ($q) => $q->where('display_name', 'like', '%'.$request->search.'%')->orWhere('email', 'like', '%'.$request->search.'%'));
+            $query->where(fn($q) => $q->where('display_name', 'like', '%' . $request->search . '%')->orWhere('email', 'like', '%' . $request->search . '%'));
         }
         $page = $query->orderBy('display_name')->paginate((int) $request->integer('per_page', 25));
 
@@ -38,7 +38,7 @@ class TenantUserController extends BaseTenantController
             return $this->businessError('Email already exists for this tenant.', 'TENANT_USER_EMAIL_EXISTS', 409);
         }
         $password = Str::password(16);
-        $user = User::query()->create(['uuid' => (string) Str::uuid(), 'tenant_id' => $tenantId, 'staff_id' => $this->tenant->uuidToId('staff', $data['staff_id'] ?? null, true), 'default_office_id' => $this->tenant->uuidToId('tenant_offices', $data['default_office_id'] ?? null, true), 'first_name' => $data['first_name'], 'last_name' => $data['last_name'] ?? null, 'display_name' => $data['display_name'] ?? trim($data['first_name'].' '.($data['last_name'] ?? '')), 'email' => $data['email'], 'mobile' => $data['mobile'] ?? null, 'password' => Hash::make($password), 'account_type' => $data['account_type'] ?? 'staff', 'status' => $data['status'] ?? 'invited', 'created_by' => $request->user()?->id]);
+        $user = User::query()->create(['uuid' => (string) Str::uuid(), 'tenant_id' => $tenantId, 'staff_id' => $this->tenant->uuidToId('staff', $data['staff_id'] ?? null, true), 'default_office_id' => $this->tenant->uuidToId('tenant_offices', $data['default_office_id'] ?? null, true), 'first_name' => $data['first_name'], 'last_name' => $data['last_name'] ?? null, 'display_name' => $data['display_name'] ?? trim($data['first_name'] . ' ' . ($data['last_name'] ?? '')), 'email' => $data['email'], 'mobile' => $data['mobile'] ?? null, 'password' => Hash::make($password), 'account_type' => $data['account_type'] ?? 'staff', 'status' => $data['status'] ?? 'invited', 'created_by' => $request->user()?->id]);
         $this->syncRoles($request, $user, $data['role_ids'] ?? []);
         $this->tenant->audit($request, 'tenant_user_invited', 'user', $user->id, null, $user->toArray());
 
@@ -109,9 +109,9 @@ class TenantUserController extends BaseTenantController
         }
         $old = $user->toArray();
         $user->forceFill(['status' => $status, 'updated_by' => $request->user()?->id])->save();
-        $this->tenant->audit($request, 'tenant_user_'.$status, 'user', $user->id, $old, $user->fresh()->toArray());
+        $this->tenant->audit($request, 'tenant_user_' . $status, 'user', $user->id, $old, $user->fresh()->toArray());
 
-        return $this->success(['user' => $user->fresh()], 'Tenant user '.$status.'.');
+        return $this->success(['user' => $user->fresh()], 'Tenant user ' . $status . '.');
     }
 
     private function findUser(string $uuid): User
@@ -136,7 +136,7 @@ class TenantUserController extends BaseTenantController
 
     private function removesFinalOwnerAdmin(User $user, array $newRoleUuids): bool
     {
-        $currentAdmin = collect($this->roles($user->id))->contains(fn ($role) => in_array($role->name, ['owner', 'admin'], true));
+        $currentAdmin = collect($this->roles($user->id))->contains(fn($role) => in_array($role->name, ['owner', 'admin'], true));
         if (! $currentAdmin) {
             return false;
         }

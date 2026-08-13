@@ -19,7 +19,7 @@ class PlatformTenantController extends BaseApiController
     public function index(Request $request)
     {
         $q = DB::table('tenants')->whereNull('deleted_at');
-        if ($request->filled('search')) $q->where(fn ($x) => $x->where('organization_name', 'like', '%'.$request->string('search').'%')->orWhere('slug', 'like', '%'.$request->string('search').'%')->orWhere('organization_code', 'like', '%'.$request->string('search').'%'));
+        if ($request->filled('search')) $q->where(fn($x) => $x->where('organization_name', 'like', '%' . $request->string('search') . '%')->orWhere('slug', 'like', '%' . $request->string('search') . '%')->orWhere('organization_code', 'like', '%' . $request->string('search') . '%'));
         if ($request->filled('filter.status')) $q->where('status', $request->input('filter.status'));
         $p = $q->latest('id')->paginate((int) $request->integer('per_page', 25));
         return $this->list($p->items(), $p);
@@ -72,7 +72,7 @@ class PlatformTenantController extends BaseApiController
                 'tenant_id' => $tenantId,
                 'first_name' => $data['owner']['first_name'],
                 'last_name' => $data['owner']['last_name'] ?? null,
-                'display_name' => trim($data['owner']['first_name'].' '.($data['owner']['last_name'] ?? '')),
+                'display_name' => trim($data['owner']['first_name'] . ' ' . ($data['owner']['last_name'] ?? '')),
                 'email' => Str::lower($data['owner']['email']),
                 'mobile' => $data['owner']['mobile'] ?? null,
                 'password' => Hash::make($password),
@@ -103,7 +103,7 @@ class PlatformTenantController extends BaseApiController
             DB::table('model_has_roles')->insert(['tenant_id' => $tenantId, 'role_id' => $roleId, 'model_type' => User::class, 'model_id' => $ownerId]);
             $plan = ! empty($data['plan_uuid']) ? DB::table('plans')->where('uuid', $data['plan_uuid'])->first() : DB::table('plans')->where('status', 'active')->orderBy('id')->first();
             if ($plan) {
-                $subscriptionId = DB::table('subscriptions')->insertGetId(['uuid' => (string) Str::uuid(), 'subscription_number' => 'SUB-'.Str::upper(Str::random(10)), 'tenant_id' => $tenantId, 'plan_id' => $plan->id, 'billing_cycle' => $plan->billing_cycle, 'status' => 'trial', 'starts_at' => now(), 'trial_starts_at' => now(), 'trial_ends_at' => now()->addDays($data['trial_days'] ?? $plan->trial_days), 'base_amount' => $plan->base_price, 'taxable_amount' => $plan->base_price, 'payable_amount' => $plan->base_price, 'currency' => $plan->currency, 'created_by' => $request->user()?->id, 'created_at' => now(), 'updated_at' => now()]);
+                $subscriptionId = DB::table('subscriptions')->insertGetId(['uuid' => (string) Str::uuid(), 'subscription_number' => 'SUB-' . Str::upper(Str::random(10)), 'tenant_id' => $tenantId, 'plan_id' => $plan->id, 'billing_cycle' => $plan->billing_cycle, 'status' => 'trial', 'starts_at' => now(), 'trial_starts_at' => now(), 'trial_ends_at' => now()->addDays($data['trial_days'] ?? $plan->trial_days), 'base_amount' => $plan->base_price, 'taxable_amount' => $plan->base_price, 'payable_amount' => $plan->base_price, 'currency' => $plan->currency, 'created_by' => $request->user()?->id, 'created_at' => now(), 'updated_at' => now()]);
                 DB::table('subscription_versions')->insert(['subscription_id' => $subscriptionId, 'version' => 1, 'plan_id' => $plan->id, 'billing_cycle' => $plan->billing_cycle, 'starts_at' => now(), 'pricing_snapshot' => json_encode((array) $plan), 'created_by' => $request->user()?->id, 'created_at' => now()]);
             }
             $this->admin->createDefaultTenantSettings($tenantId);
@@ -123,23 +123,46 @@ class PlatformTenantController extends BaseApiController
     {
         $tenant = $this->tenant($tenant_uuid);
         $data = $request->validate(['organization_name' => ['sometimes', 'string'], 'legal_name' => ['nullable', 'string'], 'display_name' => ['nullable', 'string'], 'website' => ['nullable', 'string'], 'default_currency' => ['nullable', 'string', 'size:3'], 'default_timezone' => ['nullable', 'string']]);
-        $data['updated_at'] = now(); DB::table('tenants')->where('id', $tenant->id)->update($data);
+        $data['updated_at'] = now();
+        DB::table('tenants')->where('id', $tenant->id)->update($data);
         $fresh = DB::table('tenants')->where('id', $tenant->id)->first();
         $this->admin->audit($request, 'tenant_updated', Tenant::class, $tenant->id, (array) $tenant, (array) $fresh);
         return $this->success(['tenant' => $fresh], 'Tenant updated.');
     }
 
-    public function destroy(Request $r, string $uuid) { return $this->tenantStatus($r, $uuid, 'archived', 'tenant_archived'); }
-    public function restore(Request $r, string $uuid) { $tenant = Tenant::withTrashed()->where('uuid', $uuid)->firstOrFail(); $tenant->restore(); return $this->success(['tenant' => $tenant->fresh()], 'Tenant restored.'); }
-    public function activate(Request $r, string $uuid) { return $this->tenantStatus($r, $uuid, 'active', 'tenant_activated'); }
-    public function suspend(Request $r, string $uuid) { $r->validate(['reason' => ['required', 'string'], 'notify_owner' => ['nullable', 'boolean'], 'suspended_until' => ['nullable', 'date']]); return $this->tenantStatus($r, $uuid, 'suspended', 'tenant_suspended'); }
-    public function reactivate(Request $r, string $uuid) { return $this->tenantStatus($r, $uuid, 'active', 'tenant_reactivated'); }
-    public function archive(Request $r, string $uuid) { return $this->tenantStatus($r, $uuid, 'archived', 'tenant_archived'); }
+    public function destroy(Request $r, string $uuid)
+    {
+        return $this->tenantStatus($r, $uuid, 'archived', 'tenant_archived');
+    }
+    public function restore(Request $r, string $uuid)
+    {
+        $tenant = Tenant::withTrashed()->where('uuid', $uuid)->firstOrFail();
+        $tenant->restore();
+        return $this->success(['tenant' => $tenant->fresh()], 'Tenant restored.');
+    }
+    public function activate(Request $r, string $uuid)
+    {
+        return $this->tenantStatus($r, $uuid, 'active', 'tenant_activated');
+    }
+    public function suspend(Request $r, string $uuid)
+    {
+        $r->validate(['reason' => ['required', 'string'], 'notify_owner' => ['nullable', 'boolean'], 'suspended_until' => ['nullable', 'date']]);
+        return $this->tenantStatus($r, $uuid, 'suspended', 'tenant_suspended');
+    }
+    public function reactivate(Request $r, string $uuid)
+    {
+        return $this->tenantStatus($r, $uuid, 'active', 'tenant_reactivated');
+    }
+    public function archive(Request $r, string $uuid)
+    {
+        return $this->tenantStatus($r, $uuid, 'archived', 'tenant_archived');
+    }
 
     public function extendTrial(Request $r, string $uuid)
     {
         $d = $r->validate(['trial_ends_at' => ['required', 'date'], 'reason' => ['nullable', 'string']]);
-        $tenant = $this->tenant($uuid); $old = (array) $tenant;
+        $tenant = $this->tenant($uuid);
+        $old = (array) $tenant;
         DB::table('tenants')->where('id', $tenant->id)->update(['trial_ends_at' => $d['trial_ends_at'], 'updated_at' => now()]);
         DB::table('subscriptions')->where('tenant_id', $tenant->id)->latest('id')->limit(1)->update(['trial_ends_at' => $d['trial_ends_at'], 'updated_at' => now()]);
         $this->admin->audit($r, 'tenant_trial_extended', Tenant::class, $tenant->id, $old, ['trial_ends_at' => $d['trial_ends_at']], $d['reason'] ?? null);
@@ -196,6 +219,21 @@ class PlatformTenantController extends BaseApiController
         return $this->success(['modules' => DB::table('tenant_module_overrides')->where('tenant_id', $tenant->id)->get()], 'Module overrides updated.');
     }
 
-    private function tenant(string $uuid): object { $tenant = DB::table('tenants')->where('uuid', $uuid)->whereNull('deleted_at')->first(); abort_if(! $tenant, 404); return $tenant; }
-    private function tenantStatus(Request $r, string $uuid, string $status, string $event) { $tenant = $this->tenant($uuid); $old = (array) $tenant; DB::table('tenants')->where('id', $tenant->id)->update(['status' => $status, 'updated_at' => now(), 'deleted_at' => $status === 'archived' ? now() : null]); if ($status === 'suspended') DB::table('users')->where('tenant_id', $tenant->id)->update(['status' => 'suspended']); $fresh = DB::table('tenants')->where('id', $tenant->id)->first(); $this->admin->security($r, $event, $status === 'suspended' ? 'warning' : 'info', $tenant->id, ['reason' => $r->input('reason')]); $this->admin->audit($r, $event, Tenant::class, $tenant->id, $old, (array) $fresh, $r->input('reason')); return $this->success(['tenant' => $fresh], 'Tenant status updated.'); }
+    private function tenant(string $uuid): object
+    {
+        $tenant = DB::table('tenants')->where('uuid', $uuid)->whereNull('deleted_at')->first();
+        abort_if(! $tenant, 404);
+        return $tenant;
+    }
+    private function tenantStatus(Request $r, string $uuid, string $status, string $event)
+    {
+        $tenant = $this->tenant($uuid);
+        $old = (array) $tenant;
+        DB::table('tenants')->where('id', $tenant->id)->update(['status' => $status, 'updated_at' => now(), 'deleted_at' => $status === 'archived' ? now() : null]);
+        if ($status === 'suspended') DB::table('users')->where('tenant_id', $tenant->id)->update(['status' => 'suspended']);
+        $fresh = DB::table('tenants')->where('id', $tenant->id)->first();
+        $this->admin->security($r, $event, $status === 'suspended' ? 'warning' : 'info', $tenant->id, ['reason' => $r->input('reason')]);
+        $this->admin->audit($r, $event, Tenant::class, $tenant->id, $old, (array) $fresh, $r->input('reason'));
+        return $this->success(['tenant' => $fresh], 'Tenant status updated.');
+    }
 }

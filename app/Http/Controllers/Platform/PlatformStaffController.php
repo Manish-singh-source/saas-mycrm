@@ -24,10 +24,10 @@ class PlatformStaffController extends BaseApiController
     {
         $query = PlatformUser::query()->withCount(['platformRoles as roles_count']);
         if ($request->filled('search')) {
-            $search = '%'.$request->string('search').'%';
-            $query->where(fn ($q) => $q->where('display_name', 'like', $search)->orWhere('email', 'like', $search)->orWhere('employee_code', 'like', $search));
+            $search = '%' . $request->string('search') . '%';
+            $query->where(fn($q) => $q->where('display_name', 'like', $search)->orWhere('email', 'like', $search)->orWhere('employee_code', 'like', $search));
         }
-        foreach (['status', 'department'] as $field) if ($request->filled('filter.'.$field)) $query->where($field, $request->input('filter.'.$field));
+        foreach (['status', 'department'] as $field) if ($request->filled('filter.' . $field)) $query->where($field, $request->input('filter.' . $field));
         $paginator = $query->latest('id')->paginate((int) $request->integer('per_page', 25));
 
         return $this->list($paginator->items(), $paginator);
@@ -38,7 +38,7 @@ class PlatformStaffController extends BaseApiController
         $data = $this->validated($request);
         $password = $data['password'] ?? Str::password(16);
         $user = DB::transaction(function () use ($request, $data, $password) {
-            $user = PlatformUser::query()->create([...$data, 'uuid' => (string) Str::uuid(), 'password' => Hash::make($password), 'display_name' => $data['display_name'] ?? trim($data['first_name'].' '.($data['last_name'] ?? '')), 'status' => $data['status'] ?? 'active']);
+            $user = PlatformUser::query()->create([...$data, 'uuid' => (string) Str::uuid(), 'password' => Hash::make($password), 'display_name' => $data['display_name'] ?? trim($data['first_name'] . ' ' . ($data['last_name'] ?? '')), 'status' => $data['status'] ?? 'active']);
             if (($roleUuids = $this->requestedUuids($request, 'role_uuids', 'role_ids')) !== null) {
                 $this->syncUserRoles($request, $user, $roleUuids);
             }
@@ -57,8 +57,8 @@ class PlatformStaffController extends BaseApiController
         $response = $this->store($request);
         $email = $request->input('email');
         $token = Str::random(64);
-        DB::table('password_reset_tokens')->updateOrInsert(['email' => 'platform:'.$email], ['token' => Hash::make($token), 'created_at' => now()]);
-        Mail::to($email)->send(new PasswordResetInstructions($email, $token, url('/reset-password?surface=platform&email='.urlencode($email).'&token='.urlencode($token)), 'platform'));
+        DB::table('password_reset_tokens')->updateOrInsert(['email' => 'platform:' . $email], ['token' => Hash::make($token), 'created_at' => now()]);
+        Mail::to($email)->send(new PasswordResetInstructions($email, $token, url('/reset-password?surface=platform&email=' . urlencode($email) . '&token=' . urlencode($token)), 'platform'));
 
         return $response;
     }
@@ -92,7 +92,8 @@ class PlatformStaffController extends BaseApiController
     public function destroy(Request $request, string $platform_user_uuid)
     {
         $user = PlatformUser::query()->where('uuid', $platform_user_uuid)->firstOrFail();
-        $old = $user->toArray(); $user->delete();
+        $old = $user->toArray();
+        $user->delete();
         $this->admin->audit($request, 'platform_user_deleted', PlatformUser::class, $user->id, $old);
         return $this->success(null, 'Platform staff deleted.');
     }
@@ -100,20 +101,27 @@ class PlatformStaffController extends BaseApiController
     public function restore(Request $request, string $platform_user_uuid)
     {
         $user = PlatformUser::withTrashed()->where('uuid', $platform_user_uuid)->firstOrFail();
-        $old = $user->toArray(); $user->restore();
+        $old = $user->toArray();
+        $user->restore();
         $this->admin->audit($request, 'platform_user_restored', PlatformUser::class, $user->id, $old, $user->fresh()->toArray());
         return $this->success(['user' => $user->fresh()], 'Platform staff restored.');
     }
 
-    public function suspend(Request $request, string $platform_user_uuid) { return $this->status($request, $platform_user_uuid, 'suspended', 'platform_user_suspended'); }
-    public function activate(Request $request, string $platform_user_uuid) { return $this->status($request, $platform_user_uuid, 'active', 'platform_user_activated'); }
+    public function suspend(Request $request, string $platform_user_uuid)
+    {
+        return $this->status($request, $platform_user_uuid, 'suspended', 'platform_user_suspended');
+    }
+    public function activate(Request $request, string $platform_user_uuid)
+    {
+        return $this->status($request, $platform_user_uuid, 'active', 'platform_user_activated');
+    }
 
     public function resetPassword(Request $request, string $platform_user_uuid)
     {
         $user = PlatformUser::query()->where('uuid', $platform_user_uuid)->firstOrFail();
         $token = Str::random(64);
-        DB::table('password_reset_tokens')->updateOrInsert(['email' => 'platform:'.$user->email], ['token' => Hash::make($token), 'created_at' => now()]);
-        Mail::to($user->email)->send(new PasswordResetInstructions($user->email, $token, url('/reset-password?surface=platform&email='.urlencode($user->email).'&token='.urlencode($token)), 'platform'));
+        DB::table('password_reset_tokens')->updateOrInsert(['email' => 'platform:' . $user->email], ['token' => Hash::make($token), 'created_at' => now()]);
+        Mail::to($user->email)->send(new PasswordResetInstructions($user->email, $token, url('/reset-password?surface=platform&email=' . urlencode($user->email) . '&token=' . urlencode($token)), 'platform'));
         $this->admin->audit($request, 'platform_user_password_reset_requested', PlatformUser::class, $user->id);
         return $this->success(['sent' => true, 'reset_token' => app()->isLocal() ? $token : null], 'Password reset email sent.');
     }
@@ -136,7 +144,10 @@ class PlatformStaffController extends BaseApiController
         return $this->success(['required' => true], '2FA required.');
     }
 
-    public function roles(string $platform_user_uuid) { return $this->success(['roles' => PlatformUser::query()->where('uuid', $platform_user_uuid)->firstOrFail()->platformRoles()->get()]); }
+    public function roles(string $platform_user_uuid)
+    {
+        return $this->success(['roles' => PlatformUser::query()->where('uuid', $platform_user_uuid)->firstOrFail()->platformRoles()->get()]);
+    }
 
     public function teams(string $platform_user_uuid)
     {
@@ -170,7 +181,10 @@ class PlatformStaffController extends BaseApiController
         return $this->success(['teams' => $this->userTeams($user)]);
     }
 
-    public function permissions(string $platform_user_uuid) { return $this->success(['permissions' => PlatformUser::query()->where('uuid', $platform_user_uuid)->firstOrFail()->platformDirectPermissions()->get()]); }
+    public function permissions(string $platform_user_uuid)
+    {
+        return $this->success(['permissions' => PlatformUser::query()->where('uuid', $platform_user_uuid)->firstOrFail()->platformDirectPermissions()->get()]);
+    }
 
     public function syncPermissions(Request $request, string $platform_user_uuid)
     {
@@ -192,8 +206,8 @@ class PlatformStaffController extends BaseApiController
     {
         $rows = PlatformUser::query()->get(['uuid', 'employee_code', 'display_name', 'email', 'status', 'created_at']);
         $csv = "uuid,employee_code,display_name,email,status,created_at\n";
-        foreach ($rows as $row) $csv .= implode(',', array_map(fn ($v) => '"'.str_replace('"', '""', (string) $v).'"', $row->toArray()))."\n";
-        $path = 'platform/exports/platform-users-'.now()->format('YmdHis').'.csv';
+        foreach ($rows as $row) $csv .= implode(',', array_map(fn($v) => '"' . str_replace('"', '""', (string) $v) . '"', $row->toArray())) . "\n";
+        $path = 'platform/exports/platform-users-' . now()->format('YmdHis') . '.csv';
         Storage::disk(config('filesystems.default', 'local'))->put($path, $csv);
         return $this->success(['export' => ['filename' => basename($path), 'size_bytes' => strlen($csv)]], 'Platform staff export created.', 201);
     }

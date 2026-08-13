@@ -58,12 +58,12 @@ class TenantStaffController extends BaseTenantController
     {
         $query = $this->staffQuery();
         foreach (['employment_status', 'employment_type'] as $field) {
-            if ($request->filled('filter.'.$field)) {
-                $query->where('staff.'.$field, $request->input('filter.'.$field));
+            if ($request->filled('filter.' . $field)) {
+                $query->where('staff.' . $field, $request->input('filter.' . $field));
             }
         }
         if ($request->filled('search')) {
-            $query->where(fn ($q) => $q->where('staff.display_name', 'like', '%'.$request->search.'%')->orWhere('staff.employee_code', 'like', '%'.$request->search.'%')->orWhere('staff.work_email', 'like', '%'.$request->search.'%'));
+            $query->where(fn($q) => $q->where('staff.display_name', 'like', '%' . $request->search . '%')->orWhere('staff.employee_code', 'like', '%' . $request->search . '%')->orWhere('staff.work_email', 'like', '%' . $request->search . '%'));
         }
         $page = $query->orderBy('staff.display_name')->paginate((int) $request->integer('per_page', 25));
 
@@ -148,7 +148,7 @@ class TenantStaffController extends BaseTenantController
     {
         $staff = $this->findStaff($staff_uuid);
         $meta = $this->childMeta($resource);
-        $rows = DB::table($meta['table'])->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('staff_id', $staff->id)->orderByDesc('id')->get()->map(fn ($row) => $resource === 'bank-accounts' ? $this->tenant->bankPayload($row) : (array) $row)->all();
+        $rows = DB::table($meta['table'])->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('staff_id', $staff->id)->orderByDesc('id')->get()->map(fn($row) => $resource === 'bank-accounts' ? $this->tenant->bankPayload($row) : (array) $row)->all();
 
         return $this->success([str_replace('-', '_', $resource) => $rows]);
     }
@@ -160,9 +160,9 @@ class TenantStaffController extends BaseTenantController
         $data = $this->childData($request, $resource, $meta);
         $id = DB::table($meta['table'])->insertGetId([...$data, 'tenant_id' => app(\App\Tenancy\TenantContext::class)->id(), 'staff_id' => $staff->id, ...$this->timestampsFor($meta['table'])]);
         $row = DB::table($meta['table'])->where('id', $id)->first();
-        $this->tenant->audit($request, 'tenant_staff_'.$resource.'_created', $meta['table'], $id, null, $resource === 'bank-accounts' ? ['masked' => true] : (array) $row);
+        $this->tenant->audit($request, 'tenant_staff_' . $resource . '_created', $meta['table'], $id, null, $resource === 'bank-accounts' ? ['masked' => true] : (array) $row);
 
-        return $this->success([rtrim(str_replace('-', '_', $resource), 's') => $resource === 'bank-accounts' ? $this->tenant->bankPayload($row) : $row], ucfirst(str_replace('-', ' ', $resource)).' created.', 201);
+        return $this->success([rtrim(str_replace('-', '_', $resource), 's') => $resource === 'bank-accounts' ? $this->tenant->bankPayload($row) : $row], ucfirst(str_replace('-', ' ', $resource)) . ' created.', 201);
     }
 
     public function childUpdate(Request $request, string $staff_uuid, string $resource, int $id): JsonResponse
@@ -173,7 +173,7 @@ class TenantStaffController extends BaseTenantController
         $data = $this->childData($request, $resource, $meta, true);
         DB::table($meta['table'])->where('id', $id)->update([...$data, ...$this->updatedAtFor($meta['table'])]);
         $new = DB::table($meta['table'])->where('id', $id)->first();
-        $this->tenant->audit($request, 'tenant_staff_'.$resource.'_updated', $meta['table'], $id, $resource === 'bank-accounts' ? ['masked' => true] : (array) $row, $resource === 'bank-accounts' ? ['masked' => true] : (array) $new);
+        $this->tenant->audit($request, 'tenant_staff_' . $resource . '_updated', $meta['table'], $id, $resource === 'bank-accounts' ? ['masked' => true] : (array) $row, $resource === 'bank-accounts' ? ['masked' => true] : (array) $new);
 
         return $this->success(['resource' => $resource === 'bank-accounts' ? $this->tenant->bankPayload($new) : $new], 'Staff child resource updated.');
     }
@@ -184,7 +184,7 @@ class TenantStaffController extends BaseTenantController
         $meta = $this->childMeta($resource);
         $row = DB::table($meta['table'])->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('staff_id', $staff->id)->where('id', $id)->first() ?: abort(404, 'Resource not found.');
         DB::table($meta['table'])->where('id', $id)->delete();
-        $this->tenant->audit($request, 'tenant_staff_'.$resource.'_deleted', $meta['table'], $id, $resource === 'bank-accounts' ? ['masked' => true] : (array) $row, null);
+        $this->tenant->audit($request, 'tenant_staff_' . $resource . '_deleted', $meta['table'], $id, $resource === 'bank-accounts' ? ['masked' => true] : (array) $row, null);
 
         return $this->success(null, 'Staff child resource deleted.');
     }
@@ -203,29 +203,29 @@ class TenantStaffController extends BaseTenantController
 
         $rows = match ($tab) {
             'user-access' => [
-                'users' => $this->tableRows('users', fn ($q) => $q->where('staff_id', $staff->id), 25),
+                'users' => $this->tableRows('users', fn($q) => $q->where('staff_id', $staff->id), 25),
                 'roles' => $this->userRolesForStaff($staff->id),
             ],
-            'teams' => $this->joinedRows('team_members', fn ($q) => $q
+            'teams' => $this->joinedRows('team_members', fn($q) => $q
                 ->leftJoin('teams', 'teams.id', '=', 'team_members.team_id')
                 ->leftJoin('team_roles', 'team_roles.id', '=', 'team_members.team_role_id')
                 ->where('team_members.staff_id', $staff->id)
                 ->select('team_members.*', 'teams.uuid as team_uuid', 'teams.name as team_name', 'team_roles.name as team_role_name')),
-            'documents' => $this->tableRows('staff_documents', fn ($q) => $q->where('staff_id', $staff->id), 50),
-            'bank-details' => $this->tableRows('staff_bank_accounts', fn ($q) => $q->where('staff_id', $staff->id), 50)->map(fn ($row) => $this->tenant->bankPayload($row))->all(),
-            'salary-structure' => $this->tableRows('staff_salary_structures', fn ($q) => $q->where('staff_id', $staff->id), 50),
-            'leave-history' => $this->tableRows('leave_requests', fn ($q) => $q->where('staff_id', $staff->id), 50),
-            'attendance' => $this->tableRows('attendance_records', fn ($q) => $q->where('staff_id', $staff->id), 50),
-            'payroll' => $this->tableRows('payrolls', fn ($q) => $q->where('staff_id', $staff->id), 50),
+            'documents' => $this->tableRows('staff_documents', fn($q) => $q->where('staff_id', $staff->id), 50),
+            'bank-details' => $this->tableRows('staff_bank_accounts', fn($q) => $q->where('staff_id', $staff->id), 50)->map(fn($row) => $this->tenant->bankPayload($row))->all(),
+            'salary-structure' => $this->tableRows('staff_salary_structures', fn($q) => $q->where('staff_id', $staff->id), 50),
+            'leave-history' => $this->tableRows('leave_requests', fn($q) => $q->where('staff_id', $staff->id), 50),
+            'attendance' => $this->tableRows('attendance_records', fn($q) => $q->where('staff_id', $staff->id), 50),
+            'payroll' => $this->tableRows('payrolls', fn($q) => $q->where('staff_id', $staff->id), 50),
             'projects-tasks' => [
                 'projects' => $this->projectRowsForStaff($staff->id),
                 'tasks' => $this->taskRowsForStaff($staff->id),
             ],
-            'assets' => $this->tableRows('staff_assets', fn ($q) => $q->where('staff_id', $staff->id), 50),
-            'certifications' => $this->tableRows('staff_certifications', fn ($q) => $q->where('staff_id', $staff->id), 50),
-            'appraisals' => $this->tableRows('staff_appraisals', fn ($q) => $q->where('staff_id', $staff->id), 50),
-            'training' => $this->tableRows('staff_training', fn ($q) => $q->where('staff_id', $staff->id), 50),
-            'notes' => $this->tableRows('notes', fn ($q) => $q->where('notable_type', 'staff')->where('notable_id', $staff->id), 50),
+            'assets' => $this->tableRows('staff_assets', fn($q) => $q->where('staff_id', $staff->id), 50),
+            'certifications' => $this->tableRows('staff_certifications', fn($q) => $q->where('staff_id', $staff->id), 50),
+            'appraisals' => $this->tableRows('staff_appraisals', fn($q) => $q->where('staff_id', $staff->id), 50),
+            'training' => $this->tableRows('staff_training', fn($q) => $q->where('staff_id', $staff->id), 50),
+            'notes' => $this->tableRows('notes', fn($q) => $q->where('notable_type', 'staff')->where('notable_id', $staff->id), 50),
             'files' => $this->staffFiles($tenantId, $staff->id),
             default => [],
         };
@@ -242,7 +242,7 @@ class TenantStaffController extends BaseTenantController
             }
         }
         if (empty($data['display_name']) && isset($data['first_name'])) {
-            $data['display_name'] = trim($data['first_name'].' '.($data['last_name'] ?? ''));
+            $data['display_name'] = trim($data['first_name'] . ' ' . ($data['last_name'] ?? ''));
         }
 
         return $data;
@@ -336,7 +336,7 @@ class TenantStaffController extends BaseTenantController
             return [];
         }
 
-        return DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->selectRaw($column.' as label, count(*) as total')->groupBy($column)->orderBy($column)->get()->all();
+        return DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->selectRaw($column . ' as label, count(*) as total')->groupBy($column)->orderBy($column)->get()->all();
     }
 
     private function rows(string $table, array $columns, string $order, int $limit): array
@@ -351,7 +351,7 @@ class TenantStaffController extends BaseTenantController
     private function tableRows(string $table, callable $scope, int $limit)
     {
         if (! Schema::hasTable($table)) {
-            return collect([['implementation_placeholder' => true, 'message' => $table.' table is not available yet.']]);
+            return collect([['implementation_placeholder' => true, 'message' => $table . ' table is not available yet.']]);
         }
 
         $query = DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id());
@@ -363,13 +363,13 @@ class TenantStaffController extends BaseTenantController
     private function joinedRows(string $baseTable, callable $scope)
     {
         if (! Schema::hasTable($baseTable)) {
-            return [['implementation_placeholder' => true, 'message' => $baseTable.' table is not available yet.']];
+            return [['implementation_placeholder' => true, 'message' => $baseTable . ' table is not available yet.']];
         }
 
-        $query = DB::table($baseTable)->where($baseTable.'.tenant_id', app(\App\Tenancy\TenantContext::class)->id());
+        $query = DB::table($baseTable)->where($baseTable . '.tenant_id', app(\App\Tenancy\TenantContext::class)->id());
         $scope($query);
 
-        return $query->orderByDesc($baseTable.'.id')->limit(50)->get();
+        return $query->orderByDesc($baseTable . '.id')->limit(50)->get();
     }
 
     private function userRolesForStaff(int $staffId): array
@@ -465,6 +465,3 @@ class TenantStaffController extends BaseTenantController
         return Schema::hasColumn($table, 'updated_at') ? ['updated_at' => now()] : [];
     }
 }
-
-
-

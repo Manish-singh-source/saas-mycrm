@@ -36,12 +36,12 @@ class PlatformRoleController extends BaseApiController
         if (($data['delivery'] ?? 'job') === 'download') {
             $rows = $this->filteredQuery($request);
             $this->applySorting($rows, $request);
-            $records = $rows->limit(5000)->get()->map(fn (PlatformRole $role) => $role->toArray())->all();
+            $records = $rows->limit(5000)->get()->map(fn(PlatformRole $role) => $role->toArray())->all();
             $csv = $this->csv($records, $data['columns']);
 
             return $this->success([
                 'download' => [
-                    'filename' => 'platform-roles-'.now()->format('YmdHis').'.csv',
+                    'filename' => 'platform-roles-' . now()->format('YmdHis') . '.csv',
                     'mime_type' => 'text/csv',
                     'size_bytes' => strlen($csv),
                     'content' => $csv,
@@ -137,8 +137,14 @@ class PlatformRoleController extends BaseApiController
         return $this->success(['role' => $this->payload($role->fresh(), true)], 'Role cloned.', 201);
     }
 
-    public function activate(Request $request, $role_uuid) { return $this->setStatus($request, $role_uuid, 'active'); }
-    public function deactivate(Request $request, $role_uuid) { return $this->setStatus($request, $role_uuid, 'inactive'); }
+    public function activate(Request $request, $role_uuid)
+    {
+        return $this->setStatus($request, $role_uuid, 'active');
+    }
+    public function deactivate(Request $request, $role_uuid)
+    {
+        return $this->setStatus($request, $role_uuid, 'inactive');
+    }
 
     public function permissions($role_uuid)
     {
@@ -190,11 +196,11 @@ class PlatformRoleController extends BaseApiController
         $query = PlatformRole::query()->withCount(['permissions', 'users']);
         if ($request->filled('search')) {
             $search = (string) $request->input('search');
-            $query->where(fn ($x) => $x->where('name', 'like', '%'.$search.'%')->orWhere('display_name', 'like', '%'.$search.'%'));
+            $query->where(fn($x) => $x->where('name', 'like', '%' . $search . '%')->orWhere('display_name', 'like', '%' . $search . '%'));
         }
         foreach (['status', 'guard_name'] as $field) {
-            if ($request->filled('filter.'.$field)) {
-                $query->where($field, $request->input('filter.'.$field));
+            if ($request->filled('filter.' . $field)) {
+                $query->where($field, $request->input('filter.' . $field));
             }
         }
         if ($request->input('filter.type') === 'system') {
@@ -279,9 +285,9 @@ class PlatformRoleController extends BaseApiController
     {
         $lines = [implode(',', $columns)];
         foreach ($records as $record) {
-            $lines[] = implode(',', array_map(fn ($column) => $this->csvValue($record[$column] ?? null), $columns));
+            $lines[] = implode(',', array_map(fn($column) => $this->csvValue($record[$column] ?? null), $columns));
         }
-        return implode("\n", $lines)."\n";
+        return implode("\n", $lines) . "\n";
     }
 
     private function csvValue(mixed $value): string
@@ -289,7 +295,7 @@ class PlatformRoleController extends BaseApiController
         if (is_bool($value)) $value = $value ? '1' : '0';
         if ($value === null) $value = '';
         if (is_array($value) || is_object($value)) $value = json_encode($value);
-        return '"'.str_replace('"', '""', (string) $value).'"';
+        return '"' . str_replace('"', '""', (string) $value) . '"';
     }
 
     private function setStatus(Request $request, $role_uuid, $status)
@@ -297,13 +303,19 @@ class PlatformRoleController extends BaseApiController
         $role = $this->findRole($role_uuid);
         $old = $this->snapshot($role);
         $role->forceFill(['status' => $status])->save();
-        $this->audit->log($request, 'platform_role_'.$status, $role, $old, $this->snapshot($role), $request->input('audit_reason'));
+        $this->audit->log($request, 'platform_role_' . $status, $role, $old, $this->snapshot($role), $request->input('audit_reason'));
 
-        return $this->success(['role' => $this->payload($role->fresh())], 'Role '.$status.'.');
+        return $this->success(['role' => $this->payload($role->fresh())], 'Role ' . $status . '.');
     }
 
-    private function findRole($uuid) { return PlatformRole::query()->where('uuid', $uuid)->firstOrFail(); }
-    private function permissionIds(array $uuids) { return PlatformPermission::query()->whereIn('uuid', $uuids)->pluck('id')->all(); }
+    private function findRole($uuid)
+    {
+        return PlatformRole::query()->where('uuid', $uuid)->firstOrFail();
+    }
+    private function permissionIds(array $uuids)
+    {
+        return PlatformPermission::query()->whereIn('uuid', $uuids)->pluck('id')->all();
+    }
     private function validatedData(Request $request, ?PlatformRole $role = null)
     {
         $guard = (string) $request->input('guard_name', $role?->guard_name ?? 'platform');
@@ -326,6 +338,12 @@ class PlatformRoleController extends BaseApiController
         if ($withUsers) $data['users'] = $role->users()->orderBy('display_name')->get(['platform_users.uuid', 'display_name', 'email', 'department', 'status'])->all();
         return $data;
     }
-    private function grouped($permissions) { return $permissions->groupBy('module')->map(fn ($items) => $items->values()->map->only(['uuid', 'module', 'name', 'display_name', 'description', 'guard_name', 'is_system', 'status'])->all())->all(); }
-    private function snapshot(PlatformRole $role) { return $role->fresh()->load('permissions')->toArray(); }
+    private function grouped($permissions)
+    {
+        return $permissions->groupBy('module')->map(fn($items) => $items->values()->map->only(['uuid', 'module', 'name', 'display_name', 'description', 'guard_name', 'is_system', 'status'])->all())->all();
+    }
+    private function snapshot(PlatformRole $role)
+    {
+        return $role->fresh()->load('permissions')->toArray();
+    }
 }

@@ -112,7 +112,7 @@ class TenantBusinessController extends BaseTenantController
     {
         $invoice = $this->find('tenant_invoices', $invoice_uuid);
         DB::table('tenant_invoices')->where('id', $invoice->id)->update(['status' => 'sent', 'updated_at' => now()]);
-        $this->logCommunication($request, 'email', 'outbound', $request->input('subject', 'Invoice '.$invoice->invoice_number), $request->input('body', 'Invoice sent.'), 'queued', $invoice->client_party_id);
+        $this->logCommunication($request, 'email', 'outbound', $request->input('subject', 'Invoice ' . $invoice->invoice_number), $request->input('body', 'Invoice sent.'), 'queued', $invoice->client_party_id);
 
         return $this->success(['invoice' => $this->invoiceBundle($invoice->id)], 'Invoice email queued.', 202);
     }
@@ -133,7 +133,10 @@ class TenantBusinessController extends BaseTenantController
         return $this->success(['invoice' => $this->invoiceBundle($invoice->id), 'placeholder' => true, 'message' => 'PDF file generation is not configured yet. The invoice preview uses live invoice data.']);
     }
 
-    public function exportInvoices(Request $request): JsonResponse { return $this->queued($request, 'export', 'invoices'); }
+    public function exportInvoices(Request $request): JsonResponse
+    {
+        return $this->queued($request, 'export', 'invoices');
+    }
 
     public function payments(Request $request): JsonResponse
     {
@@ -203,7 +206,10 @@ class TenantBusinessController extends BaseTenantController
         return $this->success(['payment' => $this->paymentRows()->where('tenant_payments.id', $payment->id)->first(), 'placeholder' => true, 'message' => 'Receipt file upload is not configured on tenant_payments; use Documents to attach receipts to related records.']);
     }
 
-    public function exportPayments(Request $request): JsonResponse { return $this->queued($request, 'export', 'payments'); }
+    public function exportPayments(Request $request): JsonResponse
+    {
+        return $this->queued($request, 'export', 'payments');
+    }
 
     public function expenses(Request $request): JsonResponse
     {
@@ -245,9 +251,20 @@ class TenantBusinessController extends BaseTenantController
         return $this->success(['expense' => $this->expenseBundle($expense->id)], 'Expense updated.');
     }
 
-    public function approveExpense(Request $request, string $expense_uuid): JsonResponse { $request->validate(['reason' => ['required', 'string', 'max:1000']]); return $this->expenseStatus($expense_uuid, 'approved'); }
-    public function rejectExpense(Request $request, string $expense_uuid): JsonResponse { $request->validate(['reason' => ['required', 'string', 'max:1000']]); return $this->expenseStatus($expense_uuid, 'rejected'); }
-    public function exportExpenses(Request $request): JsonResponse { return $this->queued($request, 'export', 'expenses'); }
+    public function approveExpense(Request $request, string $expense_uuid): JsonResponse
+    {
+        $request->validate(['reason' => ['required', 'string', 'max:1000']]);
+        return $this->expenseStatus($expense_uuid, 'approved');
+    }
+    public function rejectExpense(Request $request, string $expense_uuid): JsonResponse
+    {
+        $request->validate(['reason' => ['required', 'string', 'max:1000']]);
+        return $this->expenseStatus($expense_uuid, 'rejected');
+    }
+    public function exportExpenses(Request $request): JsonResponse
+    {
+        return $this->queued($request, 'export', 'expenses');
+    }
 
     public function bankAccounts(Request $request): JsonResponse
     {
@@ -260,7 +277,7 @@ class TenantBusinessController extends BaseTenantController
         }
 
         $page = $this->base('bank_accounts')->orderByDesc('id')->paginate($request->integer('per_page', 25));
-        $items = collect($page->items())->map(fn ($row) => $this->bankAccount((int) $row->id))->all();
+        $items = collect($page->items())->map(fn($row) => $this->bankAccount((int) $row->id))->all();
 
         return $this->list($items, $page);
     }
@@ -296,7 +313,7 @@ class TenantBusinessController extends BaseTenantController
     public function documentDashboard(Request $request): JsonResponse
     {
         $page = $this->base('files')->orderByDesc('id')->paginate($request->integer('per_page', 25));
-        return $this->list(collect($page->items())->map(fn ($file) => $this->filePayload($file))->all(), $page, 'OK', [
+        return $this->list(collect($page->items())->map(fn($file) => $this->filePayload($file))->all(), $page, 'OK', [
             'summary' => [
                 'total_files' => $this->count('files'),
                 'shared_files' => $this->base('files')->where('visibility', 'tenant')->count(),
@@ -315,7 +332,7 @@ class TenantBusinessController extends BaseTenantController
                 'tenant_id' => $this->tenantId(),
                 'parent_id' => $parent?->id,
                 'name' => $data['name'],
-                'slug' => Str::slug($data['name']).'-'.Str::lower(Str::random(5)),
+                'slug' => Str::slug($data['name']) . '-' . Str::lower(Str::random(5)),
                 'folder_type' => $data['folder_type'] ?? 'general',
                 'created_by' => $request->user()?->id,
                 'created_at' => now(),
@@ -346,7 +363,7 @@ class TenantBusinessController extends BaseTenantController
                 'open_projects' => $this->count('projects'),
                 'invoice_balance' => (float) $this->base('tenant_invoices')->sum('balance_amount'),
             ],
-            'available_reports' => collect($this->reportCodes())->map(fn ($label, $code) => ['code' => $code, 'name' => $label])->values(),
+            'available_reports' => collect($this->reportCodes())->map(fn($label, $code) => ['code' => $code, 'name' => $label])->values(),
             'recent_exports' => $this->base('tenant_import_export_jobs')->where('module', 'like', 'report_%')->orderByDesc('id')->limit(10)->get(),
         ]]);
     }
@@ -356,10 +373,22 @@ class TenantBusinessController extends BaseTenantController
         return $this->success(['report' => ['code' => $report_code, 'name' => $this->reportCodes()[$report_code] ?? Str::headline($report_code)], 'rows' => $this->reportRows($report_code, $request)]);
     }
 
-    public function exportReport(Request $request, string $report_code): JsonResponse { return $this->queued($request, 'export', 'report_'.$report_code); }
-    public function customReports(Request $request): JsonResponse { return $this->success(['custom_reports' => [], 'placeholder' => true, 'message' => 'Custom report designer table is not present yet.']); }
-    public function storeCustomReport(Request $request): JsonResponse { return $this->success(['placeholder' => true, 'payload' => $request->only(['name', 'module', 'filters', 'columns'])], 'Custom report storage is not configured yet.', 202); }
-    public function runCustomReport(string $report_uuid): JsonResponse { return $this->success(['rows' => [], 'placeholder' => true, 'message' => 'Custom report storage is not configured yet.']); }
+    public function exportReport(Request $request, string $report_code): JsonResponse
+    {
+        return $this->queued($request, 'export', 'report_' . $report_code);
+    }
+    public function customReports(Request $request): JsonResponse
+    {
+        return $this->success(['custom_reports' => [], 'placeholder' => true, 'message' => 'Custom report designer table is not present yet.']);
+    }
+    public function storeCustomReport(Request $request): JsonResponse
+    {
+        return $this->success(['placeholder' => true, 'payload' => $request->only(['name', 'module', 'filters', 'columns'])], 'Custom report storage is not configured yet.', 202);
+    }
+    public function runCustomReport(string $report_uuid): JsonResponse
+    {
+        return $this->success(['rows' => [], 'placeholder' => true, 'message' => 'Custom report storage is not configured yet.']);
+    }
 
     public function settingsGroup(Request $request, string $group): JsonResponse
     {
@@ -393,7 +422,7 @@ class TenantBusinessController extends BaseTenantController
         $request->validate(['reason' => ['required', 'string', 'max:1000']]);
         $lookup = $this->find('tenant_lookups', $lookup_uuid);
         $used = collect(['parties' => ['source_id', 'status_id'], 'projects' => ['category_id', 'type_id', 'status_id', 'priority_id'], 'tenant_expenses' => ['category_id', 'status_id']])
-            ->sum(fn ($columns, $table) => collect($columns)->sum(fn ($column) => Schema::hasColumn($table, $column) ? $this->base($table)->where($column, $lookup->id)->count() : 0));
+            ->sum(fn($columns, $table) => collect($columns)->sum(fn($column) => Schema::hasColumn($table, $column) ? $this->base($table)->where($column, $lookup->id)->count() : 0));
         abort_if($used > 0, 409, "Lookup is used by {$used} records.");
         DB::table('tenant_lookups')->where('id', $lookup->id)->delete();
 
@@ -413,7 +442,7 @@ class TenantBusinessController extends BaseTenantController
 
     public function updateNotificationTemplate(Request $request, string $template_uuid): JsonResponse
     {
-        $template = DB::table('notification_templates')->where(fn ($q) => $q->where('tenant_id', $this->tenantId())->orWhereNull('tenant_id'))->where('uuid', $template_uuid)->first() ?: abort(404);
+        $template = DB::table('notification_templates')->where(fn($q) => $q->where('tenant_id', $this->tenantId())->orWhereNull('tenant_id'))->where('uuid', $template_uuid)->first() ?: abort(404);
         $data = $request->only(['subject', 'body', 'variables', 'status']);
         if (isset($data['variables'])) $data['variables'] = json_encode($data['variables']);
         DB::table('notification_templates')->where('id', $template->id)->update([...$data, 'tenant_id' => $this->tenantId(), 'updated_at' => now()]);
@@ -423,7 +452,7 @@ class TenantBusinessController extends BaseTenantController
 
     public function testNotificationTemplate(Request $request, string $template_uuid): JsonResponse
     {
-        $template = DB::table('notification_templates')->where(fn ($q) => $q->where('tenant_id', $this->tenantId())->orWhereNull('tenant_id'))->where('uuid', $template_uuid)->first() ?: abort(404);
+        $template = DB::table('notification_templates')->where(fn($q) => $q->where('tenant_id', $this->tenantId())->orWhereNull('tenant_id'))->where('uuid', $template_uuid)->first() ?: abort(404);
         $logId = $this->logCommunication($request, $template->channel, 'outbound', $template->subject ?: 'Template test', $template->body, 'queued');
 
         return $this->success(['log' => DB::table('communication_logs')->where('id', $logId)->first()], 'Template test queued.', 202);
@@ -469,24 +498,67 @@ class TenantBusinessController extends BaseTenantController
         return $this->list($page->items(), $page);
     }
 
-    public function showIntegration(string $integration_uuid): JsonResponse { return $this->success(['integration' => $this->integrationBundle($this->find('tenant_integrations', $integration_uuid)->id)]); }
-    public function updateIntegration(Request $request, string $integration_uuid): JsonResponse { $i = $this->find('tenant_integrations', $integration_uuid); DB::table('tenant_integrations')->where('id', $i->id)->update([...$request->only(['name', 'status']), 'updated_at' => now()]); return $this->success(['integration' => $this->integrationBundle($i->id)], 'Integration updated.'); }
-    public function rotateCredentials(Request $request, string $integration_uuid): JsonResponse { $i = $this->find('tenant_integrations', $integration_uuid); $this->storeCredentials($i->id, $request->validate(['credentials' => ['required', 'array']])['credentials']); return $this->success(['credentials' => DB::table('integration_credentials')->where('tenant_integration_id', $i->id)->get(['key', 'expires_at'])], 'Credentials rotated.'); }
-    public function disconnectIntegration(Request $request, string $integration_uuid): JsonResponse { $request->validate(['reason' => ['required', 'string', 'max:1000']]); $i = $this->find('tenant_integrations', $integration_uuid); DB::table('tenant_integrations')->where('id', $i->id)->update(['status' => 'disconnected', 'updated_at' => now()]); return $this->success(['integration' => $this->integrationBundle($i->id)], 'Integration disconnected.'); }
-    public function webhooks(Request $request): JsonResponse { return $this->integrationChildIndex($request, 'integration_webhooks', 'webhooks'); }
-    public function syncJobs(Request $request): JsonResponse { return $this->integrationChildIndex($request, 'integration_sync_jobs', 'sync_jobs'); }
-    public function retrySyncJob(int $job_id): JsonResponse { DB::table('integration_sync_jobs')->whereIn('tenant_integration_id', $this->base('tenant_integrations')->pluck('id'))->where('id', $job_id)->update(['status' => 'retry_queued']); return $this->success(['job' => DB::table('integration_sync_jobs')->where('id', $job_id)->first()], 'Sync retry queued.'); }
-    public function mappings(string $integration_uuid): JsonResponse { $i = $this->find('tenant_integrations', $integration_uuid); return $this->success(['mappings' => DB::table('integration_field_mappings')->where('tenant_integration_id', $i->id)->get()]); }
-    public function replaceMappings(Request $request, string $integration_uuid): JsonResponse { $i = $this->find('tenant_integrations', $integration_uuid); DB::table('integration_field_mappings')->where('tenant_integration_id', $i->id)->delete(); foreach ((array) $request->input('mappings', []) as $m) DB::table('integration_field_mappings')->insert(['tenant_integration_id' => $i->id, 'entity_type' => $m['entity_type'] ?? 'record', 'local_field' => $m['local_field'] ?? '', 'external_field' => $m['external_field'] ?? '', 'transform_rule' => isset($m['transform_rule']) ? json_encode($m['transform_rule']) : null]); return $this->mappings($integration_uuid); }
-    public function rateLimits(string $integration_uuid): JsonResponse { $i = $this->find('tenant_integrations', $integration_uuid); return $this->success(['rate_limits' => DB::table('integration_rate_limits')->where('tenant_integration_id', $i->id)->orderByDesc('id')->get()]); }
+    public function showIntegration(string $integration_uuid): JsonResponse
+    {
+        return $this->success(['integration' => $this->integrationBundle($this->find('tenant_integrations', $integration_uuid)->id)]);
+    }
+    public function updateIntegration(Request $request, string $integration_uuid): JsonResponse
+    {
+        $i = $this->find('tenant_integrations', $integration_uuid);
+        DB::table('tenant_integrations')->where('id', $i->id)->update([...$request->only(['name', 'status']), 'updated_at' => now()]);
+        return $this->success(['integration' => $this->integrationBundle($i->id)], 'Integration updated.');
+    }
+    public function rotateCredentials(Request $request, string $integration_uuid): JsonResponse
+    {
+        $i = $this->find('tenant_integrations', $integration_uuid);
+        $this->storeCredentials($i->id, $request->validate(['credentials' => ['required', 'array']])['credentials']);
+        return $this->success(['credentials' => DB::table('integration_credentials')->where('tenant_integration_id', $i->id)->get(['key', 'expires_at'])], 'Credentials rotated.');
+    }
+    public function disconnectIntegration(Request $request, string $integration_uuid): JsonResponse
+    {
+        $request->validate(['reason' => ['required', 'string', 'max:1000']]);
+        $i = $this->find('tenant_integrations', $integration_uuid);
+        DB::table('tenant_integrations')->where('id', $i->id)->update(['status' => 'disconnected', 'updated_at' => now()]);
+        return $this->success(['integration' => $this->integrationBundle($i->id)], 'Integration disconnected.');
+    }
+    public function webhooks(Request $request): JsonResponse
+    {
+        return $this->integrationChildIndex($request, 'integration_webhooks', 'webhooks');
+    }
+    public function syncJobs(Request $request): JsonResponse
+    {
+        return $this->integrationChildIndex($request, 'integration_sync_jobs', 'sync_jobs');
+    }
+    public function retrySyncJob(int $job_id): JsonResponse
+    {
+        DB::table('integration_sync_jobs')->whereIn('tenant_integration_id', $this->base('tenant_integrations')->pluck('id'))->where('id', $job_id)->update(['status' => 'retry_queued']);
+        return $this->success(['job' => DB::table('integration_sync_jobs')->where('id', $job_id)->first()], 'Sync retry queued.');
+    }
+    public function mappings(string $integration_uuid): JsonResponse
+    {
+        $i = $this->find('tenant_integrations', $integration_uuid);
+        return $this->success(['mappings' => DB::table('integration_field_mappings')->where('tenant_integration_id', $i->id)->get()]);
+    }
+    public function replaceMappings(Request $request, string $integration_uuid): JsonResponse
+    {
+        $i = $this->find('tenant_integrations', $integration_uuid);
+        DB::table('integration_field_mappings')->where('tenant_integration_id', $i->id)->delete();
+        foreach ((array) $request->input('mappings', []) as $m) DB::table('integration_field_mappings')->insert(['tenant_integration_id' => $i->id, 'entity_type' => $m['entity_type'] ?? 'record', 'local_field' => $m['local_field'] ?? '', 'external_field' => $m['external_field'] ?? '', 'transform_rule' => isset($m['transform_rule']) ? json_encode($m['transform_rule']) : null]);
+        return $this->mappings($integration_uuid);
+    }
+    public function rateLimits(string $integration_uuid): JsonResponse
+    {
+        $i = $this->find('tenant_integrations', $integration_uuid);
+        return $this->success(['rate_limits' => DB::table('integration_rate_limits')->where('tenant_integration_id', $i->id)->orderByDesc('id')->get()]);
+    }
 
     public function audit(Request $request, string $type): JsonResponse
     {
         $map = [
-            'activity-logs' => fn () => $this->base('activity_logs')->orderByDesc('id'),
-            'login-history' => fn () => $this->base('security_events')->where('event', 'like', '%login%')->orderByDesc('id'),
-            'system-api-logs' => fn () => $this->base('api_request_logs')->orderByDesc('id'),
-            'data-changes' => fn () => $this->base('activity_logs')->where(fn ($q) => $q->whereNotNull('old_values')->orWhereNotNull('new_values'))->orderByDesc('id'),
+            'activity-logs' => fn() => $this->base('activity_logs')->orderByDesc('id'),
+            'login-history' => fn() => $this->base('security_events')->where('event', 'like', '%login%')->orderByDesc('id'),
+            'system-api-logs' => fn() => $this->base('api_request_logs')->orderByDesc('id'),
+            'data-changes' => fn() => $this->base('activity_logs')->where(fn($q) => $q->whereNotNull('old_values')->orWhereNotNull('new_values'))->orderByDesc('id'),
         ];
         abort_if(! isset($map[$type]), 404);
         $page = $map[$type]()->paginate($request->integer('per_page', 25));
@@ -498,10 +570,13 @@ class TenantBusinessController extends BaseTenantController
         $log = $this->base('activity_logs')->where('id', $id)->first() ?: abort(404);
         $old = json_decode($log->old_values ?: '[]', true) ?: [];
         $new = json_decode($log->new_values ?: '[]', true) ?: [];
-        return $this->success(['activity' => $log, 'compare' => ['old_values' => $old, 'new_values' => $new, 'changed_fields' => array_values(array_filter(array_unique([...array_keys($old), ...array_keys($new)]), fn ($key) => ($old[$key] ?? null) !== ($new[$key] ?? null)))]]);
+        return $this->success(['activity' => $log, 'compare' => ['old_values' => $old, 'new_values' => $new, 'changed_fields' => array_values(array_filter(array_unique([...array_keys($old), ...array_keys($new)]), fn($key) => ($old[$key] ?? null) !== ($new[$key] ?? null)))]]);
     }
 
-    public function exportAudit(Request $request): JsonResponse { return $this->queued($request, 'export', 'audit'); }
+    public function exportAudit(Request $request): JsonResponse
+    {
+        return $this->queued($request, 'export', 'audit');
+    }
 
     public function selectors(): JsonResponse
     {
@@ -512,37 +587,102 @@ class TenantBusinessController extends BaseTenantController
             'projects' => $this->base('projects')->orderBy('name')->limit(200)->get(['uuid', 'name', 'project_number']),
             'staff' => $this->base('staff')->orderBy('display_name')->limit(200)->get(['uuid', 'display_name', 'employee_code']),
             'invoices' => $this->invoiceRows()->orderByDesc('tenant_invoices.id')->limit(200)->get(['tenant_invoices.uuid', 'tenant_invoices.invoice_number', 'tenant_invoices.balance_amount', 'parties.display_name as client_name']),
-            'accounts' => collect($this->base('bank_accounts')->orderBy('bank_name')->limit(200)->get())->map(fn ($row) => $this->bankAccount((int) $row->id))->all(),
+            'accounts' => collect($this->base('bank_accounts')->orderBy('bank_name')->limit(200)->get())->map(fn($row) => $this->bankAccount((int) $row->id))->all(),
             'providers' => DB::table('integration_providers')->where('status', 'active')->orderBy('name')->limit(200)->get(['id', 'name', 'code', 'category']),
             'lookups' => $this->base('tenant_lookups')->orderBy('group')->orderBy('name')->limit(400)->get(['uuid', 'id', 'group', 'name', 'code']),
         ]);
     }
 
-    private function tenantId(): int { return app(TenantContext::class)->id(); }
-    private function base(string $table) { $query = DB::table($table); if (Schema::hasColumn($table, 'tenant_id')) $query->where($table.'.tenant_id', $this->tenantId()); if (Schema::hasColumn($table, 'deleted_at')) $query->whereNull($table.'.deleted_at'); return $query; }
-    private function find(string $table, string $uuid): object { return $this->base($table)->where($table.'.uuid', $uuid)->first() ?: abort(404, 'Resource not found.'); }
-    private function byUuid(string $table, mixed $uuid): ?object { return $uuid ? $this->find($table, (string) $uuid) : null; }
-    private function scoped(string $table, int $id): object { return $this->base($table)->where($table.'.id', $id)->first() ?: abort(404); }
-    private function count(string $table, array $where = []): int { $q = $this->base($table); foreach ($where as $column => $value) $q->where($column, $value); return $q->count(); }
-    private function idFrom(string $table, mixed $value): ?int { if ($value === null || $value === '') return null; if (is_numeric($value)) return (int) $value; return (int) $this->find($table, (string) $value)->id; }
-    private function partyId(mixed $uuid, ?string $type): ?int { if (! $uuid) return null; $q = $this->base('parties')->where('uuid', $uuid); if ($type) $q->where('party_type', $type); return (int) ($q->value('id') ?: abort(404, 'Party not found.')); }
-    private function filter($query, Request $request, array $columns) { if ($search = $request->input('search')) $query->where(fn ($inner) => collect($columns)->each(fn ($column) => $inner->orWhere($column, 'like', '%'.$search.'%'))); return $query; }
-    private function queued(Request $request, string $type, string $module): JsonResponse { return $this->success(['job' => $this->tenant->createJob($request, $type, $module, $request->all())], Str::headline($module).' '.$type.' queued.', 202); }
-    private function number(string $prefix): string { return $prefix.'-'.now()->format('ymd').'-'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT); }
+    private function tenantId(): int
+    {
+        return app(TenantContext::class)->id();
+    }
+    private function base(string $table)
+    {
+        $query = DB::table($table);
+        if (Schema::hasColumn($table, 'tenant_id')) $query->where($table . '.tenant_id', $this->tenantId());
+        if (Schema::hasColumn($table, 'deleted_at')) $query->whereNull($table . '.deleted_at');
+        return $query;
+    }
+    private function find(string $table, string $uuid): object
+    {
+        return $this->base($table)->where($table . '.uuid', $uuid)->first() ?: abort(404, 'Resource not found.');
+    }
+    private function byUuid(string $table, mixed $uuid): ?object
+    {
+        return $uuid ? $this->find($table, (string) $uuid) : null;
+    }
+    private function scoped(string $table, int $id): object
+    {
+        return $this->base($table)->where($table . '.id', $id)->first() ?: abort(404);
+    }
+    private function count(string $table, array $where = []): int
+    {
+        $q = $this->base($table);
+        foreach ($where as $column => $value) $q->where($column, $value);
+        return $q->count();
+    }
+    private function idFrom(string $table, mixed $value): ?int
+    {
+        if ($value === null || $value === '') return null;
+        if (is_numeric($value)) return (int) $value;
+        return (int) $this->find($table, (string) $value)->id;
+    }
+    private function partyId(mixed $uuid, ?string $type): ?int
+    {
+        if (! $uuid) return null;
+        $q = $this->base('parties')->where('uuid', $uuid);
+        if ($type) $q->where('party_type', $type);
+        return (int) ($q->value('id') ?: abort(404, 'Party not found.'));
+    }
+    private function filter($query, Request $request, array $columns)
+    {
+        if ($search = $request->input('search')) $query->where(fn($inner) => collect($columns)->each(fn($column) => $inner->orWhere($column, 'like', '%' . $search . '%')));
+        return $query;
+    }
+    private function queued(Request $request, string $type, string $module): JsonResponse
+    {
+        return $this->success(['job' => $this->tenant->createJob($request, $type, $module, $request->all())], Str::headline($module) . ' ' . $type . ' queued.', 202);
+    }
+    private function number(string $prefix): string
+    {
+        return $prefix . '-' . now()->format('ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+    }
 
-    private function invoiceRows() { return $this->base('tenant_invoices')->join('parties', 'parties.id', '=', 'tenant_invoices.client_party_id')->leftJoin('projects', 'projects.id', '=', 'tenant_invoices.project_id')->select('tenant_invoices.*', 'parties.uuid as client_party_uuid', 'parties.display_name as client_name', 'projects.uuid as project_uuid', 'projects.name as project_name'); }
-    private function paymentRows() { return $this->base('tenant_payments')->leftJoin('tenant_invoices', 'tenant_invoices.id', '=', 'tenant_payments.invoice_id')->leftJoin('parties', 'parties.id', '=', 'tenant_payments.client_party_id')->select('tenant_payments.*', 'tenant_invoices.uuid as invoice_uuid', 'tenant_invoices.invoice_number', 'parties.uuid as client_party_uuid', 'parties.display_name as client_name'); }
-    private function expenseRows() { return $this->base('tenant_expenses')->leftJoin('parties as vendor', 'vendor.id', '=', 'tenant_expenses.vendor_party_id')->leftJoin('projects as project', 'project.id', '=', 'tenant_expenses.project_id')->leftJoin('tenant_lookups as category', 'category.id', '=', 'tenant_expenses.category_id')->leftJoin('tenant_lookups as status', 'status.id', '=', 'tenant_expenses.status_id')->select('tenant_expenses.*', 'vendor.uuid as vendor_party_uuid', 'vendor.display_name as vendor_name', 'project.uuid as project_uuid', 'project.name as project_name', 'category.name as category_name', 'status.name as status_name'); }
-    private function invoiceBundle(int $id): array { return ['record' => $this->invoiceRows()->where('tenant_invoices.id', $id)->first(), 'items' => $this->base('tenant_invoice_items')->where('invoice_id', $id)->get(), 'payments' => $this->paymentRows()->where('tenant_payments.invoice_id', $id)->get()]; }
-    private function expenseBundle(int $id): array { return ['record' => $this->expenseRows()->where('tenant_expenses.id', $id)->first(), 'items' => $this->base('tenant_expense_items')->where('expense_id', $id)->get()]; }
+    private function invoiceRows()
+    {
+        return $this->base('tenant_invoices')->join('parties', 'parties.id', '=', 'tenant_invoices.client_party_id')->leftJoin('projects', 'projects.id', '=', 'tenant_invoices.project_id')->select('tenant_invoices.*', 'parties.uuid as client_party_uuid', 'parties.display_name as client_name', 'projects.uuid as project_uuid', 'projects.name as project_name');
+    }
+    private function paymentRows()
+    {
+        return $this->base('tenant_payments')->leftJoin('tenant_invoices', 'tenant_invoices.id', '=', 'tenant_payments.invoice_id')->leftJoin('parties', 'parties.id', '=', 'tenant_payments.client_party_id')->select('tenant_payments.*', 'tenant_invoices.uuid as invoice_uuid', 'tenant_invoices.invoice_number', 'parties.uuid as client_party_uuid', 'parties.display_name as client_name');
+    }
+    private function expenseRows()
+    {
+        return $this->base('tenant_expenses')->leftJoin('parties as vendor', 'vendor.id', '=', 'tenant_expenses.vendor_party_id')->leftJoin('projects as project', 'project.id', '=', 'tenant_expenses.project_id')->leftJoin('tenant_lookups as category', 'category.id', '=', 'tenant_expenses.category_id')->leftJoin('tenant_lookups as status', 'status.id', '=', 'tenant_expenses.status_id')->select('tenant_expenses.*', 'vendor.uuid as vendor_party_uuid', 'vendor.display_name as vendor_name', 'project.uuid as project_uuid', 'project.name as project_name', 'category.name as category_name', 'status.name as status_name');
+    }
+    private function invoiceBundle(int $id): array
+    {
+        return ['record' => $this->invoiceRows()->where('tenant_invoices.id', $id)->first(), 'items' => $this->base('tenant_invoice_items')->where('invoice_id', $id)->get(), 'payments' => $this->paymentRows()->where('tenant_payments.invoice_id', $id)->get()];
+    }
+    private function expenseBundle(int $id): array
+    {
+        return ['record' => $this->expenseRows()->where('tenant_expenses.id', $id)->first(), 'items' => $this->base('tenant_expense_items')->where('expense_id', $id)->get()];
+    }
 
     private function invoicePayload(Request $request, bool $partial = false): array
     {
         $data = $request->only(['invoice_number', 'client_party_uuid', 'project_uuid', 'invoice_date', 'due_date', 'discount_amount', 'tax_amount', 'currency', 'status', 'items']);
         if (! $partial) $data += ['invoice_number' => '', 'invoice_date' => today()->toDateString(), 'discount_amount' => 0, 'tax_amount' => 0, 'currency' => 'INR', 'status' => 'draft'];
-        if (array_key_exists('client_party_uuid', $data)) { $data['client_party_id'] = $this->partyId($data['client_party_uuid'], 'client'); unset($data['client_party_uuid']); }
-        if (array_key_exists('project_uuid', $data)) { $data['project_id'] = $this->idFrom('projects', $data['project_uuid']); unset($data['project_uuid']); }
-        return array_filter($data, fn ($value) => $value !== null && $value !== '');
+        if (array_key_exists('client_party_uuid', $data)) {
+            $data['client_party_id'] = $this->partyId($data['client_party_uuid'], 'client');
+            unset($data['client_party_uuid']);
+        }
+        if (array_key_exists('project_uuid', $data)) {
+            $data['project_id'] = $this->idFrom('projects', $data['project_uuid']);
+            unset($data['project_uuid']);
+        }
+        return array_filter($data, fn($value) => $value !== null && $value !== '');
     }
 
     private function insertInvoiceItem(int $invoiceId, array $item): int
@@ -561,8 +701,8 @@ class TenantBusinessController extends BaseTenantController
     private function recalculateInvoice(int $invoiceId): void
     {
         $items = $this->base('tenant_invoice_items')->where('invoice_id', $invoiceId)->get();
-        $subtotal = (float) $items->sum(fn ($item) => (float) $item->quantity * (float) $item->unit_price);
-        $tax = (float) $items->sum(fn ($item) => ((float) $item->quantity * (float) $item->unit_price) * ((float) $item->tax_rate / 100));
+        $subtotal = (float) $items->sum(fn($item) => (float) $item->quantity * (float) $item->unit_price);
+        $tax = (float) $items->sum(fn($item) => ((float) $item->quantity * (float) $item->unit_price) * ((float) $item->tax_rate / 100));
         $discount = (float) (DB::table('tenant_invoices')->where('id', $invoiceId)->value('discount_amount') ?: 0);
         $paid = (float) $this->base('tenant_payments')->where('invoice_id', $invoiceId)->whereNotIn('status', ['void', 'cancelled'])->sum('amount');
         $total = max($subtotal + $tax - $discount, 0);
@@ -573,10 +713,16 @@ class TenantBusinessController extends BaseTenantController
     {
         $data = $request->only(['expense_number', 'vendor_party_uuid', 'project_uuid', 'category_id', 'amount', 'currency', 'expense_date', 'status_id', 'items']);
         if (! $partial) $data += ['expense_number' => '', 'amount' => 0, 'currency' => 'INR', 'expense_date' => today()->toDateString()];
-        if (array_key_exists('vendor_party_uuid', $data)) { $data['vendor_party_id'] = $this->partyId($data['vendor_party_uuid'], 'vendor'); unset($data['vendor_party_uuid']); }
-        if (array_key_exists('project_uuid', $data)) { $data['project_id'] = $this->idFrom('projects', $data['project_uuid']); unset($data['project_uuid']); }
+        if (array_key_exists('vendor_party_uuid', $data)) {
+            $data['vendor_party_id'] = $this->partyId($data['vendor_party_uuid'], 'vendor');
+            unset($data['vendor_party_uuid']);
+        }
+        if (array_key_exists('project_uuid', $data)) {
+            $data['project_id'] = $this->idFrom('projects', $data['project_uuid']);
+            unset($data['project_uuid']);
+        }
         foreach (['category_id', 'status_id'] as $field) if (array_key_exists($field, $data)) $data[$field] = $this->idFrom('tenant_lookups', $data[$field]);
-        return array_filter($data, fn ($value) => $value !== null && $value !== '');
+        return array_filter($data, fn($value) => $value !== null && $value !== '');
     }
 
     private function expenseItemPayload(array $item): array
@@ -589,23 +735,33 @@ class TenantBusinessController extends BaseTenantController
     private function expenseStatus(string $uuid, string $status): JsonResponse
     {
         $expense = $this->find('tenant_expenses', $uuid);
-        $lookup = $this->base('tenant_lookups')->where('group', 'expense_status')->where(fn ($q) => $q->where('code', $status)->orWhere('name', $status))->first();
+        $lookup = $this->base('tenant_lookups')->where('group', 'expense_status')->where(fn($q) => $q->where('code', $status)->orWhere('name', $status))->first();
         if ($lookup) DB::table('tenant_expenses')->where('id', $expense->id)->update(['status_id' => $lookup->id, 'updated_at' => now()]);
-        return $this->success(['expense' => $this->expenseBundle($expense->id), 'status' => $status], 'Expense '.$status.'.');
+        return $this->success(['expense' => $this->expenseBundle($expense->id), 'status' => $status], 'Expense ' . $status . '.');
     }
 
     private function bankPayload(Request $request, bool $partial = false): array
     {
         $data = $request->only(['owner_type', 'owner_uuid', 'bank_name', 'account_number', 'routing_number', 'ifsc_code', 'is_primary']);
         if (array_key_exists('owner_uuid', $data)) {
-            $table = match ($data['owner_type'] ?? 'tenant') { 'client', 'vendor' => 'parties', 'staff' => 'staff', default => null };
+            $table = match ($data['owner_type'] ?? 'tenant') {
+                'client', 'vendor' => 'parties',
+                'staff' => 'staff',
+                default => null
+            };
             $data['owner_id'] = $table ? $this->idFrom($table, $data['owner_uuid']) : $this->tenantId();
             unset($data['owner_uuid']);
         }
-        if (array_key_exists('account_number', $data)) { $data['account_number_encrypted'] = Crypt::encryptString((string) $data['account_number']); unset($data['account_number']); }
-        if (array_key_exists('routing_number', $data)) { $data['routing_number_encrypted'] = $data['routing_number'] ? Crypt::encryptString((string) $data['routing_number']) : null; unset($data['routing_number']); }
+        if (array_key_exists('account_number', $data)) {
+            $data['account_number_encrypted'] = Crypt::encryptString((string) $data['account_number']);
+            unset($data['account_number']);
+        }
+        if (array_key_exists('routing_number', $data)) {
+            $data['routing_number_encrypted'] = $data['routing_number'] ? Crypt::encryptString((string) $data['routing_number']) : null;
+            unset($data['routing_number']);
+        }
         if (! $partial) $data += ['owner_type' => 'tenant', 'owner_id' => $this->tenantId(), 'account_number_encrypted' => Crypt::encryptString('')];
-        return array_filter($data, fn ($value) => $value !== null && $value !== '');
+        return array_filter($data, fn($value) => $value !== null && $value !== '');
     }
 
     private function bankAccount(int $id): array
@@ -615,16 +771,65 @@ class TenantBusinessController extends BaseTenantController
         return $this->tenant->bankPayload($row);
     }
 
-    private function clearOtherPrimary(int $id, string $ownerType, int $ownerId): void { DB::table('bank_accounts')->where('tenant_id', $this->tenantId())->where('owner_type', $ownerType)->where('owner_id', $ownerId)->where('id', '!=', $id)->update(['is_primary' => false]); }
-    private function filePayload(object $file): array { return [...(array) $file, 'size_label' => number_format(((int) $file->size_bytes) / 1024, 1).' KB']; }
-    private function folderFiles(int $folderId) { return DB::table('document_folder_files')->join('files', 'files.id', '=', 'document_folder_files.file_id')->where('document_folder_files.tenant_id', $this->tenantId())->where('document_folder_id', $folderId)->select('files.uuid', 'files.original_name', 'files.mime_type', 'files.size_bytes', 'document_folder_files.created_at')->get(); }
-    private function reportCodes(): array { return ['crm-summary' => 'CRM Summary', 'hr-summary' => 'HR Summary', 'payroll-summary' => 'Payroll Summary', 'renewal-summary' => 'Renewal Summary', 'finance-summary' => 'Finance Summary', 'project-summary' => 'Project Summary', 'task-summary' => 'Task Summary', 'support-summary' => 'Support Summary']; }
-    private function reportRows(string $code, Request $request) { return match ($code) { 'crm-summary' => $this->base('parties')->selectRaw('party_type, count(*) as total')->groupBy('party_type')->get(), 'hr-summary' => $this->base('staff')->selectRaw('employment_status, count(*) as total')->groupBy('employment_status')->get(), 'payroll-summary' => $this->base('payrolls')->selectRaw('payment_status, sum(net_salary) as amount, count(*) as total')->groupBy('payment_status')->get(), 'renewal-summary' => $this->base('renewals')->leftJoin('tenant_lookups as status', 'status.id', '=', 'renewals.status_id')->selectRaw('coalesce(status.name, ?) as status, count(*) as total', ['Unassigned'])->groupBy('status.name')->get(), 'finance-summary' => $this->base('tenant_invoices')->selectRaw('status, sum(total_amount) as amount, sum(balance_amount) as balance, count(*) as total')->groupBy('status')->get(), 'project-summary' => $this->base('projects')->leftJoin('tenant_lookups as status', 'status.id', '=', 'projects.status_id')->selectRaw('coalesce(status.name, ?) as status, count(*) as total', ['Unassigned'])->groupBy('status.name')->get(), 'task-summary' => $this->base('tasks')->leftJoin('tenant_lookups as status', 'status.id', '=', 'tasks.status_id')->selectRaw('coalesce(status.name, ?) as status, count(*) as total', ['Unassigned'])->groupBy('status.name')->get(), 'support-summary' => $this->base('client_issues')->leftJoin('tenant_lookups as status', 'status.id', '=', 'client_issues.status_id')->selectRaw('coalesce(status.name, ?) as status, count(*) as total', ['Unassigned'])->groupBy('status.name')->get(), default => [] }; }
-    private function settingsRows(string $group) { return $this->base('tenant_settings')->where('group', $group)->orderBy('key')->get()->map(fn ($row) => tap($row, fn ($item) => $item->value_display = $this->displayJson($item->value))); }
-    private function displayJson(mixed $value): mixed { $decoded = json_decode((string) $value, true); return is_array($decoded) ? collect($decoded)->map(fn ($item, $key) => is_scalar($item) ? "{$key}: {$item}" : "{$key}: configured")->implode(', ') : $decoded; }
-    private function logCommunication(Request $request, string $channel, string $direction, string $subject, string $body, string $status, ?int $partyId = null): int { return DB::table('communication_logs')->insertGetId(['uuid' => (string) Str::uuid(), 'tenant_id' => $this->tenantId(), 'user_id' => $request->user()?->id, 'party_id' => $partyId, 'channel' => $channel, 'direction' => $direction, 'subject' => $subject, 'body' => $body, 'provider' => 'manual', 'status' => $status, 'created_at' => now()]); }
-    private function integrationRows() { return $this->base('tenant_integrations')->join('integration_providers', 'integration_providers.id', '=', 'tenant_integrations.provider_id')->select('tenant_integrations.*', 'integration_providers.name as provider_name', 'integration_providers.code as provider_code', 'integration_providers.category', 'integration_providers.auth_type'); }
-    private function integrationBundle(int $id): array { return ['record' => $this->integrationRows()->where('tenant_integrations.id', $id)->first(), 'credentials' => DB::table('integration_credentials')->where('tenant_integration_id', $id)->get(['key', 'expires_at']), 'webhooks' => DB::table('integration_webhooks')->where('tenant_integration_id', $id)->get(), 'sync_jobs' => DB::table('integration_sync_jobs')->where('tenant_integration_id', $id)->orderByDesc('id')->limit(25)->get(), 'mappings' => DB::table('integration_field_mappings')->where('tenant_integration_id', $id)->get(), 'rate_limits' => DB::table('integration_rate_limits')->where('tenant_integration_id', $id)->orderByDesc('id')->limit(25)->get()]; }
-    private function storeCredentials(int $integrationId, array $credentials): void { foreach ($credentials as $key => $value) DB::table('integration_credentials')->updateOrInsert(['tenant_integration_id' => $integrationId, 'key' => $key], ['encrypted_value' => Crypt::encryptString((string) $value), 'expires_at' => null]); }
-    private function integrationChildIndex(Request $request, string $table, string $key): JsonResponse { $ids = $this->base('tenant_integrations')->pluck('id'); $page = DB::table($table)->whereIn('tenant_integration_id', $ids)->orderByDesc('id')->paginate($request->integer('per_page', 25)); return $this->list($page->items(), $page); }
+    private function clearOtherPrimary(int $id, string $ownerType, int $ownerId): void
+    {
+        DB::table('bank_accounts')->where('tenant_id', $this->tenantId())->where('owner_type', $ownerType)->where('owner_id', $ownerId)->where('id', '!=', $id)->update(['is_primary' => false]);
+    }
+    private function filePayload(object $file): array
+    {
+        return [...(array) $file, 'size_label' => number_format(((int) $file->size_bytes) / 1024, 1) . ' KB'];
+    }
+    private function folderFiles(int $folderId)
+    {
+        return DB::table('document_folder_files')->join('files', 'files.id', '=', 'document_folder_files.file_id')->where('document_folder_files.tenant_id', $this->tenantId())->where('document_folder_id', $folderId)->select('files.uuid', 'files.original_name', 'files.mime_type', 'files.size_bytes', 'document_folder_files.created_at')->get();
+    }
+    private function reportCodes(): array
+    {
+        return ['crm-summary' => 'CRM Summary', 'hr-summary' => 'HR Summary', 'payroll-summary' => 'Payroll Summary', 'renewal-summary' => 'Renewal Summary', 'finance-summary' => 'Finance Summary', 'project-summary' => 'Project Summary', 'task-summary' => 'Task Summary', 'support-summary' => 'Support Summary'];
+    }
+    private function reportRows(string $code, Request $request)
+    {
+        return match ($code) {
+            'crm-summary' => $this->base('parties')->selectRaw('party_type, count(*) as total')->groupBy('party_type')->get(),
+            'hr-summary' => $this->base('staff')->selectRaw('employment_status, count(*) as total')->groupBy('employment_status')->get(),
+            'payroll-summary' => $this->base('payrolls')->selectRaw('payment_status, sum(net_salary) as amount, count(*) as total')->groupBy('payment_status')->get(),
+            'renewal-summary' => $this->base('renewals')->leftJoin('tenant_lookups as status', 'status.id', '=', 'renewals.status_id')->selectRaw('coalesce(status.name, ?) as status, count(*) as total', ['Unassigned'])->groupBy('status.name')->get(),
+            'finance-summary' => $this->base('tenant_invoices')->selectRaw('status, sum(total_amount) as amount, sum(balance_amount) as balance, count(*) as total')->groupBy('status')->get(),
+            'project-summary' => $this->base('projects')->leftJoin('tenant_lookups as status', 'status.id', '=', 'projects.status_id')->selectRaw('coalesce(status.name, ?) as status, count(*) as total', ['Unassigned'])->groupBy('status.name')->get(),
+            'task-summary' => $this->base('tasks')->leftJoin('tenant_lookups as status', 'status.id', '=', 'tasks.status_id')->selectRaw('coalesce(status.name, ?) as status, count(*) as total', ['Unassigned'])->groupBy('status.name')->get(),
+            'support-summary' => $this->base('client_issues')->leftJoin('tenant_lookups as status', 'status.id', '=', 'client_issues.status_id')->selectRaw('coalesce(status.name, ?) as status, count(*) as total', ['Unassigned'])->groupBy('status.name')->get(),
+            default => []
+        };
+    }
+    private function settingsRows(string $group)
+    {
+        return $this->base('tenant_settings')->where('group', $group)->orderBy('key')->get()->map(fn($row) => tap($row, fn($item) => $item->value_display = $this->displayJson($item->value)));
+    }
+    private function displayJson(mixed $value): mixed
+    {
+        $decoded = json_decode((string) $value, true);
+        return is_array($decoded) ? collect($decoded)->map(fn($item, $key) => is_scalar($item) ? "{$key}: {$item}" : "{$key}: configured")->implode(', ') : $decoded;
+    }
+    private function logCommunication(Request $request, string $channel, string $direction, string $subject, string $body, string $status, ?int $partyId = null): int
+    {
+        return DB::table('communication_logs')->insertGetId(['uuid' => (string) Str::uuid(), 'tenant_id' => $this->tenantId(), 'user_id' => $request->user()?->id, 'party_id' => $partyId, 'channel' => $channel, 'direction' => $direction, 'subject' => $subject, 'body' => $body, 'provider' => 'manual', 'status' => $status, 'created_at' => now()]);
+    }
+    private function integrationRows()
+    {
+        return $this->base('tenant_integrations')->join('integration_providers', 'integration_providers.id', '=', 'tenant_integrations.provider_id')->select('tenant_integrations.*', 'integration_providers.name as provider_name', 'integration_providers.code as provider_code', 'integration_providers.category', 'integration_providers.auth_type');
+    }
+    private function integrationBundle(int $id): array
+    {
+        return ['record' => $this->integrationRows()->where('tenant_integrations.id', $id)->first(), 'credentials' => DB::table('integration_credentials')->where('tenant_integration_id', $id)->get(['key', 'expires_at']), 'webhooks' => DB::table('integration_webhooks')->where('tenant_integration_id', $id)->get(), 'sync_jobs' => DB::table('integration_sync_jobs')->where('tenant_integration_id', $id)->orderByDesc('id')->limit(25)->get(), 'mappings' => DB::table('integration_field_mappings')->where('tenant_integration_id', $id)->get(), 'rate_limits' => DB::table('integration_rate_limits')->where('tenant_integration_id', $id)->orderByDesc('id')->limit(25)->get()];
+    }
+    private function storeCredentials(int $integrationId, array $credentials): void
+    {
+        foreach ($credentials as $key => $value) DB::table('integration_credentials')->updateOrInsert(['tenant_integration_id' => $integrationId, 'key' => $key], ['encrypted_value' => Crypt::encryptString((string) $value), 'expires_at' => null]);
+    }
+    private function integrationChildIndex(Request $request, string $table, string $key): JsonResponse
+    {
+        $ids = $this->base('tenant_integrations')->pluck('id');
+        $page = DB::table($table)->whereIn('tenant_integration_id', $ids)->orderByDesc('id')->paginate($request->integer('per_page', 25));
+        return $this->list($page->items(), $page);
+    }
 }

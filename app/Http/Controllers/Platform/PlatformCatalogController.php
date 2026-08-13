@@ -18,7 +18,7 @@ class PlatformCatalogController extends BasePlatformController
         foreach (['status', 'billing_cycle', 'currency'] as $filter) {
             if ($request->filled($filter)) $q->where($filter, $request->input($filter));
         }
-        if ($request->filled('search')) $q->where(fn ($x) => $x->where('name', 'like', '%'.$request->string('search').'%')->orWhere('code', 'like', '%'.$request->string('search').'%'));
+        if ($request->filled('search')) $q->where(fn($x) => $x->where('name', 'like', '%' . $request->string('search') . '%')->orWhere('code', 'like', '%' . $request->string('search') . '%'));
         $p = $q->latest('id')->paginate((int) $request->integer('per_page', 25));
 
         return $this->list($p->items(), $p);
@@ -79,7 +79,11 @@ class PlatformCatalogController extends BasePlatformController
         });
     }
 
-    public function planFeatures(string $plan_uuid) { $plan = $this->billing->byUuid('plans', $plan_uuid); return $this->success(['features' => $this->planRelations($plan)['features']]); }
+    public function planFeatures(string $plan_uuid)
+    {
+        $plan = $this->billing->byUuid('plans', $plan_uuid);
+        return $this->success(['features' => $this->planRelations($plan)['features']]);
+    }
 
     public function replacePlanFeatures(Request $request, string $plan_uuid)
     {
@@ -111,7 +115,7 @@ class PlatformCatalogController extends BasePlatformController
         $q = DB::table('features');
         if ($request->filled('module')) $q->where('module', $request->input('module'));
         if ($request->filled('status')) $q->where('status', $request->input('status'));
-        if ($request->filled('search')) $q->where(fn ($x) => $x->where('name', 'like', '%'.$request->string('search').'%')->orWhere('code', 'like', '%'.$request->string('search').'%'));
+        if ($request->filled('search')) $q->where(fn($x) => $x->where('name', 'like', '%' . $request->string('search') . '%')->orWhere('code', 'like', '%' . $request->string('search') . '%'));
         $p = $q->orderBy('module')->orderBy('name')->paginate((int) $request->integer('per_page', 25));
         return $this->list($p->items(), $p, 'OK', ['grouped' => DB::table('features')->select('module')->distinct()->orderBy('module')->pluck('module')]);
     }
@@ -125,7 +129,10 @@ class PlatformCatalogController extends BasePlatformController
         return $this->success(['feature' => $feature], 'Feature created.', 201);
     }
 
-    public function showFeature(string $feature_uuid) { return $this->success(['feature' => $this->billing->byUuid('features', $feature_uuid)]); }
+    public function showFeature(string $feature_uuid)
+    {
+        return $this->success(['feature' => $this->billing->byUuid('features', $feature_uuid)]);
+    }
 
     public function updateFeature(Request $request, string $feature_uuid)
     {
@@ -162,7 +169,10 @@ class PlatformCatalogController extends BasePlatformController
         return $this->success(['addon' => $addon], 'Add-on plan created.', 201);
     }
 
-    public function showAddon(string $addon_uuid) { return $this->success(['addon' => $this->billing->byUuid('addon_plans', $addon_uuid)]); }
+    public function showAddon(string $addon_uuid)
+    {
+        return $this->success(['addon' => $this->billing->byUuid('addon_plans', $addon_uuid)]);
+    }
 
     public function updateAddon(Request $request, string $addon_uuid)
     {
@@ -182,7 +192,10 @@ class PlatformCatalogController extends BasePlatformController
         return $this->success(null, 'Add-on plan archived.');
     }
 
-    public function exportPlans() { return $this->success(['export' => ['status' => 'queued', 'format' => 'csv']], 'Plan export queued.'); }
+    public function exportPlans()
+    {
+        return $this->success(['export' => ['status' => 'queued', 'format' => 'csv']], 'Plan export queued.');
+    }
 
     private function planRelations(object $plan): array
     {

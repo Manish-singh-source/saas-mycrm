@@ -16,7 +16,7 @@ class PlatformCouponController extends BasePlatformController
     {
         $q = DB::table('coupons')->whereNull('deleted_at');
         foreach (['status', 'discount_type'] as $filter) if ($request->filled($filter)) $q->where($filter, $request->input($filter));
-        if ($request->filled('search')) $q->where(fn ($x) => $x->where('code', 'like', '%'.$request->string('search').'%')->orWhere('name', 'like', '%'.$request->string('search').'%'));
+        if ($request->filled('search')) $q->where(fn($x) => $x->where('code', 'like', '%' . $request->string('search') . '%')->orWhere('name', 'like', '%' . $request->string('search') . '%'));
         $p = $q->latest('id')->paginate((int) $request->integer('per_page', 25));
         return $this->list($p->items(), $p);
     }
@@ -65,18 +65,44 @@ class PlatformCouponController extends BasePlatformController
         return $this->success(null, $used ? 'Coupon archived.' : 'Coupon deleted.');
     }
 
-    public function activate(Request $request, string $coupon_uuid) { return $this->status($request, $coupon_uuid, 'active'); }
-    public function deactivate(Request $request, string $coupon_uuid) { return $this->status($request, $coupon_uuid, 'inactive'); }
-    public function redemptions(Request $request, string $coupon_uuid) { $coupon = $this->billing->byUuid('coupons', $coupon_uuid); $p = DB::table('coupon_redemptions')->where('coupon_id', $coupon->id)->latest('id')->paginate((int) $request->integer('per_page', 25)); return $this->list($p->items(), $p); }
-    public function plans(Request $request, string $coupon_uuid) { $coupon = $this->billing->byUuid('coupons', $coupon_uuid); $data = $request->validate(['plan_uuids' => ['required', 'array'], 'plan_uuids.*' => ['uuid']]); $this->syncPlans($coupon->id, $data['plan_uuids']); return $this->success(['plans' => $this->relations($coupon->id)['plans']], 'Coupon plans updated.'); }
-    public function tenants(Request $request, string $coupon_uuid) { $coupon = $this->billing->byUuid('coupons', $coupon_uuid); $data = $request->validate(['tenant_uuids' => ['required', 'array'], 'tenant_uuids.*' => ['uuid']]); $this->syncTenants($coupon->id, $data['tenant_uuids']); return $this->success(['tenants' => $this->relations($coupon->id)['tenants']], 'Coupon tenants updated.'); }
-    public function export() { return $this->success(['export' => ['status' => 'queued', 'format' => 'csv']], 'Coupon export queued.'); }
+    public function activate(Request $request, string $coupon_uuid)
+    {
+        return $this->status($request, $coupon_uuid, 'active');
+    }
+    public function deactivate(Request $request, string $coupon_uuid)
+    {
+        return $this->status($request, $coupon_uuid, 'inactive');
+    }
+    public function redemptions(Request $request, string $coupon_uuid)
+    {
+        $coupon = $this->billing->byUuid('coupons', $coupon_uuid);
+        $p = DB::table('coupon_redemptions')->where('coupon_id', $coupon->id)->latest('id')->paginate((int) $request->integer('per_page', 25));
+        return $this->list($p->items(), $p);
+    }
+    public function plans(Request $request, string $coupon_uuid)
+    {
+        $coupon = $this->billing->byUuid('coupons', $coupon_uuid);
+        $data = $request->validate(['plan_uuids' => ['required', 'array'], 'plan_uuids.*' => ['uuid']]);
+        $this->syncPlans($coupon->id, $data['plan_uuids']);
+        return $this->success(['plans' => $this->relations($coupon->id)['plans']], 'Coupon plans updated.');
+    }
+    public function tenants(Request $request, string $coupon_uuid)
+    {
+        $coupon = $this->billing->byUuid('coupons', $coupon_uuid);
+        $data = $request->validate(['tenant_uuids' => ['required', 'array'], 'tenant_uuids.*' => ['uuid']]);
+        $this->syncTenants($coupon->id, $data['tenant_uuids']);
+        return $this->success(['tenants' => $this->relations($coupon->id)['tenants']], 'Coupon tenants updated.');
+    }
+    public function export()
+    {
+        return $this->success(['export' => ['status' => 'queued', 'format' => 'csv']], 'Coupon export queued.');
+    }
 
     private function status(Request $request, string $uuid, string $status)
     {
         $coupon = $this->billing->byUuid('coupons', $uuid);
         DB::table('coupons')->where('id', $coupon->id)->update(['status' => $status, 'updated_at' => now()]);
-        $this->billing->audit($request, 'coupon_'.$status, 'coupons', $coupon->id, (array) $coupon, ['status' => $status]);
+        $this->billing->audit($request, 'coupon_' . $status, 'coupons', $coupon->id, (array) $coupon, ['status' => $status]);
         return $this->success(['coupon' => DB::table('coupons')->where('id', $coupon->id)->first()], 'Coupon status updated.');
     }
 

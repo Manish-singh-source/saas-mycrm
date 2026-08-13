@@ -22,8 +22,8 @@ class TenantEngagementController extends BaseApiController
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search): void {
-                $q->where('data', 'like', '%'.$search.'%')
-                    ->orWhere('type', 'like', '%'.$search.'%');
+                $q->where('data', 'like', '%' . $search . '%')
+                    ->orWhere('type', 'like', '%' . $search . '%');
             });
         }
 
@@ -83,9 +83,9 @@ class TenantEngagementController extends BaseApiController
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search): void {
-                $q->where('channel', 'like', '%'.$search.'%')
-                    ->orWhere('subject', 'like', '%'.$search.'%')
-                    ->orWhere('status', 'like', '%'.$search.'%');
+                $q->where('channel', 'like', '%' . $search . '%')
+                    ->orWhere('subject', 'like', '%' . $search . '%')
+                    ->orWhere('status', 'like', '%' . $search . '%');
             });
         }
 
@@ -157,7 +157,7 @@ class TenantEngagementController extends BaseApiController
         }
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search): void {
-                $q->where('title', 'like', '%'.$search.'%')->orWhere('body', 'like', '%'.$search.'%');
+                $q->where('title', 'like', '%' . $search . '%')->orWhere('body', 'like', '%' . $search . '%');
             });
         }
         $paginator = $query->latest('id')->paginate((int) $request->integer('per_page', 25));
@@ -206,7 +206,7 @@ class TenantEngagementController extends BaseApiController
         if ($this->tableExists('platform_tickets')) {
             $ticket = [
                 'uuid' => (string) \Illuminate\Support\Str::uuid(),
-                'ticket_number' => 'TCK-'.now()->format('ymd').'-'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT),
+                'ticket_number' => 'TCK-' . now()->format('ymd') . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT),
                 'tenant_id' => $this->tenant->id(),
                 'subject' => $data['subject'],
                 'description' => $data['description'],

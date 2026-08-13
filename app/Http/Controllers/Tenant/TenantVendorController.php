@@ -16,7 +16,7 @@ class TenantVendorController extends BaseTenantController
     {
         $query = DB::table('vendor_profiles')->join('parties', 'parties.id', '=', 'vendor_profiles.party_id')->where('vendor_profiles.tenant_id', app(\App\Tenancy\TenantContext::class)->id())->whereNull('parties.deleted_at')->select('parties.uuid', 'parties.display_name', 'parties.email', 'parties.phone', 'vendor_profiles.*');
         if ($request->filled('search')) {
-            $query->where(fn ($q) => $q->where('parties.display_name', 'like', '%'.$request->search.'%')->orWhere('vendor_profiles.vendor_code', 'like', '%'.$request->search.'%'));
+            $query->where(fn($q) => $q->where('parties.display_name', 'like', '%' . $request->search . '%')->orWhere('vendor_profiles.vendor_code', 'like', '%' . $request->search . '%'));
         }
         $page = $query->orderBy('parties.display_name')->paginate((int) $request->integer('per_page', 25));
 
@@ -56,18 +56,60 @@ class TenantVendorController extends BaseTenantController
         return $this->success(null, 'Vendor archived.');
     }
 
-    public function import(Request $request): JsonResponse { return $this->success(['job' => $this->crm->createJob($request, 'import', 'vendors', $request->all())], 'Vendor import queued.', 202); }
-    public function export(Request $request): JsonResponse { return $this->success(['job' => $this->crm->createJob($request, 'export', 'vendors', $request->all())], 'Vendor export queued.', 202); }
+    public function import(Request $request): JsonResponse
+    {
+        return $this->success(['job' => $this->crm->createJob($request, 'import', 'vendors', $request->all())], 'Vendor import queued.', 202);
+    }
+    public function export(Request $request): JsonResponse
+    {
+        return $this->success(['job' => $this->crm->createJob($request, 'export', 'vendors', $request->all())], 'Vendor export queued.', 202);
+    }
 
-    public function contacts(string $vendor_uuid): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); return $this->success(['contacts' => DB::table('party_contacts')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $vendor->party_id)->whereNull('deleted_at')->get()]); }
-    public function storeContact(Request $request, string $vendor_uuid): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); return $this->success(['contact' => $this->crm->saveContact($request, $vendor->party_id, $this->crm->contactData($request))], 'Contact created.', 201); }
-    public function updateContact(Request $request, string $vendor_uuid, string $contact_uuid): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); $contact = $this->contact($vendor->party_id, $contact_uuid); return $this->success(['contact' => $this->crm->saveContact($request, $vendor->party_id, $this->crm->contactData($request), $contact->id)], 'Contact updated.'); }
-    public function deleteContact(string $vendor_uuid, string $contact_uuid): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); $contact = $this->contact($vendor->party_id, $contact_uuid); DB::table('party_contacts')->where('id', $contact->id)->update(['deleted_at' => now(), 'updated_at' => now()]); return $this->success(null, 'Contact deleted.'); }
+    public function contacts(string $vendor_uuid): JsonResponse
+    {
+        $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid);
+        return $this->success(['contacts' => DB::table('party_contacts')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $vendor->party_id)->whereNull('deleted_at')->get()]);
+    }
+    public function storeContact(Request $request, string $vendor_uuid): JsonResponse
+    {
+        $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid);
+        return $this->success(['contact' => $this->crm->saveContact($request, $vendor->party_id, $this->crm->contactData($request))], 'Contact created.', 201);
+    }
+    public function updateContact(Request $request, string $vendor_uuid, string $contact_uuid): JsonResponse
+    {
+        $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid);
+        $contact = $this->contact($vendor->party_id, $contact_uuid);
+        return $this->success(['contact' => $this->crm->saveContact($request, $vendor->party_id, $this->crm->contactData($request), $contact->id)], 'Contact updated.');
+    }
+    public function deleteContact(string $vendor_uuid, string $contact_uuid): JsonResponse
+    {
+        $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid);
+        $contact = $this->contact($vendor->party_id, $contact_uuid);
+        DB::table('party_contacts')->where('id', $contact->id)->update(['deleted_at' => now(), 'updated_at' => now()]);
+        return $this->success(null, 'Contact deleted.');
+    }
 
-    public function addresses(string $vendor_uuid): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); return $this->success(['addresses' => DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $vendor->party_id)->get()]); }
-    public function storeAddress(Request $request, string $vendor_uuid): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); return $this->success(['address' => $this->crm->saveAddress($vendor->party_id, $this->crm->addressData($request))], 'Address created.', 201); }
-    public function updateAddress(Request $request, string $vendor_uuid, int $address_id): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); return $this->success(['address' => $this->crm->saveAddress($vendor->party_id, $this->crm->addressData($request), $address_id)], 'Address updated.'); }
-    public function deleteAddress(string $vendor_uuid, int $address_id): JsonResponse { $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid); DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $vendor->party_id)->where('id', $address_id)->delete(); return $this->success(null, 'Address deleted.'); }
+    public function addresses(string $vendor_uuid): JsonResponse
+    {
+        $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid);
+        return $this->success(['addresses' => DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $vendor->party_id)->get()]);
+    }
+    public function storeAddress(Request $request, string $vendor_uuid): JsonResponse
+    {
+        $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid);
+        return $this->success(['address' => $this->crm->saveAddress($vendor->party_id, $this->crm->addressData($request))], 'Address created.', 201);
+    }
+    public function updateAddress(Request $request, string $vendor_uuid, int $address_id): JsonResponse
+    {
+        $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid);
+        return $this->success(['address' => $this->crm->saveAddress($vendor->party_id, $this->crm->addressData($request), $address_id)], 'Address updated.');
+    }
+    public function deleteAddress(string $vendor_uuid, int $address_id): JsonResponse
+    {
+        $vendor = $this->crm->findProfile('vendor_profiles', $vendor_uuid);
+        DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $vendor->party_id)->where('id', $address_id)->delete();
+        return $this->success(null, 'Address deleted.');
+    }
 
     public function bankAccounts(string $vendor_uuid): JsonResponse
     {
@@ -98,7 +140,7 @@ class TenantVendorController extends BaseTenantController
             'routing_number_encrypted' => array_key_exists('routing_number', $data) && $data['routing_number'] !== null ? Crypt::encryptString($data['routing_number']) : null,
             'ifsc_code' => array_key_exists('ifsc_code', $data) ? $data['ifsc_code'] : null,
             'is_primary' => array_key_exists('is_primary', $data) ? (bool) $data['is_primary'] : null,
-        ], fn ($value) => $value !== null);
+        ], fn($value) => $value !== null);
         $payload['updated_at'] = now();
         DB::table('bank_accounts')->where('id', $row->id)->update($payload);
         $fresh = DB::table('bank_accounts')->where('id', $row->id)->first();
@@ -145,7 +187,7 @@ class TenantVendorController extends BaseTenantController
 
     private function bankRows(int $partyId): array
     {
-        return DB::table('bank_accounts')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('owner_type', 'vendor_party')->where('owner_id', $partyId)->get()->map(fn ($row) => $this->crm->bankPayload($row))->all();
+        return DB::table('bank_accounts')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('owner_type', 'vendor_party')->where('owner_id', $partyId)->get()->map(fn($row) => $this->crm->bankPayload($row))->all();
     }
 
     private function bankAccount(int $partyId, int $accountId): object

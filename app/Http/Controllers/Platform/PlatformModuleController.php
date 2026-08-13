@@ -46,8 +46,14 @@ class PlatformModuleController extends BasePlatformController
         return $this->success(['module' => $fresh], 'Module updated.');
     }
 
-    public function enable(Request $request, string $module_uuid) { return $this->status($request, $module_uuid, 'active'); }
-    public function disable(Request $request, string $module_uuid) { return $this->status($request, $module_uuid, 'inactive'); }
+    public function enable(Request $request, string $module_uuid)
+    {
+        return $this->status($request, $module_uuid, 'active');
+    }
+    public function disable(Request $request, string $module_uuid)
+    {
+        return $this->status($request, $module_uuid, 'inactive');
+    }
 
     public function features(string $module_uuid)
     {
@@ -76,7 +82,7 @@ class PlatformModuleController extends BasePlatformController
     public function tenantModules(string $tenant_uuid)
     {
         $tenantId = $this->billing->tenantId($tenant_uuid);
-        return $this->success(['modules' => DB::table('modules')->leftJoin('tenant_module_overrides', fn ($join) => $join->on('tenant_module_overrides.module_code', '=', 'modules.code')->where('tenant_module_overrides.tenant_id', '=', $tenantId))->select('modules.*', 'tenant_module_overrides.enabled as tenant_enabled', 'tenant_module_overrides.limits as tenant_limits')->orderBy('modules.sort_order')->get()]);
+        return $this->success(['modules' => DB::table('modules')->leftJoin('tenant_module_overrides', fn($join) => $join->on('tenant_module_overrides.module_code', '=', 'modules.code')->where('tenant_module_overrides.tenant_id', '=', $tenantId))->select('modules.*', 'tenant_module_overrides.enabled as tenant_enabled', 'tenant_module_overrides.limits as tenant_limits')->orderBy('modules.sort_order')->get()]);
     }
 
     public function overrideTenantModule(Request $request, string $tenant_uuid, string $module_code)
@@ -92,7 +98,7 @@ class PlatformModuleController extends BasePlatformController
     {
         $module = $this->billing->byUuid('modules', $uuid);
         DB::table('modules')->where('id', $module->id)->update(['status' => $status, 'updated_at' => now()]);
-        $this->billing->audit($request, 'module_'.$status, 'modules', $module->id, (array) $module, ['status' => $status]);
+        $this->billing->audit($request, 'module_' . $status, 'modules', $module->id, (array) $module, ['status' => $status]);
         return $this->success(['module' => DB::table('modules')->where('id', $module->id)->first()], 'Module status updated.');
     }
 

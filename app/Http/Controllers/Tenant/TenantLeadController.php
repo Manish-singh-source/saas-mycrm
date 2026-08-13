@@ -37,11 +37,11 @@ class TenantLeadController extends BaseTenantController
     {
         $query = $this->query();
         if ($request->filled('search')) {
-            $query->where(fn ($q) => $q->where('parties.display_name', 'like', '%'.$request->search.'%')->orWhere('lead_profiles.lead_number', 'like', '%'.$request->search.'%'));
+            $query->where(fn($q) => $q->where('parties.display_name', 'like', '%' . $request->search . '%')->orWhere('lead_profiles.lead_number', 'like', '%' . $request->search . '%'));
         }
         foreach (['stage_id', 'priority_id'] as $field) {
-            if ($request->filled('filter.'.$field)) {
-                $query->where('lead_profiles.'.$field, $this->crm->publicUuidToId('tenant_lookups', $request->input('filter.'.$field)));
+            if ($request->filled('filter.' . $field)) {
+                $query->where('lead_profiles.' . $field, $this->crm->publicUuidToId('tenant_lookups', $request->input('filter.' . $field)));
             }
         }
         $page = $query->orderByDesc('lead_profiles.id')->paginate((int) $request->integer('per_page', 25));
@@ -53,7 +53,7 @@ class TenantLeadController extends BaseTenantController
     {
         $items = $this->query()->orderBy('lead_profiles.stage_id')->orderByDesc('lead_profiles.expected_value')->get();
 
-        return $this->success(['kanban' => $items->groupBy('stage_id')->map(fn ($rows) => ['total' => $rows->count(), 'value' => $rows->sum('expected_value'), 'leads' => $rows->values()->all()])->all()]);
+        return $this->success(['kanban' => $items->groupBy('stage_id')->map(fn($rows) => ['total' => $rows->count(), 'value' => $rows->sum('expected_value'), 'leads' => $rows->values()->all()])->all()]);
     }
 
     public function store(Request $request): JsonResponse
@@ -90,8 +90,14 @@ class TenantLeadController extends BaseTenantController
         return $this->success(null, 'Lead archived.');
     }
 
-    public function import(Request $request): JsonResponse { return $this->success(['job' => $this->crm->createJob($request, 'import', 'leads', $request->all())], 'Lead import queued.', 202); }
-    public function export(Request $request): JsonResponse { return $this->success(['job' => $this->crm->createJob($request, 'export', 'leads', $request->all())], 'Lead export queued.', 202); }
+    public function import(Request $request): JsonResponse
+    {
+        return $this->success(['job' => $this->crm->createJob($request, 'import', 'leads', $request->all())], 'Lead import queued.', 202);
+    }
+    public function export(Request $request): JsonResponse
+    {
+        return $this->success(['job' => $this->crm->createJob($request, 'export', 'leads', $request->all())], 'Lead export queued.', 202);
+    }
 
     public function duplicate(Request $request, string $lead_uuid): JsonResponse
     {
@@ -102,8 +108,8 @@ class TenantLeadController extends BaseTenantController
         $party['display_name'] .= ' Copy';
         $profile = (array) $bundle['profile'];
         unset($profile['id'], $profile['tenant_id'], $profile['party_id'], $profile['created_at'], $profile['updated_at']);
-        $profile['lead_number'] = $request->input('lead_number', $profile['lead_number'].'-COPY-'.Str::upper(Str::random(4)));
-        $new = $this->crm->createPartyBundle($request, 'lead_profiles', 'lead_number', ['party' => $party, 'profile' => $profile, 'contacts' => array_map(fn ($c) => (array) $c, $bundle['contacts']), 'addresses' => array_map(fn ($a) => (array) $a, $bundle['addresses'])], 'lead');
+        $profile['lead_number'] = $request->input('lead_number', $profile['lead_number'] . '-COPY-' . Str::upper(Str::random(4)));
+        $new = $this->crm->createPartyBundle($request, 'lead_profiles', 'lead_number', ['party' => $party, 'profile' => $profile, 'contacts' => array_map(fn($c) => (array) $c, $bundle['contacts']), 'addresses' => array_map(fn($a) => (array) $a, $bundle['addresses'])], 'lead');
 
         return $this->success(['lead' => $this->crm->bundle('lead_profiles', $new->id)], 'Lead duplicated.', 201);
     }
@@ -120,7 +126,7 @@ class TenantLeadController extends BaseTenantController
                 $party = DB::table('parties')->where('id', $lead->party_id)->first();
                 $copy = (array) $party;
                 unset($copy['id'], $copy['uuid'], $copy['created_at'], $copy['updated_at'], $copy['deleted_at']);
-                $client = $this->crm->createPartyBundle($request, 'client_profiles', 'client_code', ['party' => $copy, 'profile' => ['client_code' => $data['client_code'], 'client_type' => $data['client_type'] ?? null, 'account_manager_id' => $data['account_manager_id'] ?? null], 'contacts' => DB::table('party_contacts')->where('party_id', $lead->party_id)->get()->map(fn ($r) => (array) $r)->all(), 'addresses' => DB::table('party_addresses')->where('party_id', $lead->party_id)->get()->map(fn ($r) => (array) $r)->all()], 'client');
+                $client = $this->crm->createPartyBundle($request, 'client_profiles', 'client_code', ['party' => $copy, 'profile' => ['client_code' => $data['client_code'], 'client_type' => $data['client_type'] ?? null, 'account_manager_id' => $data['account_manager_id'] ?? null], 'contacts' => DB::table('party_contacts')->where('party_id', $lead->party_id)->get()->map(fn($r) => (array) $r)->all(), 'addresses' => DB::table('party_addresses')->where('party_id', $lead->party_id)->get()->map(fn($r) => (array) $r)->all()], 'client');
                 $clientPartyId = $client->id;
             }
             DB::table('lead_profiles')->where('id', $lead->id)->update(['converted_client_party_id' => $clientPartyId, 'converted_at' => now(), 'updated_at' => now()]);
@@ -162,20 +168,75 @@ class TenantLeadController extends BaseTenantController
         return $this->success(null, 'Leads merged.');
     }
 
-    public function contacts(string $lead_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); return $this->success(['contacts' => DB::table('party_contacts')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $lead->party_id)->whereNull('deleted_at')->get()]); }
-    public function storeContact(Request $request, string $lead_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); return $this->success(['contact' => $this->crm->saveContact($request, $lead->party_id, $this->crm->contactData($request))], 'Contact created.', 201); }
-    public function updateContact(Request $request, string $lead_uuid, string $contact_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); $contact = $this->contact($lead->party_id, $contact_uuid); return $this->success(['contact' => $this->crm->saveContact($request, $lead->party_id, $this->crm->contactData($request), $contact->id)], 'Contact updated.'); }
-    public function deleteContact(string $lead_uuid, string $contact_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); $contact = $this->contact($lead->party_id, $contact_uuid); DB::table('party_contacts')->where('id', $contact->id)->update(['deleted_at' => now(), 'updated_at' => now()]); return $this->success(null, 'Contact deleted.'); }
+    public function contacts(string $lead_uuid): JsonResponse
+    {
+        $lead = $this->crm->findProfile('lead_profiles', $lead_uuid);
+        return $this->success(['contacts' => DB::table('party_contacts')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $lead->party_id)->whereNull('deleted_at')->get()]);
+    }
+    public function storeContact(Request $request, string $lead_uuid): JsonResponse
+    {
+        $lead = $this->crm->findProfile('lead_profiles', $lead_uuid);
+        return $this->success(['contact' => $this->crm->saveContact($request, $lead->party_id, $this->crm->contactData($request))], 'Contact created.', 201);
+    }
+    public function updateContact(Request $request, string $lead_uuid, string $contact_uuid): JsonResponse
+    {
+        $lead = $this->crm->findProfile('lead_profiles', $lead_uuid);
+        $contact = $this->contact($lead->party_id, $contact_uuid);
+        return $this->success(['contact' => $this->crm->saveContact($request, $lead->party_id, $this->crm->contactData($request), $contact->id)], 'Contact updated.');
+    }
+    public function deleteContact(string $lead_uuid, string $contact_uuid): JsonResponse
+    {
+        $lead = $this->crm->findProfile('lead_profiles', $lead_uuid);
+        $contact = $this->contact($lead->party_id, $contact_uuid);
+        DB::table('party_contacts')->where('id', $contact->id)->update(['deleted_at' => now(), 'updated_at' => now()]);
+        return $this->success(null, 'Contact deleted.');
+    }
 
-    public function addresses(string $lead_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); return $this->success(['addresses' => DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $lead->party_id)->get()]); }
-    public function storeAddress(Request $request, string $lead_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); return $this->success(['address' => $this->crm->saveAddress($lead->party_id, $this->crm->addressData($request))], 'Address created.', 201); }
-    public function updateAddress(Request $request, string $lead_uuid, int $address_id): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); return $this->success(['address' => $this->crm->saveAddress($lead->party_id, $this->crm->addressData($request), $address_id)], 'Address updated.'); }
-    public function deleteAddress(string $lead_uuid, int $address_id): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $lead->party_id)->where('id', $address_id)->delete(); return $this->success(null, 'Address deleted.'); }
+    public function addresses(string $lead_uuid): JsonResponse
+    {
+        $lead = $this->crm->findProfile('lead_profiles', $lead_uuid);
+        return $this->success(['addresses' => DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $lead->party_id)->get()]);
+    }
+    public function storeAddress(Request $request, string $lead_uuid): JsonResponse
+    {
+        $lead = $this->crm->findProfile('lead_profiles', $lead_uuid);
+        return $this->success(['address' => $this->crm->saveAddress($lead->party_id, $this->crm->addressData($request))], 'Address created.', 201);
+    }
+    public function updateAddress(Request $request, string $lead_uuid, int $address_id): JsonResponse
+    {
+        $lead = $this->crm->findProfile('lead_profiles', $lead_uuid);
+        return $this->success(['address' => $this->crm->saveAddress($lead->party_id, $this->crm->addressData($request), $address_id)], 'Address updated.');
+    }
+    public function deleteAddress(string $lead_uuid, int $address_id): JsonResponse
+    {
+        $lead = $this->crm->findProfile('lead_profiles', $lead_uuid);
+        DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $lead->party_id)->where('id', $address_id)->delete();
+        return $this->success(null, 'Address deleted.');
+    }
 
-    public function activities(string $lead_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); return $this->success(['activities' => $this->activityRows($lead->id)]); }
-    public function storeActivity(Request $request, string $lead_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); $id = DB::table('lead_activities')->insertGetId([...$this->activityData($request), 'uuid' => (string) Str::uuid(), 'tenant_id' => app(\App\Tenancy\TenantContext::class)->id(), 'lead_profile_id' => $lead->id, 'created_by' => $request->user()?->id, 'created_at' => now(), 'updated_at' => now()]); return $this->success(['activity' => DB::table('lead_activities')->where('id', $id)->first()], 'Lead activity created.', 201); }
-    public function updateActivity(Request $request, string $lead_uuid, string $activity_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); $activity = DB::table('lead_activities')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('lead_profile_id', $lead->id)->where('uuid', $activity_uuid)->first() ?: abort(404, 'Activity not found.'); DB::table('lead_activities')->where('id', $activity->id)->update([...$this->activityData($request, true), 'updated_at' => now()]); return $this->success(['activity' => DB::table('lead_activities')->where('id', $activity->id)->first()], 'Lead activity updated.'); }
-    public function activity(string $lead_uuid): JsonResponse { $lead = $this->crm->findProfile('lead_profiles', $lead_uuid); return $this->success(['activity' => DB::table('activity_logs')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->whereIn('subject_type', ['party', 'lead_profile'])->whereIn('subject_id', [$lead->party_id, $lead->id])->orderByDesc('created_at')->get()]); }
+    public function activities(string $lead_uuid): JsonResponse
+    {
+        $lead = $this->crm->findProfile('lead_profiles', $lead_uuid);
+        return $this->success(['activities' => $this->activityRows($lead->id)]);
+    }
+    public function storeActivity(Request $request, string $lead_uuid): JsonResponse
+    {
+        $lead = $this->crm->findProfile('lead_profiles', $lead_uuid);
+        $id = DB::table('lead_activities')->insertGetId([...$this->activityData($request), 'uuid' => (string) Str::uuid(), 'tenant_id' => app(\App\Tenancy\TenantContext::class)->id(), 'lead_profile_id' => $lead->id, 'created_by' => $request->user()?->id, 'created_at' => now(), 'updated_at' => now()]);
+        return $this->success(['activity' => DB::table('lead_activities')->where('id', $id)->first()], 'Lead activity created.', 201);
+    }
+    public function updateActivity(Request $request, string $lead_uuid, string $activity_uuid): JsonResponse
+    {
+        $lead = $this->crm->findProfile('lead_profiles', $lead_uuid);
+        $activity = DB::table('lead_activities')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('lead_profile_id', $lead->id)->where('uuid', $activity_uuid)->first() ?: abort(404, 'Activity not found.');
+        DB::table('lead_activities')->where('id', $activity->id)->update([...$this->activityData($request, true), 'updated_at' => now()]);
+        return $this->success(['activity' => DB::table('lead_activities')->where('id', $activity->id)->first()], 'Lead activity updated.');
+    }
+    public function activity(string $lead_uuid): JsonResponse
+    {
+        $lead = $this->crm->findProfile('lead_profiles', $lead_uuid);
+        return $this->success(['activity' => DB::table('activity_logs')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->whereIn('subject_type', ['party', 'lead_profile'])->whereIn('subject_id', [$lead->party_id, $lead->id])->orderByDesc('created_at')->get()]);
+    }
 
     private function query()
     {
@@ -209,6 +270,6 @@ class TenantLeadController extends BaseTenantController
 
     private function grouped(string $column): array
     {
-        return DB::table('lead_profiles')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->selectRaw($column.' as label, count(*) as total, sum(expected_value) as value')->groupBy($column)->get()->all();
+        return DB::table('lead_profiles')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->selectRaw($column . ' as label, count(*) as total, sum(expected_value) as value')->groupBy($column)->get()->all();
     }
 }

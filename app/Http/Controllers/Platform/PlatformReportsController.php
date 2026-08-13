@@ -37,6 +37,13 @@ class PlatformReportsController extends BasePlatformController
         return $this->success(['export' => $job], 'Report export queued.', 201);
     }
 
-    public function exportJobs(Request $request) { $p = DB::table('report_export_jobs')->latest('id')->paginate((int) $request->integer('per_page', 25)); return $this->list($p->items(), $p); }
-    public function exportJob(string $job_uuid) { return $this->success(['export' => $this->ops->byUuid('report_export_jobs', $job_uuid)]); }
+    public function exportJobs(Request $request)
+    {
+        $p = DB::table('report_export_jobs')->latest('id')->paginate((int) $request->integer('per_page', 25));
+        return $this->list($p->items(), $p);
+    }
+    public function exportJob(string $job_uuid)
+    {
+        return $this->success(['export' => $this->ops->byUuid('report_export_jobs', $job_uuid)]);
+    }
 }

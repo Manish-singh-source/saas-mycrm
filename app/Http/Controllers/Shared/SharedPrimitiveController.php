@@ -18,17 +18,17 @@ class SharedPrimitiveController extends BaseApiController
     {
         $query = $this->shared->fileQuery($request);
         if ($request->filled('search')) {
-            $query->where('original_name', 'like', '%'.$request->string('search').'%');
+            $query->where('original_name', 'like', '%' . $request->string('search') . '%');
         }
         foreach (['visibility', 'mime_type'] as $field) {
-            if ($request->filled('filter.'.$field)) {
-                $query->where($field, $request->input('filter.'.$field));
+            if ($request->filled('filter.' . $field)) {
+                $query->where($field, $request->input('filter.' . $field));
             }
         }
 
         $paginator = $query->latest('id')->paginate((int) $request->integer('per_page', 25));
 
-        return $this->list(collect($paginator->items())->map(fn ($file) => $this->shared->filePayload($file))->all(), $paginator);
+        return $this->list(collect($paginator->items())->map(fn($file) => $this->shared->filePayload($file))->all(), $paginator);
     }
 
     public function upload(Request $request)
@@ -70,7 +70,7 @@ class SharedPrimitiveController extends BaseApiController
 
         DB::table('files')->where('id', $file->id)->update(['deleted_at' => now(), 'updated_at' => now()]);
         $this->shared->deletePhysicalFile($file);
-        $this->shared->audit($request, $this->shared->scope($request)['surface'].'.file_deleted', 'file', $file->id, $this->shared->filePayload($file));
+        $this->shared->audit($request, $this->shared->scope($request)['surface'] . '.file_deleted', 'file', $file->id, $this->shared->filePayload($file));
 
         return $this->success(null, 'File deleted.');
     }
@@ -100,7 +100,7 @@ class SharedPrimitiveController extends BaseApiController
         $scope = $this->shared->scope($request);
 
         $id = DB::table('attachments')->insertGetId(['tenant_id' => $scope['tenant_id'], 'file_id' => $file->id, 'attachable_type' => $entity['type'], 'attachable_id' => $entity['id'], 'label' => $data['label'] ?? null, 'created_by' => $scope['user_id'], 'created_at' => now()]);
-        $this->shared->audit($request, $scope['surface'].'.attachment_created', $entity['type'], $entity['id'], null, ['attachment_id' => $id, 'file_uuid' => $file->uuid]);
+        $this->shared->audit($request, $scope['surface'] . '.attachment_created', $entity['type'], $entity['id'], null, ['attachment_id' => $id, 'file_uuid' => $file->uuid]);
 
         return $this->success(['attachment' => DB::table('attachments')->where('id', $id)->first()], 'Attachment created.', 201);
     }
@@ -111,7 +111,7 @@ class SharedPrimitiveController extends BaseApiController
         $attachment = DB::table('attachments')->where('tenant_id', $scope['tenant_id'])->where('id', $attachment_id)->first();
         abort_if(! $attachment, 404);
         DB::table('attachments')->where('id', $attachment_id)->delete();
-        $this->shared->audit($request, $scope['surface'].'.attachment_deleted', $attachment->attachable_type, $attachment->attachable_id, (array) $attachment);
+        $this->shared->audit($request, $scope['surface'] . '.attachment_deleted', $attachment->attachable_type, $attachment->attachable_id, (array) $attachment);
 
         return $this->success(null, 'Attachment removed.');
     }
@@ -132,7 +132,7 @@ class SharedPrimitiveController extends BaseApiController
         $scope = $this->shared->scope($request);
         $id = DB::table('notes')->insertGetId(['uuid' => (string) Str::uuid(), 'tenant_id' => $scope['tenant_id'], 'notable_type' => $entity['type'], 'notable_id' => $entity['id'], 'note' => $data['note'] ?? $data['body'], 'visibility' => $data['visibility'] ?? 'tenant', 'created_by' => $scope['user_id'], 'updated_by' => $scope['user_id'], 'platform_created_by' => $scope['platform_user_id'], 'platform_updated_by' => $scope['platform_user_id'], 'created_at' => now(), 'updated_at' => now()]);
         $note = DB::table('notes')->where('id', $id)->first();
-        $this->shared->audit($request, $scope['surface'].'.note_created', $entity['type'], $entity['id'], null, (array) $note);
+        $this->shared->audit($request, $scope['surface'] . '.note_created', $entity['type'], $entity['id'], null, (array) $note);
 
         return $this->success(['note' => $note], 'Note created.', 201);
     }
@@ -143,11 +143,13 @@ class SharedPrimitiveController extends BaseApiController
         $scope = $this->shared->scope($request);
         $note = DB::table('notes')->where('tenant_id', $scope['tenant_id'])->where('uuid', $note_uuid)->whereNull('deleted_at')->first();
         abort_if(! $note, 404);
-        $update = array_filter(['note' => $data['note'] ?? $data['body'] ?? null, 'visibility' => $data['visibility'] ?? null], fn ($value) => $value !== null);
-        $update['updated_by'] = $scope['user_id']; $update['platform_updated_by'] = $scope['platform_user_id']; $update['updated_at'] = now();
+        $update = array_filter(['note' => $data['note'] ?? $data['body'] ?? null, 'visibility' => $data['visibility'] ?? null], fn($value) => $value !== null);
+        $update['updated_by'] = $scope['user_id'];
+        $update['platform_updated_by'] = $scope['platform_user_id'];
+        $update['updated_at'] = now();
         DB::table('notes')->where('id', $note->id)->update($update);
         $fresh = DB::table('notes')->where('id', $note->id)->first();
-        $this->shared->audit($request, $scope['surface'].'.note_updated', $note->notable_type, $note->notable_id, (array) $note, (array) $fresh);
+        $this->shared->audit($request, $scope['surface'] . '.note_updated', $note->notable_type, $note->notable_id, (array) $note, (array) $fresh);
 
         return $this->success(['note' => $fresh], 'Note updated.');
     }
@@ -158,7 +160,7 @@ class SharedPrimitiveController extends BaseApiController
         $note = DB::table('notes')->where('tenant_id', $scope['tenant_id'])->where('uuid', $note_uuid)->whereNull('deleted_at')->first();
         abort_if(! $note, 404);
         DB::table('notes')->where('id', $note->id)->update(['deleted_at' => now(), 'updated_at' => now()]);
-        $this->shared->audit($request, $scope['surface'].'.note_deleted', $note->notable_type, $note->notable_id, (array) $note);
+        $this->shared->audit($request, $scope['surface'] . '.note_deleted', $note->notable_type, $note->notable_id, (array) $note);
 
         return $this->success(null, 'Note deleted.');
     }
@@ -182,7 +184,7 @@ class SharedPrimitiveController extends BaseApiController
         abort_if(! $log, 404);
         $old = json_decode($log->old_values ?: '[]', true) ?: [];
         $new = json_decode($log->new_values ?: '[]', true) ?: [];
-        $changed = collect(array_unique([...array_keys($old), ...array_keys($new)]))->filter(fn ($key) => ($old[$key] ?? null) !== ($new[$key] ?? null))->values()->all();
+        $changed = collect(array_unique([...array_keys($old), ...array_keys($new)]))->filter(fn($key) => ($old[$key] ?? null) !== ($new[$key] ?? null))->values()->all();
 
         return $this->success(['activity' => $log, 'compare' => ['old_values' => $old, 'new_values' => $new, 'changed_fields' => $changed]]);
     }
@@ -193,7 +195,7 @@ class SharedPrimitiveController extends BaseApiController
         abort_if($scope['surface'] !== 'tenant', 404);
         $query = DB::table('tags')->where('tenant_id', $scope['tenant_id']);
         if ($request->filled('search')) {
-            $query->where('name', 'like', '%'.$request->string('search').'%');
+            $query->where('name', 'like', '%' . $request->string('search') . '%');
         }
 
         return $this->success(['tags' => $query->orderBy('name')->get()]);
@@ -204,7 +206,7 @@ class SharedPrimitiveController extends BaseApiController
         $scope = $this->shared->scope($request);
         abort_if($scope['surface'] !== 'tenant', 404);
         $query = DB::table('tenant_lookups')
-            ->where(fn ($q) => $q->whereNull('tenant_id')->orWhere('tenant_id', $scope['tenant_id']))
+            ->where(fn($q) => $q->whereNull('tenant_id')->orWhere('tenant_id', $scope['tenant_id']))
             ->where('status', 'active');
 
         if ($request->filled('group')) {
@@ -217,7 +219,7 @@ class SharedPrimitiveController extends BaseApiController
             }
         }
         if ($search = $request->input('search')) {
-            $query->where(fn ($q) => $q->where('name', 'like', '%'.$search.'%')->orWhere('code', 'like', '%'.$search.'%'));
+            $query->where(fn($q) => $q->where('name', 'like', '%' . $search . '%')->orWhere('code', 'like', '%' . $search . '%'));
         }
 
         return $this->success(['lookups' => $query->orderBy('group')->orderBy('sort_order')->orderBy('name')->get()]);
@@ -370,7 +372,7 @@ class SharedPrimitiveController extends BaseApiController
         $old = DB::table('custom_field_values')->where('tenant_id', $scope['tenant_id'])->where('entity_type', $entity['type'])->where('entity_id', $entity['id'])->get()->toArray();
         foreach ($data['values'] as $code => $value) {
             $field = DB::table('custom_fields')->where('tenant_id', $scope['tenant_id'])->where('entity_type', $data['entity_type'])->where('code', $code)->where('status', 'active')->first();
-            abort_if(! $field, 422, 'Unknown custom field: '.$code);
+            abort_if(! $field, 422, 'Unknown custom field: ' . $code);
             DB::table('custom_field_values')->updateOrInsert(['tenant_id' => $scope['tenant_id'], 'custom_field_id' => $field->id, 'entity_type' => $entity['type'], 'entity_id' => $entity['id']], [...$this->shared->normalizeCustomValue($field, $value), 'updated_at' => now(), 'created_at' => now()]);
         }
         $new = DB::table('custom_field_values')->where('tenant_id', $scope['tenant_id'])->where('entity_type', $entity['type'])->where('entity_id', $entity['id'])->get()->toArray();
@@ -434,7 +436,7 @@ class SharedPrimitiveController extends BaseApiController
     }
     private function entityFromQuery(Request $request, string $prefix): array
     {
-        $data = $request->validate([$prefix.'_type' => ['required', 'string'], $prefix.'_uuid' => ['required', 'uuid']]);
-        return $this->shared->resolveEntity($request, $data[$prefix.'_type'], $data[$prefix.'_uuid']);
+        $data = $request->validate([$prefix . '_type' => ['required', 'string'], $prefix . '_uuid' => ['required', 'uuid']]);
+        return $this->shared->resolveEntity($request, $data[$prefix . '_type'], $data[$prefix . '_uuid']);
     }
 }

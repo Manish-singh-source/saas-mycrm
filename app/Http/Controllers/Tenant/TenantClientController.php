@@ -15,11 +15,11 @@ class TenantClientController extends BaseTenantController
     {
         $query = $this->query();
         if ($request->filled('search')) {
-            $query->where(fn ($q) => $q->where('parties.display_name', 'like', '%'.$request->search.'%')->orWhere('client_profiles.client_code', 'like', '%'.$request->search.'%')->orWhere('parties.email', 'like', '%'.$request->search.'%'));
+            $query->where(fn($q) => $q->where('parties.display_name', 'like', '%' . $request->search . '%')->orWhere('client_profiles.client_code', 'like', '%' . $request->search . '%')->orWhere('parties.email', 'like', '%' . $request->search . '%'));
         }
         foreach (['client_type'] as $field) {
-            if ($request->filled('filter.'.$field)) {
-                $query->where('client_profiles.'.$field, $request->input('filter.'.$field));
+            if ($request->filled('filter.' . $field)) {
+                $query->where('client_profiles.' . $field, $request->input('filter.' . $field));
             }
         }
         $page = $query->orderBy('parties.display_name')->paginate((int) $request->integer('per_page', 25));
@@ -68,8 +68,14 @@ class TenantClientController extends BaseTenantController
         return $this->success(['client' => $this->crm->bundle('client_profiles', $party->id)], 'Client restored.');
     }
 
-    public function import(Request $request): JsonResponse { return $this->success(['job' => $this->crm->createJob($request, 'import', 'clients', $request->all())], 'Client import queued.', 202); }
-    public function export(Request $request): JsonResponse { return $this->success(['job' => $this->crm->createJob($request, 'export', 'clients', $request->all())], 'Client export queued.', 202); }
+    public function import(Request $request): JsonResponse
+    {
+        return $this->success(['job' => $this->crm->createJob($request, 'import', 'clients', $request->all())], 'Client import queued.', 202);
+    }
+    public function export(Request $request): JsonResponse
+    {
+        return $this->success(['job' => $this->crm->createJob($request, 'export', 'clients', $request->all())], 'Client export queued.', 202);
+    }
 
     public function merge(Request $request): JsonResponse
     {
@@ -79,15 +85,51 @@ class TenantClientController extends BaseTenantController
         return $this->success(null, 'Clients merged.');
     }
 
-    public function contacts(string $client_uuid): JsonResponse { $client = $this->crm->findProfile('client_profiles', $client_uuid); return $this->success(['contacts' => DB::table('party_contacts')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $client->party_id)->whereNull('deleted_at')->get()]); }
-    public function storeContact(Request $request, string $client_uuid): JsonResponse { $client = $this->crm->findProfile('client_profiles', $client_uuid); return $this->success(['contact' => $this->crm->saveContact($request, $client->party_id, $this->crm->contactData($request))], 'Contact created.', 201); }
-    public function updateContact(Request $request, string $client_uuid, string $contact_uuid): JsonResponse { $client = $this->crm->findProfile('client_profiles', $client_uuid); $contact = $this->contact($client->party_id, $contact_uuid); return $this->success(['contact' => $this->crm->saveContact($request, $client->party_id, $this->crm->contactData($request), $contact->id)], 'Contact updated.'); }
-    public function deleteContact(Request $request, string $client_uuid, string $contact_uuid): JsonResponse { $client = $this->crm->findProfile('client_profiles', $client_uuid); $contact = $this->contact($client->party_id, $contact_uuid); DB::table('party_contacts')->where('id', $contact->id)->update(['deleted_at' => now(), 'updated_at' => now()]); return $this->success(null, 'Contact deleted.'); }
+    public function contacts(string $client_uuid): JsonResponse
+    {
+        $client = $this->crm->findProfile('client_profiles', $client_uuid);
+        return $this->success(['contacts' => DB::table('party_contacts')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $client->party_id)->whereNull('deleted_at')->get()]);
+    }
+    public function storeContact(Request $request, string $client_uuid): JsonResponse
+    {
+        $client = $this->crm->findProfile('client_profiles', $client_uuid);
+        return $this->success(['contact' => $this->crm->saveContact($request, $client->party_id, $this->crm->contactData($request))], 'Contact created.', 201);
+    }
+    public function updateContact(Request $request, string $client_uuid, string $contact_uuid): JsonResponse
+    {
+        $client = $this->crm->findProfile('client_profiles', $client_uuid);
+        $contact = $this->contact($client->party_id, $contact_uuid);
+        return $this->success(['contact' => $this->crm->saveContact($request, $client->party_id, $this->crm->contactData($request), $contact->id)], 'Contact updated.');
+    }
+    public function deleteContact(Request $request, string $client_uuid, string $contact_uuid): JsonResponse
+    {
+        $client = $this->crm->findProfile('client_profiles', $client_uuid);
+        $contact = $this->contact($client->party_id, $contact_uuid);
+        DB::table('party_contacts')->where('id', $contact->id)->update(['deleted_at' => now(), 'updated_at' => now()]);
+        return $this->success(null, 'Contact deleted.');
+    }
 
-    public function addresses(string $client_uuid): JsonResponse { $client = $this->crm->findProfile('client_profiles', $client_uuid); return $this->success(['addresses' => DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $client->party_id)->get()]); }
-    public function storeAddress(Request $request, string $client_uuid): JsonResponse { $client = $this->crm->findProfile('client_profiles', $client_uuid); return $this->success(['address' => $this->crm->saveAddress($client->party_id, $this->crm->addressData($request))], 'Address created.', 201); }
-    public function updateAddress(Request $request, string $client_uuid, int $address_id): JsonResponse { $client = $this->crm->findProfile('client_profiles', $client_uuid); return $this->success(['address' => $this->crm->saveAddress($client->party_id, $this->crm->addressData($request), $address_id)], 'Address updated.'); }
-    public function deleteAddress(string $client_uuid, int $address_id): JsonResponse { $client = $this->crm->findProfile('client_profiles', $client_uuid); DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $client->party_id)->where('id', $address_id)->delete(); return $this->success(null, 'Address deleted.'); }
+    public function addresses(string $client_uuid): JsonResponse
+    {
+        $client = $this->crm->findProfile('client_profiles', $client_uuid);
+        return $this->success(['addresses' => DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $client->party_id)->get()]);
+    }
+    public function storeAddress(Request $request, string $client_uuid): JsonResponse
+    {
+        $client = $this->crm->findProfile('client_profiles', $client_uuid);
+        return $this->success(['address' => $this->crm->saveAddress($client->party_id, $this->crm->addressData($request))], 'Address created.', 201);
+    }
+    public function updateAddress(Request $request, string $client_uuid, int $address_id): JsonResponse
+    {
+        $client = $this->crm->findProfile('client_profiles', $client_uuid);
+        return $this->success(['address' => $this->crm->saveAddress($client->party_id, $this->crm->addressData($request), $address_id)], 'Address updated.');
+    }
+    public function deleteAddress(string $client_uuid, int $address_id): JsonResponse
+    {
+        $client = $this->crm->findProfile('client_profiles', $client_uuid);
+        DB::table('party_addresses')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('party_id', $client->party_id)->where('id', $address_id)->delete();
+        return $this->success(null, 'Address deleted.');
+    }
 
     public function related(string $client_uuid, string $resource): JsonResponse
     {

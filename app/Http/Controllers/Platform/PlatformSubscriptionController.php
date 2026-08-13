@@ -34,7 +34,7 @@ class PlatformSubscriptionController extends BasePlatformController
             $plan = $this->billing->byUuid('plans', $data['plan_id']);
             $id = DB::table('subscriptions')->insertGetId([
                 'uuid' => (string) Str::uuid(),
-                'subscription_number' => 'SUB-'.Str::upper(Str::random(10)),
+                'subscription_number' => 'SUB-' . Str::upper(Str::random(10)),
                 'tenant_id' => $tenantId,
                 'plan_id' => $plan->id,
                 'current_version' => 1,
@@ -98,8 +98,14 @@ class PlatformSubscriptionController extends BasePlatformController
         }));
     }
 
-    public function upgrade(Request $request, string $uuid) { return $this->changePlan($request, $uuid, 'upgrade', 'subscription.upgrade'); }
-    public function downgrade(Request $request, string $uuid) { return $this->changePlan($request, $uuid, 'downgrade', 'subscription.downgrade'); }
+    public function upgrade(Request $request, string $uuid)
+    {
+        return $this->changePlan($request, $uuid, 'upgrade', 'subscription.upgrade');
+    }
+    public function downgrade(Request $request, string $uuid)
+    {
+        return $this->changePlan($request, $uuid, 'downgrade', 'subscription.downgrade');
+    }
 
     public function renew(Request $request, string $uuid)
     {
@@ -117,8 +123,14 @@ class PlatformSubscriptionController extends BasePlatformController
         }));
     }
 
-    public function pause(Request $request, string $uuid) { return $this->status($request, $uuid, 'paused', 'subscription.paused', ['paused_at' => now()]); }
-    public function resume(Request $request, string $uuid) { return $this->status($request, $uuid, 'active', 'subscription.resumed', ['resumed_at' => now()]); }
+    public function pause(Request $request, string $uuid)
+    {
+        return $this->status($request, $uuid, 'paused', 'subscription.paused', ['paused_at' => now()]);
+    }
+    public function resume(Request $request, string $uuid)
+    {
+        return $this->status($request, $uuid, 'active', 'subscription.resumed', ['resumed_at' => now()]);
+    }
 
     public function cancel(Request $request, string $uuid)
     {
@@ -179,7 +191,7 @@ class PlatformSubscriptionController extends BasePlatformController
         $data = $request->validate(['coupon_code' => ['required_without:coupon_uuid', 'string'], 'coupon_uuid' => ['required_without:coupon_code', 'uuid']]);
 
         return $this->billing->storeIdempotency($request, 'subscription.coupon.apply', DB::transaction(function () use ($request, $subscription, $data) {
-            $coupon = DB::table('coupons')->whereNull('deleted_at')->when($data['coupon_uuid'] ?? null, fn ($q, $v) => $q->where('uuid', $v))->when($data['coupon_code'] ?? null, fn ($q, $v) => $q->where('code', Str::upper($v)))->first();
+            $coupon = DB::table('coupons')->whereNull('deleted_at')->when($data['coupon_uuid'] ?? null, fn($q, $v) => $q->where('uuid', $v))->when($data['coupon_code'] ?? null, fn($q, $v) => $q->where('code', Str::upper($v)))->first();
             abort_if(! $coupon || $coupon->status !== 'active', 422, 'Coupon is not active.');
             $discount = $coupon->discount_type === 'percent' ? ((float) $subscription->payable_amount * (float) $coupon->discount_value / 100) : (float) $coupon->discount_value;
             $id = DB::table('coupon_redemptions')->insertGetId(['coupon_id' => $coupon->id, 'tenant_id' => $subscription->tenant_id, 'subscription_id' => $subscription->id, 'discount_amount' => $discount, 'redeemed_at' => now()]);
@@ -219,7 +231,10 @@ class PlatformSubscriptionController extends BasePlatformController
         return app(PlatformBillingController::class)->createInvoiceFromSubscription($request, $uuid);
     }
 
-    public function export() { return $this->success(['export' => ['status' => 'queued', 'format' => 'csv']], 'Subscription export queued.'); }
+    public function export()
+    {
+        return $this->success(['export' => ['status' => 'queued', 'format' => 'csv']], 'Subscription export queued.');
+    }
 
     private function changePlan(Request $request, string $uuid, string $event, string $operation)
     {
@@ -231,10 +246,10 @@ class PlatformSubscriptionController extends BasePlatformController
             $plan = $this->billing->byUuid('plans', $data['new_plan_id']);
             $version = ((int) $subscription->current_version) + 1;
             DB::table('subscriptions')->where('id', $subscription->id)->update(['plan_id' => $plan->id, 'current_version' => $version, 'billing_cycle' => $data['billing_cycle'] ?? $plan->billing_cycle, 'base_amount' => $plan->base_price, 'taxable_amount' => $plan->base_price, 'payable_amount' => max(0, (float) $plan->base_price + (float) $subscription->addon_amount - (float) $subscription->discount_amount + (float) $subscription->tax_amount), 'updated_by' => $request->user()?->id, 'updated_at' => now()]);
-            $this->billing->writeSubscriptionVersion($request, $subscription->id, $plan->id, $version, $event.': '.($data['reason'] ?? 'plan change'), $data['effective_at'] ?? null);
+            $this->billing->writeSubscriptionVersion($request, $subscription->id, $plan->id, $version, $event . ': ' . ($data['reason'] ?? 'plan change'), $data['effective_at'] ?? null);
             $fresh = DB::table('subscriptions')->where('id', $subscription->id)->first();
-            $this->billing->audit($request, 'subscription_'.$event, 'subscriptions', $subscription->id, (array) $subscription, (array) $fresh, $data['reason'] ?? null);
-            return $this->success(['subscription' => $fresh], 'Subscription '.$event.' completed.');
+            $this->billing->audit($request, 'subscription_' . $event, 'subscriptions', $subscription->id, (array) $subscription, (array) $fresh, $data['reason'] ?? null);
+            return $this->success(['subscription' => $fresh], 'Subscription ' . $event . ' completed.');
         }));
     }
 
@@ -255,7 +270,7 @@ class PlatformSubscriptionController extends BasePlatformController
         return [
             'addons' => DB::table('subscription_addons')->where('subscription_id', $subscription->id)->get(),
             'invoices' => DB::table('platform_invoices')->where('subscription_id', $subscription->id)->latest('id')->get(),
-            'payments' => DB::table('platform_payments')->where('subscription_id', $subscription->id)->latest('id')->get()->map(fn ($p) => tap($p, fn ($x) => $x->raw_response = $this->billing->maskRaw($x->raw_response))),
+            'payments' => DB::table('platform_payments')->where('subscription_id', $subscription->id)->latest('id')->get()->map(fn($p) => tap($p, fn($x) => $x->raw_response = $this->billing->maskRaw($x->raw_response))),
             'redemptions' => DB::table('coupon_redemptions')->where('subscription_id', $subscription->id)->latest('id')->get(),
         ];
     }
@@ -286,4 +301,3 @@ class PlatformSubscriptionController extends BasePlatformController
         ]);
     }
 }
-

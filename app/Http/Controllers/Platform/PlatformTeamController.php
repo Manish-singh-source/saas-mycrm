@@ -20,14 +20,14 @@ class PlatformTeamController extends BaseApiController
 
         if ($request->filled('search')) {
             $search = (string) $request->input('search');
-            $query->where(fn ($q) => $q
-                ->where('name', 'like', '%'.$search.'%')
-                ->orWhere('code', 'like', '%'.$search.'%')
-                ->orWhere('email', 'like', '%'.$search.'%'));
+            $query->where(fn($q) => $q
+                ->where('name', 'like', '%' . $search . '%')
+                ->orWhere('code', 'like', '%' . $search . '%')
+                ->orWhere('email', 'like', '%' . $search . '%'));
         }
 
         foreach (['status', 'visibility'] as $field) {
-            $value = $request->input('filter.'.$field, $request->input($field));
+            $value = $request->input('filter.' . $field, $request->input($field));
             if ($value !== null && $value !== '') {
                 $query->where($field, $value);
             }
@@ -242,14 +242,14 @@ class PlatformTeamController extends BaseApiController
         $query = DB::table('platform_team_roles')->whereNull('deleted_at');
         if ($request->filled('search')) {
             $search = (string) $request->input('search');
-            $query->where(fn ($q) => $q->where('name', 'like', '%'.$search.'%')->orWhere('code', 'like', '%'.$search.'%'));
+            $query->where(fn($q) => $q->where('name', 'like', '%' . $search . '%')->orWhere('code', 'like', '%' . $search . '%'));
         }
         if ($request->filled('filter.status')) {
             $query->where('status', $request->input('filter.status'));
         }
         $this->sort($query, $request, ['name', 'code', 'status', 'sort_order', 'created_at', 'updated_at'], 'sort_order');
         $page = $query->paginate((int) $request->integer('per_page', 25));
-        $items = collect($page->items())->map(fn ($role) => $this->teamRolePayload($role))->all();
+        $items = collect($page->items())->map(fn($role) => $this->teamRolePayload($role))->all();
 
         return $this->list($items, $page);
     }
