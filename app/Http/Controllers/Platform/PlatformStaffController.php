@@ -37,10 +37,19 @@ class PlatformStaffController extends BaseApiController
     {
         $data = $this->validated($request);
         $password = $data['password'] ?? Str::password(16);
-        $user = PlatformUser::query()->create([...$data, 'uuid' => (string) Str::uuid(), 'password' => Hash::make($password), 'display_name' => $data['display_name'] ?? trim($data['first_name'].' '.($data['last_name'] ?? '')), 'status' => $data['status'] ?? 'active']);
-        $this->admin->audit($request, 'platform_user_created', PlatformUser::class, $user->id, null, $user->toArray());
+        $user = DB::transaction(function () use ($request, $data, $password) {
+            $user = PlatformUser::query()->create([...$data, 'uuid' => (string) Str::uuid(), 'password' => Hash::make($password), 'display_name' => $data['display_name'] ?? trim($data['first_name'].' '.($data['last_name'] ?? '')), 'status' => $data['status'] ?? 'active']);
+            if (($roleUuids = $this->requestedUuids($request, 'role_uuids', 'role_ids')) !== null) {
+                $this->syncUserRoles($request, $user, $roleUuids);
+            }
+            if (($teamUuids = $this->requestedUuids($request, 'team_uuids', 'team_ids')) !== null) {
+                $this->syncUserTeams($request, $user, $teamUuids);
+            }
+            $this->admin->audit($request, 'platform_user_created', PlatformUser::class, $user->id, null, $user->fresh()->toArray());
+            return $user->fresh();
+        });
 
-        return $this->success(['user' => $user, 'temporary_password' => app()->isLocal() ? $password : null], 'Platform staff created.', 201);
+        return $this->success([...$this->staffPayload($user), 'temporary_password' => app()->isLocal() ? $password : null], 'Platform staff created.', 201);
     }
 
     public function invite(Request $request)
@@ -57,7 +66,7 @@ class PlatformStaffController extends BaseApiController
     public function show(string $platform_user_uuid)
     {
         $user = PlatformUser::query()->where('uuid', $platform_user_uuid)->firstOrFail();
-        return $this->success(['user' => $user, 'roles' => $user->platformRoles()->get(), 'permissions' => $user->platformDirectPermissions()->get()]);
+        return $this->success($this->staffPayload($user));
     }
 
     public function update(Request $request, string $platform_user_uuid)
@@ -66,9 +75,18 @@ class PlatformStaffController extends BaseApiController
         $old = $user->toArray();
         $data = $this->validated($request, $user);
         unset($data['password']);
-        $user->fill($data)->save();
-        $this->admin->audit($request, 'platform_user_updated', PlatformUser::class, $user->id, $old, $user->fresh()->toArray());
-        return $this->success(['user' => $user->fresh()], 'Platform staff updated.');
+        $user = DB::transaction(function () use ($request, $user, $old, $data) {
+            $user->fill($data)->save();
+            if (($roleUuids = $this->requestedUuids($request, 'role_uuids', 'role_ids')) !== null) {
+                $this->syncUserRoles($request, $user, $roleUuids);
+            }
+            if (($teamUuids = $this->requestedUuids($request, 'team_uuids', 'team_ids')) !== null) {
+                $this->syncUserTeams($request, $user, $teamUuids);
+            }
+            $this->admin->audit($request, 'platform_user_updated', PlatformUser::class, $user->id, $old, $user->fresh()->toArray());
+            return $user->fresh();
+        });
+        return $this->success($this->staffPayload($user), 'Platform staff updated.');
     }
 
     public function destroy(Request $request, string $platform_user_uuid)
@@ -120,14 +138,36 @@ class PlatformStaffController extends BaseApiController
 
     public function roles(string $platform_user_uuid) { return $this->success(['roles' => PlatformUser::query()->where('uuid', $platform_user_uuid)->firstOrFail()->platformRoles()->get()]); }
 
+    public function teams(string $platform_user_uuid)
+    {
+        $user = PlatformUser::query()->where('uuid', $platform_user_uuid)->firstOrFail();
+        return $this->success(['teams' => $this->userTeams($user)]);
+    }
+
     public function syncRoles(Request $request, string $platform_user_uuid)
     {
-        $data = $request->validate(['role_uuids' => ['required', 'array'], 'role_uuids.*' => ['uuid']]);
+        $data = $request->validate([
+            'role_uuids' => ['nullable', 'array'],
+            'role_uuids.*' => ['uuid'],
+            'role_ids' => ['nullable', 'array'],
+            'role_ids.*' => ['uuid'],
+        ]);
         $user = PlatformUser::query()->where('uuid', $platform_user_uuid)->firstOrFail();
-        $ids = PlatformRole::query()->whereIn('uuid', $data['role_uuids'])->pluck('id')->all();
-        $user->platformRoles()->syncWithPivotValues($ids, ['model_type' => PlatformUser::class]);
-        $this->admin->audit($request, 'platform_user_roles_synced', PlatformUser::class, $user->id, null, ['role_ids' => $ids]);
+        $this->syncUserRoles($request, $user, $data['role_uuids'] ?? $data['role_ids'] ?? []);
         return $this->success(['roles' => $user->platformRoles()->get()]);
+    }
+
+    public function syncTeams(Request $request, string $platform_user_uuid)
+    {
+        $data = $request->validate([
+            'team_uuids' => ['nullable', 'array'],
+            'team_uuids.*' => ['uuid'],
+            'team_ids' => ['nullable', 'array'],
+            'team_ids.*' => ['uuid'],
+        ]);
+        $user = PlatformUser::query()->where('uuid', $platform_user_uuid)->firstOrFail();
+        $this->syncUserTeams($request, $user, $data['team_uuids'] ?? $data['team_ids'] ?? []);
+        return $this->success(['teams' => $this->userTeams($user)]);
     }
 
     public function permissions(string $platform_user_uuid) { return $this->success(['permissions' => PlatformUser::query()->where('uuid', $platform_user_uuid)->firstOrFail()->platformDirectPermissions()->get()]); }
@@ -160,7 +200,7 @@ class PlatformStaffController extends BaseApiController
 
     private function validated(Request $request, ?PlatformUser $user = null): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'employee_code' => ['nullable', 'string', 'max:50', Rule::unique('platform_users')->ignore($user?->id)],
             'first_name' => [$user ? 'sometimes' : 'required', 'string', 'max:100'],
             'last_name' => ['nullable', 'string', 'max:100'],
@@ -168,12 +208,100 @@ class PlatformStaffController extends BaseApiController
             'email' => [$user ? 'sometimes' : 'required', 'email', 'max:150', Rule::unique('platform_users')->ignore($user?->id)],
             'mobile' => ['nullable', 'string', 'max:20'],
             'password' => ['nullable', 'string', 'min:8'],
+            'profile_photo_file_id' => ['nullable'],
             'designation' => ['nullable', 'string', 'max:100'],
             'department' => ['nullable', 'string', 'max:100'],
             'timezone' => ['nullable', 'string', 'max:100'],
             'locale' => ['nullable', 'string', 'max:20'],
+            'two_factor_enabled' => ['nullable', 'boolean'],
             'status' => ['nullable', Rule::in(['active', 'inactive', 'suspended'])],
         ]);
+        if (array_key_exists('profile_photo_file_id', $data)) {
+            $data['profile_photo_file_id'] = $this->fileId($data['profile_photo_file_id']);
+        }
+        return $data;
+    }
+
+    private function staffPayload(PlatformUser $user): array
+    {
+        return [
+            'user' => $user,
+            'roles' => $user->platformRoles()->get(),
+            'teams' => $this->userTeams($user),
+            'permissions' => $user->platformDirectPermissions()->get(),
+        ];
+    }
+
+    private function requestedUuids(Request $request, string $primary, string $alias): ?array
+    {
+        if (! $request->has($primary) && ! $request->has($alias)) {
+            return null;
+        }
+        $values = $request->input($primary, $request->input($alias, []));
+        if (! is_array($values)) {
+            $values = array_map('trim', explode(',', (string) $values));
+        }
+        return array_values(array_filter($values));
+    }
+
+    private function fileId($value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_numeric($value)) {
+            return (int) $value;
+        }
+        return DB::table('files')->where('uuid', $value)->value('id');
+    }
+
+    private function syncUserRoles(Request $request, PlatformUser $user, array $roleUuids): void
+    {
+        $ids = PlatformRole::query()->whereIn('uuid', $roleUuids)->pluck('id')->all();
+        $user->platformRoles()->syncWithPivotValues($ids, ['model_type' => PlatformUser::class]);
+        $this->admin->audit($request, 'platform_user_roles_synced', PlatformUser::class, $user->id, null, ['role_ids' => $ids]);
+    }
+
+    private function syncUserTeams(Request $request, PlatformUser $user, array $teamUuids): void
+    {
+        $teamIds = DB::table('platform_teams')
+            ->whereIn('uuid', $teamUuids)
+            ->whereNull('deleted_at')
+            ->pluck('id')
+            ->all();
+
+        $membership = DB::table('platform_team_members')->where('platform_user_id', $user->id);
+        if ($teamIds === []) {
+            $membership->delete();
+        } else {
+            $membership->whereNotIn('platform_team_id', $teamIds)->delete();
+        }
+
+        foreach ($teamIds as $teamId) {
+            DB::table('platform_team_members')->updateOrInsert(
+                ['platform_team_id' => $teamId, 'platform_user_id' => $user->id],
+                ['status' => 'active', 'joined_at' => now()->toDateString(), 'updated_at' => now(), 'created_at' => now()]
+            );
+        }
+
+        $this->admin->audit($request, 'platform_user_teams_synced', PlatformUser::class, $user->id, null, ['team_ids' => $teamIds]);
+    }
+
+    private function userTeams(PlatformUser $user)
+    {
+        return DB::table('platform_team_members')
+            ->join('platform_teams', 'platform_teams.id', '=', 'platform_team_members.platform_team_id')
+            ->where('platform_team_members.platform_user_id', $user->id)
+            ->whereNull('platform_teams.deleted_at')
+            ->orderBy('platform_teams.name')
+            ->get([
+                'platform_teams.uuid',
+                'platform_teams.name',
+                'platform_teams.code',
+                'platform_teams.status',
+                'platform_team_members.joined_at',
+                'platform_team_members.status as membership_status',
+            ]);
     }
 
     private function status(Request $request, string $uuid, string $status, string $event)

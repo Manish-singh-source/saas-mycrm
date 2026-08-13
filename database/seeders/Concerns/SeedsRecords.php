@@ -13,13 +13,17 @@ trait SeedsRecords
      */
     protected function seedRecord(string $table, array $identity, array $values, bool $withUuid = false): int
     {
+        $identity = $this->onlyExistingColumns($table, $identity);
+        $values = $this->onlyExistingColumns($table, $values);
         $existing = DB::table($table)->where($identity)->first();
         $now = now();
 
         $values = $this->withTimestamps($table, $values, $now);
 
         if ($existing !== null) {
-            DB::table($table)->where('id', $existing->id)->update($values);
+            if ($values !== []) {
+                DB::table($table)->where('id', $existing->id)->update($values);
+            }
 
             return (int) $existing->id;
         }
@@ -40,6 +44,9 @@ trait SeedsRecords
      */
     protected function seedPivot(string $table, array $identity, array $values = []): void
     {
+        $identity = $this->onlyExistingColumns($table, $identity);
+        $values = $this->onlyExistingColumns($table, $values);
+
         if (DB::table($table)->where($identity)->exists()) {
             if ($values !== []) {
                 DB::table($table)->where($identity)->update($values);
@@ -68,5 +75,16 @@ trait SeedsRecords
         }
 
         return $values;
+    }
+
+    /**
+     * @param  array<string, mixed>  $values
+     * @return array<string, mixed>
+     */
+    private function onlyExistingColumns(string $table, array $values): array
+    {
+        $columns = array_flip(DB::getSchemaBuilder()->getColumnListing($table));
+
+        return array_intersect_key($values, $columns);
     }
 }

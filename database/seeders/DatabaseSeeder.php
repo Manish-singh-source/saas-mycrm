@@ -17,9 +17,11 @@ class DatabaseSeeder extends Seeder
             TenantPermissionMapSeeder::class,
             PlatformRoleSeeder::class,
             PlatformSuperAdminSeeder::class,
-            TenantRoleSeeder::class,
             TenantLookupSeeder::class,
             BillingCatalogSeeder::class,
+            DemoTenantFoundationSeeder::class,
+            TenantRoleSeeder::class,
+            DemoRelationalDataSeeder::class,
         ]);
     }
 }

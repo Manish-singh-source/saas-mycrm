@@ -79,6 +79,8 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::post('/platform-users/{platform_user_uuid}/require-2fa', [PlatformStaffController::class, 'require2fa'])->middleware('platform.permission:platform_user.edit')->name('platform-users.require-2fa');
     Route::get('/platform-users/{platform_user_uuid}/roles', [PlatformStaffController::class, 'roles'])->middleware('platform.permission:platform_user.view')->name('platform-users.roles');
     Route::put('/platform-users/{platform_user_uuid}/roles', [PlatformStaffController::class, 'syncRoles'])->middleware('platform.permission:platform_user.edit')->name('platform-users.roles.sync');
+    Route::get('/platform-users/{platform_user_uuid}/teams', [PlatformStaffController::class, 'teams'])->middleware('platform.permission:platform_user.view')->name('platform-users.teams');
+    Route::put('/platform-users/{platform_user_uuid}/teams', [PlatformStaffController::class, 'syncTeams'])->middleware('platform.permission:platform_user.edit')->name('platform-users.teams.sync');
     Route::get('/platform-users/{platform_user_uuid}/permissions', [PlatformStaffController::class, 'permissions'])->middleware('platform.permission:platform_user.view')->name('platform-users.permissions');
     Route::put('/platform-users/{platform_user_uuid}/permissions', [PlatformStaffController::class, 'syncPermissions'])->middleware('platform.permission:platform_user.edit')->name('platform-users.permissions.sync');
     Route::get('/platform-users/{platform_user_uuid}/activity', [PlatformStaffController::class, 'activity'])->middleware('platform.permission:audit_log.view')->name('platform-users.activity');

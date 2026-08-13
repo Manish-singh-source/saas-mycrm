@@ -17,7 +17,7 @@ class PlatformSuperAdminSeeder extends Seeder
     public function run(): void
     {
         $email = (string) env('PLATFORM_SUPER_ADMIN_EMAIL', 'support@technofra.com');
-        $password = (string) env('PLATFORM_SUPER_ADMIN_PASSWORD', 'Password@123');
+        $password = (string) env('PLATFORM_SUPER_ADMIN_PASSWORD', '123456789');
         $now = now();
 
         $existing = DB::table('platform_users')->where('email', $email)->first();
