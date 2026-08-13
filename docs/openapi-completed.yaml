@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: "Swagger/OpenAPI surface ordered by product flow: public/common, platform after platform login, then tenant after tenant login."
 servers:
-  - url: http://127.0.0.1:8000  
+  - url: https://darkgreen-goat-738912.hostingersite.com
     description: Local API root
 tags:
   - name: Public / Common / Locations
