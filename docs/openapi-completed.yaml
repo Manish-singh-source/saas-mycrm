@@ -790,7 +790,7 @@ paths:
     get: {tags: ['Platform / Billing Catalog / Add-ons'], summary: View add-on plan, parameters: [{$ref: '#/components/parameters/AddonUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
     patch: {tags: ['Platform / Billing Catalog / Add-ons'], summary: Update add-on plan, parameters: [{$ref: '#/components/parameters/AddonUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
     put: {tags: ['Platform / Billing Catalog / Add-ons'], summary: Update add-on plan, parameters: [{$ref: '#/components/parameters/AddonUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
-    delete: {tags: ['Platform / Billing Catalog / Add-ons'], summary: Archive add-on plan, parameters: [{$ref: '#/components/parameters/AddonUuid'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+    delete: {tags: ['Platform / Billing Catalog / Add-ons'], summary: Delete add-on plan, parameters: [{$ref: '#/components/parameters/AddonUuid'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
   /api/platform/v1/billing/invoices:
     get: {tags: ['Platform / Billing / Invoices'], summary: List platform invoices, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
     post: {tags: ['Platform / Billing / Invoices'], summary: Create manual invoice, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/InvoiceWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
@@ -856,7 +856,7 @@ paths:
     get: {tags: ['Platform / Billing Catalog / Features'], summary: View feature, parameters: [{$ref: '#/components/parameters/FeatureUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
     patch: {tags: ['Platform / Billing Catalog / Features'], summary: Update feature, parameters: [{$ref: '#/components/parameters/FeatureUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
     put: {tags: ['Platform / Billing Catalog / Features'], summary: Update feature, parameters: [{$ref: '#/components/parameters/FeatureUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
-    delete: {tags: ['Platform / Billing Catalog / Features'], summary: Deactivate feature, parameters: [{$ref: '#/components/parameters/FeatureUuid'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+    delete: {tags: ['Platform / Billing Catalog / Features'], summary: Delete feature, parameters: [{$ref: '#/components/parameters/FeatureUuid'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '409': {$ref: '#/components/responses/GenericSuccess'}}}
   /api/platform/v1/plans:
     get: {tags: ['Platform / Billing Catalog / Plans'], summary: List plans, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
     post: {tags: ['Platform / Billing Catalog / Plans'], summary: Create plan, requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/PlanWrite'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
@@ -864,7 +864,7 @@ paths:
     get: {tags: ['Platform / Billing Catalog / Plans'], summary: View plan, parameters: [{$ref: '#/components/parameters/PlanUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
     patch: {tags: ['Platform / Billing Catalog / Plans'], summary: Update plan, parameters: [{$ref: '#/components/parameters/PlanUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
     put: {tags: ['Platform / Billing Catalog / Plans'], summary: Update plan, parameters: [{$ref: '#/components/parameters/PlanUuid'}], responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
-    delete: {tags: ['Platform / Billing Catalog / Plans'], summary: Archive plan, parameters: [{$ref: '#/components/parameters/PlanUuid'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}}}
+    delete: {tags: ['Platform / Billing Catalog / Plans'], summary: Delete plan, parameters: [{$ref: '#/components/parameters/PlanUuid'}], responses: {'200': {$ref: '#/components/responses/SuccessNull'}, '409': {$ref: '#/components/responses/GenericSuccess'}}}
   /api/platform/v1/plans/{plan_uuid}/clone:
     post: {tags: ['Platform / Billing Catalog / Plans'], summary: Clone plan, parameters: [{$ref: '#/components/parameters/PlanUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/CloneBody'}}}}, responses: {'201': {$ref: '#/components/responses/GenericSuccess'}}}
   /api/platform/v1/plans/{plan_uuid}/features:
@@ -2579,7 +2579,7 @@ components:
     FeatureWrite: {type: object, required: [module, name, code, data_type], properties: {module: {type: string}, name: {type: string}, code: {type: string}, data_type: {type: string, enum: [boolean, integer, decimal, string, json]}, unit: {type: string}, description: {type: string}, status: {type: string}}}
     AddonWrite: {type: object, required: [name, code, pricing_type, price], properties: {name: {type: string}, code: {type: string}, pricing_type: {type: string}, price: {type: number}, currency: {type: string}, status: {type: string}}}
     PlanFeaturesWrite: {type: object, required: [features], properties: {features: {type: array, items: {type: object, properties: {feature_uuid: {type: string, format: uuid}, value: {}, metadata: {type: object}}}}}}
-    CloneBody: {type: object, required: [name, code], properties: {name: {type: string}, code: {type: string}, status: {type: string}}}
+    CloneBody: {type: object, required: [name, code, billing_cycle, base_price], properties: {name: {type: string}, code: {type: string}, description: {type: string}, billing_cycle: {type: string}, base_price: {type: number}, currency: {type: string}, trial_days: {type: integer}, is_custom: {type: boolean}, is_public: {type: boolean}, status: {type: string}, copy_features: {type: boolean}}}
     SubscriptionWrite: {type: object, required: [tenant_id, plan_id], properties: {tenant_id: {type: string, format: uuid}, plan_id: {type: string, format: uuid}, type: {type: string}, billing_cycle: {type: string}, status: {type: string}, renewal_type: {type: string}, starts_at: {type: string, format: date-time}, expires_at: {type: string, format: date-time}, currency: {type: string}, auto_renew: {type: boolean}, notes: {type: string}}}
     SubscriptionAddonWrite: {type: object, required: [addon_plan_id], properties: {addon_plan_id: {type: string, format: uuid}, quantity: {type: integer}, unit_price: {type: number}, starts_at: {type: string, format: date-time}, ends_at: {type: string, format: date-time}, status: {type: string}}}
     ApplyCoupon: {type: object, properties: {coupon_code: {type: string}, coupon_uuid: {type: string, format: uuid}}}

@@ -143,7 +143,7 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::post('/plans/export', [PlatformCatalogController::class, 'exportPlans'])->middleware('platform.permission:plan.view')->name('plans.export');
     Route::get('/plans/{plan_uuid}', [PlatformCatalogController::class, 'showPlan'])->middleware('platform.permission:plan.view')->name('plans.show');
     Route::match(['put', 'patch'], '/plans/{plan_uuid}', [PlatformCatalogController::class, 'updatePlan'])->middleware('platform.permission:plan.edit')->name('plans.update');
-    Route::delete('/plans/{plan_uuid}', [PlatformCatalogController::class, 'archivePlan'])->middleware('platform.permission:plan.delete')->name('plans.destroy');
+    Route::delete('/plans/{plan_uuid}', [PlatformCatalogController::class, 'deletePlan'])->middleware('platform.permission:plan.delete')->name('plans.destroy');
     Route::post('/plans/{plan_uuid}/clone', [PlatformCatalogController::class, 'clonePlan'])->middleware('platform.permission:plan.create')->name('plans.clone');
     Route::get('/plans/{plan_uuid}/features', [PlatformCatalogController::class, 'planFeatures'])->middleware('platform.permission:plan.view')->name('plans.features');
     Route::put('/plans/{plan_uuid}/features', [PlatformCatalogController::class, 'replacePlanFeatures'])->middleware('platform.permission:plan.edit')->name('plans.features.update');
@@ -157,7 +157,7 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::post('/addons', [PlatformCatalogController::class, 'storeAddon'])->middleware('platform.permission:plan.create')->name('addons.store');
     Route::get('/addons/{addon_uuid}', [PlatformCatalogController::class, 'showAddon'])->middleware('platform.permission:plan.view')->name('addons.show');
     Route::match(['put', 'patch'], '/addons/{addon_uuid}', [PlatformCatalogController::class, 'updateAddon'])->middleware('platform.permission:plan.edit')->name('addons.update');
-    Route::delete('/addons/{addon_uuid}', [PlatformCatalogController::class, 'archiveAddon'])->middleware('platform.permission:plan.delete')->name('addons.destroy');
+    Route::delete('/addons/{addon_uuid}', [PlatformCatalogController::class, 'deleteAddon'])->middleware('platform.permission:plan.delete')->name('addons.destroy');
 
     Route::get('/billing/invoices', [PlatformBillingController::class, 'invoices'])->middleware('platform.permission:billing.invoice.view')->name('billing.invoices.index');
     Route::post('/billing/invoices', [PlatformBillingController::class, 'storeInvoice'])->middleware('platform.permission:billing.invoice.create')->name('billing.invoices.store');

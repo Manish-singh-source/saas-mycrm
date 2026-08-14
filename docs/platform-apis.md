@@ -483,7 +483,7 @@ Bodies:
 | POST      | `/plans`                           | `plan.create` | Create plan              |
 | GET       | `/plans/{plan_uuid}`               | `plan.view`   | View plan                |
 | PUT/PATCH | `/plans/{plan_uuid}`               | `plan.edit`   | Update plan              |
-| DELETE    | `/plans/{plan_uuid}`               | `plan.delete` | Archive/delete plan      |
+| DELETE    | `/plans/{plan_uuid}`               | `plan.delete` | Delete plan              |
 | POST      | `/plans/{plan_uuid}/clone`         | `plan.create` | Clone plan               |
 | GET       | `/plans/{plan_uuid}/features`      | `plan.view`   | Plan features            |
 | PUT       | `/plans/{plan_uuid}/features`      | `plan.edit`   | Replace features         |
@@ -505,7 +505,7 @@ Plan body:
 | POST      | `/features`                | `feature.create` | Create feature         |
 | GET       | `/features/{feature_uuid}` | `feature.view`   | View feature           |
 | PUT/PATCH | `/features/{feature_uuid}` | `feature.edit`   | Update feature         |
-| DELETE    | `/features/{feature_uuid}` | `feature.delete` | Disable/delete feature |
+| DELETE    | `/features/{feature_uuid}` | `feature.delete` | Delete feature         |
 | POST      | `/features/export`         | `feature.view`   | Export features        |
 
 Feature body:
@@ -523,7 +523,7 @@ Feature body:
 | POST      | `/addons`              | `plan.create` | Create addon     |
 | GET       | `/addons/{addon_uuid}` | `plan.view`   | View addon       |
 | PUT/PATCH | `/addons/{addon_uuid}` | `plan.edit`   | Update addon     |
-| DELETE    | `/addons/{addon_uuid}` | `plan.delete` | Archive addon    |
+| DELETE    | `/addons/{addon_uuid}` | `plan.delete` | Delete addon     |
 
 Addon body:
 

@@ -86,10 +86,85 @@ After each major change, verify the result again with Playwright.
 - apis needed
 
 delete add on api - add on
+
+Implemented endpoint:
+
+DELETE `/api/platform/v1/addons/{addon_uuid}`
+
+Permission: `plan.delete`
+
+Behavior:
+- Deletes the add-on plan from `addon_plans` when it is not assigned to any subscription.
+- Returns `409 ADDON_PLAN_IN_USE` when the add-on plan exists in `subscription_addons`.
+- Returns success with `data: null` and message `Add-on plan deleted.` after deletion.
+
+Frontend:
+- Integrated on `http://localhost:5173/platform/catalog/add-ons`
+- Row action menu now shows `Delete` for add-ons and calls the delete API.
+- Confirmation requires typing `DELETE`.
+
+Example curl:
+
+```bash
+curl -X DELETE "{{BASE_URL}}/api/platform/v1/addons/{addon_uuid}" \
+  -H "Authorization: Bearer {{PLATFORM_TOKEN}}" \
+  -H "Accept: application/json" \
+  -H "X-Request-Id: {{REQUEST_ID}}"
+```
+
 delete and archive - feature
+
+Feature delete API completed:
+
+DELETE `/api/platform/v1/features/{feature_uuid}`
+
+Permission: `feature.delete`
+
+Behavior:
+- Deletes the feature from `features` when it is not assigned to plans or usage records.
+- Returns `409 FEATURE_IN_USE` when the feature exists in `plan_features` or `subscription_usage`.
+- Frontend integrated on the Features list row action menu with `Delete` confirmation requiring `DELETE`.
+
+Plan delete API completed:
+
+DELETE `/api/platform/v1/plans/{plan_uuid}`
+
+Permission: `plan.delete`
+
+Behavior:
+- Deletes the plan from `plans` when it is not assigned to subscriptions or subscription versions.
+- Returns `409 PLAN_IN_USE` when the plan exists in `subscriptions` or `subscription_versions`.
+- Frontend integrated on the Plans list row action menu with `Delete` confirmation requiring `DELETE`.
+
+
 add feature form correction - plans list
 clone plan form correction - plan list
 delete and archive - plan
 
 coupons create form correction - coupons list
 coupons popup forms corrections - coupons list and view page.
+
+
+create a delete api for feature module and integrate it into frontend as well also add this api in my docs file as completed-api-curls.md and in swagger also.
+same for plan module. 
+
+
+
+check following forms and make corrections:
+
+http://localhost:5173/platform/catalog/plans 
+
+
+1. check for the form as on clicking three dots we get pupup as attach feature in this popup form make corrections such as feature dropdown for relational data. 
+2. also check for other changes in that form also. add required symbol * for required fields. 
+3. for clone plan popup give full fields in backend as well for frontend integration. so full clone can be update.
+
+after making changes check if api is update or not if updated then add it in both files as completed-api-curls.md and swagger.
+
+Completed:
+- Attach Feature popup now loads active features into a dropdown instead of requiring a raw feature UUID.
+- Attach Feature popup marks Feature as required with `*`, keeps optional Value and Metadata fields, and preserves existing plan features while adding/updating the selected feature.
+- Clone Plan popup now exposes full plan fields: name, code, description, billing cycle, base price, currency, trial days, status, copy features, public, and custom plan.
+- Clone Plan API now accepts full plan fields plus `copy_features`.
+- Updated clone API examples in `docs/completed-api-curls.md`.
+- Updated Swagger clone body schema in `docs/openapi-flow-sequence.yaml`, `docs/openapi-completed.yaml`, and `docs/openapi-completed2.yaml`.

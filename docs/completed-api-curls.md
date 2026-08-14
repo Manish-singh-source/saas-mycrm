@@ -2396,20 +2396,20 @@ Response example:
 {"success":true,"message":"Plan created.","data":{"plan":{"uuid":"plan_uuid","name":"Scale","code":"scale","status":"active"}},"meta":{"request_id":"{{REQUEST_ID}}"},"errors":null}
 ```
 
-### View, update, archive, clone, features, subscriptions
+### View, update, delete, clone, features, subscriptions
 
 ```bash
 curl -X GET "{{BASE_URL}}/api/platform/v1/plans/{plan_uuid}" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Accept: application/json" -H "X-Request-Id: {{REQUEST_ID}}"
 curl -X PATCH "{{BASE_URL}}/api/platform/v1/plans/{plan_uuid}" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Content-Type: application/json" -H "Accept: application/json" -H "X-Request-Id: {{REQUEST_ID}}" -d '{"base_price":"5999.00","status":"active"}'
 curl -X DELETE "{{BASE_URL}}/api/platform/v1/plans/{plan_uuid}" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Accept: application/json" -H "X-Request-Id: {{REQUEST_ID}}"
-curl -X POST "{{BASE_URL}}/api/platform/v1/plans/{plan_uuid}/clone" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Content-Type: application/json" -H "Accept: application/json" -H "X-Request-Id: {{REQUEST_ID}}" -d '{"name":"Scale Copy","code":"scale_copy","status":"inactive"}'
+curl -X POST "{{BASE_URL}}/api/platform/v1/plans/{plan_uuid}/clone" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Content-Type: application/json" -H "Accept: application/json" -H "X-Request-Id: {{REQUEST_ID}}" -d '{"name":"Scale Copy","code":"scale_copy","description":"Cloned plan for a custom billing setup","billing_cycle":"monthly","base_price":"5999.00","currency":"INR","trial_days":14,"is_custom":true,"is_public":false,"status":"inactive","copy_features":true}'
 curl -X GET "{{BASE_URL}}/api/platform/v1/plans/{plan_uuid}/features" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Accept: application/json" -H "X-Request-Id: {{REQUEST_ID}}"
 curl -X PUT "{{BASE_URL}}/api/platform/v1/plans/{plan_uuid}/features" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Content-Type: application/json" -H "Accept: application/json" -H "X-Request-Id: {{REQUEST_ID}}" -d '{"features":[{"feature_uuid":"feature_uuid","value":"25","metadata":{"source":"contract"}}]}'
 curl -X GET "{{BASE_URL}}/api/platform/v1/plans/{plan_uuid}/subscriptions" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Accept: application/json" -H "X-Request-Id: {{REQUEST_ID}}"
 curl -X POST "{{BASE_URL}}/api/platform/v1/plans/export" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Accept: application/json" -H "X-Request-Id: {{REQUEST_ID}}"
 ```
 
-Response examples: view returns `data.plan`, `data.features`, and `data.subscription_count`; update/clone return `data.plan`; archive returns `data:null`; feature replacement returns `data.features`; export returns `data.export.status=queued`.
+Response examples: view returns `data.plan`, `data.features`, and `data.subscription_count`; update/clone return `data.plan`; delete returns `data:null` or `409 PLAN_IN_USE` when the plan is assigned to subscriptions; feature replacement returns `data.features`; export returns `data.export.status=queued`.
 
 ## 7.2 Features and Add-on Plans
 
@@ -2426,7 +2426,7 @@ curl -X PATCH "{{BASE_URL}}/api/platform/v1/addons/{addon_uuid}" -H "Authorizati
 curl -X DELETE "{{BASE_URL}}/api/platform/v1/addons/{addon_uuid}" -H "Authorization: Bearer {{PLATFORM_TOKEN}}" -H "Accept: application/json" -H "X-Request-Id: {{REQUEST_ID}}"
 ```
 
-Feature create response returns `data.feature`; add-on create/update/view returns `data.addon`; delete/archive responses return `data:null`.
+Feature create response returns `data.feature`; feature delete returns `data:null` or `409 FEATURE_IN_USE` when assigned to plans or usage records; add-on create/update/view returns `data.addon`; delete responses return `data:null`.
 
 ## 7.3 Subscriptions
 

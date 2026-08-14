@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Platform;
 
 use App\Services\Platform\PlatformBillingCatalogService;
+use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -51,29 +52,59 @@ class PlatformCatalogController extends BasePlatformController
         return $this->success(['plan' => $fresh], 'Plan updated.');
     }
 
-    public function archivePlan(Request $request, string $plan_uuid)
+    public function deletePlan(Request $request, string $plan_uuid)
     {
         $plan = $this->billing->byUuid('plans', $plan_uuid);
-        DB::table('plans')->where('id', $plan->id)->update(['status' => 'archived', 'deleted_at' => now(), 'updated_at' => now()]);
-        $this->billing->audit($request, 'plan_archived', 'plans', $plan->id, (array) $plan, ['status' => 'archived']);
+        $assigned = DB::table('subscriptions')->where('plan_id', $plan->id)->exists()
+            || DB::table('subscription_versions')->where('plan_id', $plan->id)->exists();
 
-        return $this->success(null, 'Plan archived.');
+        if ($assigned) {
+            return ApiResponse::businessError(
+                'This plan is assigned to one or more subscriptions and cannot be deleted.',
+                'PLAN_IN_USE',
+                409
+            );
+        }
+
+        DB::table('plans')->where('id', $plan->id)->delete();
+        $this->billing->audit($request, 'plan_deleted', 'plans', $plan->id, (array) $plan, null);
+
+        return $this->success(null, 'Plan deleted.');
     }
 
     public function clonePlan(Request $request, string $plan_uuid)
     {
         $plan = $this->billing->byUuid('plans', $plan_uuid);
-        $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'code' => ['required', 'string', 'max:80', 'unique:plans,code'], 'status' => ['nullable', Rule::in(['active', 'inactive', 'archived'])]]);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'code' => ['required', 'string', 'max:80', 'unique:plans,code'],
+            'description' => ['nullable', 'string'],
+            'billing_cycle' => ['required', 'string', 'max:50'],
+            'base_price' => ['required', 'numeric', 'min:0'],
+            'currency' => ['nullable', 'string', 'size:3'],
+            'trial_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'is_custom' => ['nullable', 'boolean'],
+            'is_public' => ['nullable', 'boolean'],
+            'status' => ['nullable', Rule::in(['active', 'inactive', 'archived'])],
+            'copy_features' => ['nullable', 'boolean'],
+        ]);
 
         return DB::transaction(function () use ($request, $plan, $data) {
             $copy = (array) $plan;
             unset($copy['id'], $copy['uuid'], $copy['created_at'], $copy['updated_at'], $copy['deleted_at']);
+            $copyFeatures = (bool) ($data['copy_features'] ?? true);
+            unset($data['copy_features']);
+
             $id = DB::table('plans')->insertGetId([...$copy, ...$data, 'uuid' => (string) Str::uuid(), 'status' => $data['status'] ?? 'inactive', 'created_at' => now(), 'updated_at' => now()]);
-            foreach (DB::table('plan_features')->where('plan_id', $plan->id)->get() as $feature) {
-                DB::table('plan_features')->insert(['plan_id' => $id, 'feature_id' => $feature->feature_id, 'value' => $feature->value, 'metadata' => $feature->metadata, 'created_at' => now(), 'updated_at' => now()]);
+
+            if ($copyFeatures) {
+                foreach (DB::table('plan_features')->where('plan_id', $plan->id)->get() as $feature) {
+                    DB::table('plan_features')->insert(['plan_id' => $id, 'feature_id' => $feature->feature_id, 'value' => $feature->value, 'metadata' => $feature->metadata, 'created_at' => now(), 'updated_at' => now()]);
+                }
             }
+
             $fresh = DB::table('plans')->where('id', $id)->first();
-            $this->billing->audit($request, 'plan_cloned', 'plans', $id, (array) $plan, (array) $fresh);
+            $this->billing->audit($request, 'plan_cloned', 'plans', $id, (array) $plan, ['plan' => (array) $fresh, 'copy_features' => $copyFeatures]);
 
             return $this->success(['plan' => $fresh], 'Plan cloned.', 201);
         });
@@ -147,9 +178,21 @@ class PlatformCatalogController extends BasePlatformController
     public function deleteFeature(Request $request, string $feature_uuid)
     {
         $feature = $this->billing->byUuid('features', $feature_uuid);
-        DB::table('features')->where('id', $feature->id)->update(['status' => 'inactive', 'updated_at' => now()]);
-        $this->billing->audit($request, 'feature_deactivated', 'features', $feature->id, (array) $feature, ['status' => 'inactive']);
-        return $this->success(null, 'Feature deactivated.');
+        $assigned = DB::table('plan_features')->where('feature_id', $feature->id)->exists()
+            || DB::table('subscription_usage')->where('feature_id', $feature->id)->exists();
+
+        if ($assigned) {
+            return ApiResponse::businessError(
+                'This feature is assigned to one or more plans or usage records and cannot be deleted.',
+                'FEATURE_IN_USE',
+                409
+            );
+        }
+
+        DB::table('features')->where('id', $feature->id)->delete();
+        $this->billing->audit($request, 'feature_deleted', 'features', $feature->id, (array) $feature, null);
+
+        return $this->success(null, 'Feature deleted.');
     }
 
     public function addons(Request $request)
@@ -184,12 +227,23 @@ class PlatformCatalogController extends BasePlatformController
         return $this->success(['addon' => $fresh], 'Add-on plan updated.');
     }
 
-    public function archiveAddon(Request $request, string $addon_uuid)
+    public function deleteAddon(Request $request, string $addon_uuid)
     {
         $addon = $this->billing->byUuid('addon_plans', $addon_uuid);
-        DB::table('addon_plans')->where('id', $addon->id)->update(['status' => 'inactive', 'updated_at' => now()]);
-        $this->billing->audit($request, 'addon_plan_archived', 'addon_plans', $addon->id, (array) $addon, ['status' => 'inactive']);
-        return $this->success(null, 'Add-on plan archived.');
+        $assigned = DB::table('subscription_addons')->where('addon_plan_id', $addon->id)->exists();
+
+        if ($assigned) {
+            return ApiResponse::businessError(
+                'This add-on plan is assigned to one or more subscriptions and cannot be deleted.',
+                'ADDON_PLAN_IN_USE',
+                409
+            );
+        }
+
+        DB::table('addon_plans')->where('id', $addon->id)->delete();
+        $this->billing->audit($request, 'addon_plan_deleted', 'addon_plans', $addon->id, (array) $addon, null);
+
+        return $this->success(null, 'Add-on plan deleted.');
     }
 
     public function exportPlans()

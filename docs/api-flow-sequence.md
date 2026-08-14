@@ -295,7 +295,7 @@ Total unique operations: 472.
    Source: openapi-completed.yaml; Tag: 7. Platform Billing and Catalog
 5. `PUT /api/platform/v1/addons/{addon_uuid}` - Update add-on plan  
    Source: openapi-completed.yaml; Tag: 7. Platform Billing and Catalog
-6. `DELETE /api/platform/v1/addons/{addon_uuid}` - Archive add-on plan  
+6. `DELETE /api/platform/v1/addons/{addon_uuid}` - Delete add-on plan  
    Source: openapi-completed.yaml; Tag: 7. Platform Billing and Catalog
 7. `GET /api/platform/v1/billing/invoices` - List platform invoices  
    Source: openapi-completed.yaml; Tag: 7. Platform Billing and Catalog
@@ -375,7 +375,7 @@ Total unique operations: 472.
    Source: openapi-completed.yaml; Tag: 7. Platform Billing and Catalog
 45. `PUT /api/platform/v1/features/{feature_uuid}` - Update feature  
    Source: openapi-completed.yaml; Tag: 7. Platform Billing and Catalog
-46. `DELETE /api/platform/v1/features/{feature_uuid}` - Deactivate feature  
+46. `DELETE /api/platform/v1/features/{feature_uuid}` - Delete feature  
    Source: openapi-completed.yaml; Tag: 7. Platform Billing and Catalog
 47. `GET /api/platform/v1/plans` - List plans  
    Source: openapi-completed.yaml; Tag: 7. Platform Billing and Catalog
@@ -387,7 +387,7 @@ Total unique operations: 472.
    Source: openapi-completed.yaml; Tag: 7. Platform Billing and Catalog
 51. `PUT /api/platform/v1/plans/{plan_uuid}` - Update plan  
    Source: openapi-completed.yaml; Tag: 7. Platform Billing and Catalog
-52. `DELETE /api/platform/v1/plans/{plan_uuid}` - Archive plan  
+52. `DELETE /api/platform/v1/plans/{plan_uuid}` - Delete plan  
    Source: openapi-completed.yaml; Tag: 7. Platform Billing and Catalog
 53. `POST /api/platform/v1/plans/{plan_uuid}/clone` - Clone plan  
    Source: openapi-completed.yaml; Tag: 7. Platform Billing and Catalog

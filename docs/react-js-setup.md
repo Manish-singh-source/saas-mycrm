@@ -364,7 +364,7 @@ Required UI:
 - Feature matrix drawer.
 - Attach feature popup.
 - Clone plan popup.
-- Archive plan confirmation with active subscription count.
+- Delete plan confirmation with related-record conflict handling.
 
 Show financial totals using money formatting and never mutate subscription state without confirmation.
 ```

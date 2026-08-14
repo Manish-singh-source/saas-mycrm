@@ -123,7 +123,7 @@ Plans/features/add-ons:
 - Feature matrix drawer for plan features and limits.
 - Attach feature popup: feature, value, metadata, limit type.
 - Clone plan popup: new name/code, copy features, public/custom flag.
-- Archive plan confirmation showing active subscription count.
+- Delete plan confirmation showing related-record conflict handling.
 - Add-on pricing popup for flat/unit/tiered pricing if supported.
 
 ### Platform Billing
