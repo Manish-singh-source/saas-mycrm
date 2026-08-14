@@ -267,11 +267,35 @@ class PlatformSubscriptionController extends BasePlatformController
 
     private function relations(object $subscription): array
     {
+        $redemptions = DB::table('coupon_redemptions')
+            ->join('coupons', 'coupons.id', '=', 'coupon_redemptions.coupon_id')
+            ->where('coupon_redemptions.subscription_id', $subscription->id)
+            ->select(
+                'coupon_redemptions.*',
+                'coupons.uuid as coupon_uuid',
+                'coupons.code',
+                'coupons.name',
+                'coupons.discount_type',
+                'coupons.discount_value',
+                'coupons.status as coupon_status'
+            )
+            ->latest('coupon_redemptions.id')
+            ->get();
+
         return [
             'addons' => DB::table('subscription_addons')->where('subscription_id', $subscription->id)->get(),
             'invoices' => DB::table('platform_invoices')->where('subscription_id', $subscription->id)->latest('id')->get(),
             'payments' => DB::table('platform_payments')->where('subscription_id', $subscription->id)->latest('id')->get()->map(fn($p) => tap($p, fn($x) => $x->raw_response = $this->billing->maskRaw($x->raw_response))),
-            'redemptions' => DB::table('coupon_redemptions')->where('subscription_id', $subscription->id)->latest('id')->get(),
+            'redemptions' => $redemptions,
+            'coupons' => $redemptions->map(fn($redemption) => [
+                'uuid' => $redemption->coupon_uuid,
+                'code' => $redemption->code,
+                'name' => $redemption->name,
+                'discount_type' => $redemption->discount_type,
+                'discount_value' => $redemption->discount_value,
+                'status' => $redemption->coupon_status,
+                'redeemed_at' => $redemption->redeemed_at,
+            ])->values(),
         ];
     }
 

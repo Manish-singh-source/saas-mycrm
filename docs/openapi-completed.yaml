@@ -962,7 +962,7 @@ paths:
   /api/platform/v1/support/tickets/{ticket_uuid}/assign:
     post: {tags: ['Platform / Support / Tickets'], summary: Assign support ticket, parameters: [{$ref: '#/components/parameters/TicketUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/TicketAssign'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
   /api/platform/v1/support/tickets/{ticket_uuid}/attachments:
-    post: {tags: ['Platform / Support / Tickets'], summary: Attach existing file to ticket, parameters: [{$ref: '#/components/parameters/TicketUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/FileUuidBody'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
+    post: {tags: ['Platform / Support / Tickets'], summary: Attach existing or uploaded file to ticket, parameters: [{$ref: '#/components/parameters/TicketUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/FileUuidBody'}}, multipart/form-data: {schema: {$ref: '#/components/schemas/TicketAttachmentUpload'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
   /api/platform/v1/support/tickets/{ticket_uuid}/close:
     post: {tags: ['Platform / Support / Tickets'], summary: Close support ticket, parameters: [{$ref: '#/components/parameters/TicketUuid'}], requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/NotesBody'}}}}, responses: {'200': {$ref: '#/components/responses/GenericSuccess'}}}
   /api/platform/v1/support/tickets/{ticket_uuid}/comments:
@@ -2591,10 +2591,11 @@ components:
     TenantModuleOverride: {type: object, required: [enabled], properties: {enabled: {type: boolean}, limits: {type: object}, metadata: {type: object}, reason: {type: string}}}
     ReasonBody: {type: object, required: [reason], properties: {reason: {type: string}}}
     SupportTicketWrite: {type: object, required: [subject], properties: {tenant_uuid: {type: string, format: uuid}, subject: {type: string}, description: {type: string}, priority: {type: string}, category: {type: string}, source: {type: string}, assigned_to_uuid: {type: string, format: uuid}}}
-    SupportTicketUpdate: {type: object, properties: {subject: {type: string}, description: {type: string}, priority: {type: string}, category: {type: string}, status: {type: string}}}
+    SupportTicketUpdate: {type: object, properties: {tenant_uuid: {type: string, format: uuid, nullable: true}, subject: {type: string}, description: {type: string}, priority: {type: string}, category: {type: string}, source: {type: string}, assigned_to_uuid: {type: string, format: uuid, nullable: true}, status: {type: string}}}
     TicketAssign: {type: object, properties: {assigned_to_uuid: {type: string, format: uuid}, audit_reason: {type: string}}}
     TicketComment: {type: object, required: [comment], properties: {comment: {type: string}, is_internal: {type: boolean}}}
     FileUuidBody: {type: object, required: [file_uuid], properties: {file_uuid: {type: string, format: uuid}}}
+    TicketAttachmentUpload: {type: object, required: [file], properties: {file: {type: string, format: binary}, visibility: {type: string, enum: [private, public, tenant]}, purpose: {type: string}}}
     NotesBody: {type: object, properties: {notes: {type: string}}}
     NotesRequiredBody: {type: object, required: [notes], properties: {notes: {type: string}}}
     KbCategoryWrite: {type: object, required: [name], properties: {parent_uuid: {type: string, format: uuid}, name: {type: string}, slug: {type: string}, audience: {type: string}, status: {type: string}}}
