@@ -50,8 +50,9 @@ class TenantDashboardController extends BaseTenantController
             'tasks' => ['table' => 'tasks', 'group' => 'status'],
             'attendance' => ['table' => 'attendance_records', 'group' => 'attendance_date'],
             'support' => ['table' => 'client_issues', 'group' => 'status'],
+            'revenue' => ['table' => 'tenant_payments', 'group' => 'created_at'],
         ];
-        if ($chart === 'revenue') {
+        if (in_array($chart, ['revenue', 'payment-success-failure-trend'], true)) {
             return $this->success(['chart' => ['code' => $chart, 'series' => $this->revenueSeries()]]);
         }
         abort_unless(isset($map[$chart]), 404, 'Chart not found.');

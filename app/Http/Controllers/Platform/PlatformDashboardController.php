@@ -71,9 +71,10 @@ class PlatformDashboardController extends BaseApiController
         return match ($chart) {
             'tenant-growth' => $this->success($this->tenantGrowth($request)),
             'revenue' => $this->success($this->revenue($request)),
+            'api-usage-trend', 'storage-usage-trend', 'usage' => $this->success($this->usage($request)),
+            'payment-success-failure-trend' => $this->success($this->revenue($request)),
             'plan-distribution' => $this->success($this->planDistribution($request)),
             'subscription-status' => $this->success($this->subscriptionStatus()),
-            'usage' => $this->success($this->usage($request)),
             default => $this->businessError('Dashboard chart not found.', 'DASHBOARD_CHART_NOT_FOUND', Response::HTTP_NOT_FOUND),
         };
     }

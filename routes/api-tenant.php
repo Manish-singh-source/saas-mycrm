@@ -58,6 +58,8 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::put('/dashboard/widgets', [TenantDashboardController::class, 'updateWidgets'])->middleware('tenant.permission:dashboard.customize')->name('dashboard.widgets.update');
     Route::post('/dashboard/export', [TenantDashboardController::class, 'export'])->middleware('tenant.permission:dashboard.view')->name('dashboard.export');
     Route::get('/dashboard/{widget}', [TenantDashboardController::class, 'table'])->whereIn('widget', ['my-tasks', 'upcoming-events', 'recent-leads', 'overdue-invoices', 'recent-activities'])->middleware('tenant.permission:dashboard.view')->name('dashboard.widgets.tables');
+
+    // Access control, teams, and staff administration.
     Route::prefix('access-control')->name('access-control.')->group(function (): void {
         Route::get('/roles', [TenantRoleController::class, 'index'])->middleware('tenant.permission:role.view')->name('roles.index');
         Route::post('/roles', [TenantRoleController::class, 'store'])->middleware('tenant.permission:role.create')->name('roles.store');
@@ -78,6 +80,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
         Route::get('/permissions/{permission_uuid}', [TenantPermissionController::class, 'show'])->middleware('tenant.permission:permission.view')->name('permissions.show');
     });
 
+    // Teams and team roles.
     Route::get('/team-roles', [TenantTeamController::class, 'teamRoles'])->middleware('tenant.permission:team.view')->name('team-roles.index');
     Route::post('/team-roles', [TenantTeamController::class, 'storeTeamRole'])->middleware('tenant.permission:team.create')->name('team-roles.store');
     Route::match(['put', 'patch'], '/team-roles/{team_role_uuid}', [TenantTeamController::class, 'updateTeamRole'])->middleware('tenant.permission:team.edit')->name('team-roles.update');
@@ -100,6 +103,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::post('/teams/{team_uuid}/assignments', [TenantTeamController::class, 'createAssignment'])->middleware('tenant.permission:team.assign')->name('teams.assignments.store');
     Route::delete('/teams/{team_uuid}/assignments/{assignment_id}', [TenantTeamController::class, 'releaseAssignment'])->whereNumber('assignment_id')->middleware('tenant.permission:team.assign')->name('teams.assignments.destroy');
 
+    // User-facing staff records.
     Route::get('/users', [TenantUserController::class, 'index'])->middleware('tenant.permission:staff.view')->name('users.index');
     Route::post('/users/invite', [TenantUserController::class, 'invite'])->middleware('tenant.permission:staff.create')->name('users.invite');
     Route::get('/users/{user_uuid}', [TenantUserController::class, 'show'])->middleware('tenant.permission:staff.view')->name('users.show');
@@ -135,6 +139,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
         Route::delete('/staff/{staff_uuid}/'.$resource.'/{id}', [TenantStaffController::class, 'childDelete'])->whereNumber('id')->defaults('resource', $resource)->middleware('tenant.permission:staff.edit')->name('staff.'.$resource.'.destroy');
     }
 
+    // HRMS: attendance, leave, payroll, and holidays.
     Route::get('/attendance/dashboard', [TenantHrmsController::class, 'attendanceDashboard'])->middleware('tenant.permission:attendance.view')->name('attendance.dashboard');
     Route::get('/attendance/daily', [TenantHrmsController::class, 'attendanceDaily'])->middleware('tenant.permission:attendance.view')->name('attendance.daily');
     Route::get('/attendance/monthly', [TenantHrmsController::class, 'attendanceMonthly'])->middleware('tenant.permission:attendance.view')->name('attendance.monthly');
@@ -213,6 +218,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::match(['put', 'patch'], '/holiday-groups/{group_uuid}', [TenantHrmsController::class, 'updateHolidayGroup'])->middleware('tenant.permission:holiday.edit')->name('holiday-groups.update');
     Route::match(['get', 'post'], '/holiday-groups/{group_uuid}/members', [TenantHrmsController::class, 'holidayGroupMembers'])->middleware('tenant.permission:holiday.view')->name('holiday-groups.members');
     Route::delete('/holiday-groups/{group_uuid}/members/{staff_uuid}', [TenantHrmsController::class, 'deleteHolidayGroupMember'])->middleware('tenant.permission:holiday.edit')->name('holiday-groups.members.destroy');
+    // CRM: clients, vendors, leads, renewals, and related records.
     Route::post('/clients/import', [TenantClientController::class, 'import'])->middleware('tenant.permission:client.import')->name('clients.import');
     Route::post('/clients/export', [TenantClientController::class, 'export'])->middleware('tenant.permission:client.export')->name('clients.export');
     Route::post('/clients/merge', [TenantClientController::class, 'merge'])->middleware('tenant.permission:client.merge')->name('clients.merge');
@@ -281,6 +287,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::match(['put', 'patch'], '/leads/{lead_uuid}/activities/{activity_uuid}', [TenantLeadController::class, 'updateActivity'])->middleware('tenant.permission:lead.edit')->name('leads.activities.update');
     Route::get('/leads/{lead_uuid}/activity', [TenantLeadController::class, 'activity'])->middleware('tenant.permission:activity_log.view')->name('leads.activity');
 
+    // Projects, tasks, issues, and workspace planning.
     Route::get('/projects/dashboard', [TenantOperationsController::class, 'projectDashboard'])->middleware('tenant.permission:project.view')->name('projects.dashboard');
     Route::get('/projects/kanban', [TenantOperationsController::class, 'projectKanban'])->middleware('tenant.permission:project.view')->name('projects.kanban');
     Route::get('/projects/gantt', [TenantOperationsController::class, 'projectGantt'])->middleware('tenant.permission:project.view')->name('projects.gantt');
@@ -329,6 +336,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::delete('/tasks/{task_uuid}/{resource}/{id}', [TenantOperationsController::class, 'deleteTaskChild'])->whereIn('resource', ['comments', 'dependencies'])->whereNumber('id')->middleware('tenant.permission:task.edit')->name('tasks.children.destroy');
     Route::delete('/tasks/{task_uuid}/watchers/{user_uuid}', [TenantOperationsController::class, 'deleteWatcher'])->middleware('tenant.permission:task.edit')->name('tasks.watchers.destroy');
 
+    // My list: todo and calendar utilities.
     Route::get('/todo-lists/dashboard', [TenantOperationsController::class, 'todoDashboard'])->middleware('tenant.permission:todo.view')->name('todo-lists.dashboard');
     Route::get('/todo-lists/kanban', [TenantOperationsController::class, 'todoKanban'])->middleware('tenant.permission:todo.view')->name('todo-lists.kanban');
     Route::get('/todo-lists/calendar', [TenantOperationsController::class, 'todoCalendar'])->middleware('tenant.permission:todo.view')->name('todo-lists.calendar');
@@ -435,6 +443,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::get('/document-folders', [TenantBusinessController::class, 'folders'])->middleware('tenant.permission:document.view')->name('document-folders.index');
     Route::post('/document-folders', [TenantBusinessController::class, 'folders'])->middleware('tenant.permission:document.upload')->name('document-folders.store');
     Route::post('/document-folders/{folder_uuid}/files', [TenantBusinessController::class, 'attachFileToFolder'])->middleware('tenant.permission:document.upload')->name('document-folders.files.store');
+    // Finance, reports, and operational settings.
     Route::get('/reports/dashboard', [TenantBusinessController::class, 'reportsDashboard'])->middleware('tenant.permission:report.view')->name('reports.dashboard');
     Route::get('/reports/custom', [TenantBusinessController::class, 'customReports'])->middleware('tenant.permission:report.view')->name('reports.custom.index');
     Route::post('/reports/custom', [TenantBusinessController::class, 'storeCustomReport'])->middleware('tenant.permission:report.edit')->name('reports.custom.store');
@@ -503,6 +512,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::post('/reminders', [SharedPrimitiveController::class, 'createReminder'])->middleware('tenant.permission:document.upload')->name('reminders.store');
     Route::match(['put', 'patch'], '/reminders/{reminder_uuid}', [SharedPrimitiveController::class, 'updateReminder'])->middleware('tenant.permission:document.upload')->name('reminders.update');
     Route::delete('/reminders/{reminder_uuid}', [SharedPrimitiveController::class, 'deleteReminder'])->middleware('tenant.permission:document.delete')->name('reminders.destroy');
+    // Workspace tools, notifications, and help center.
     Route::get('/notifications', [TenantEngagementController::class, 'notifications'])->middleware('tenant.permission:notification.view')->name('notifications.index');
     Route::get('/notifications/unread-count', [TenantEngagementController::class, 'unreadCount'])->middleware('tenant.permission:notification.view')->name('notifications.unread-count');
     Route::post('/notifications/bulk/read', [TenantEngagementController::class, 'bulkRead'])->middleware('tenant.permission:notification.manage')->name('notifications.bulk.read');
@@ -523,6 +533,5 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::post('/profile/api-tokens/{token_uuid}/rotate', [TenantApiTokenController::class, 'rotate'])->name('profile.api-tokens.rotate');
     Route::post('/profile/api-tokens/{token_uuid}/revoke', [TenantApiTokenController::class, 'revoke'])->name('profile.api-tokens.revoke');
 });
-
 
 
