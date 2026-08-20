@@ -22,19 +22,24 @@ use App\Http\Controllers\Platform\PlatformHealthController;
 use App\Http\Controllers\Shared\SharedPrimitiveController;
 use Illuminate\Support\Facades\Route;
 
+// Platform surface health check for deployment verification.
 Route::get('/health', PlatformHealthController::class)->name('health');
 
+// Password recovery is available before authentication.
 Route::prefix('auth')->name('auth.')->group(function (): void {
     Route::post('/forgot-password', [PlatformAuthController::class, 'forgotPassword'])->name('forgot-password');
     Route::post('/reset-password', [PlatformAuthController::class, 'resetPassword'])->name('reset-password');
 });
 
+// All admin routes below require a validated platform token.
 Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::prefix('auth')->name('auth.')->group(function (): void {
-        Route::post('/logout', [PlatformAuthController::class, 'logout'])->name('logout');
-        Route::post('/refresh', [PlatformAuthController::class, 'refresh'])->name('refresh');
         Route::get('/me', [PlatformAuthController::class, 'me'])->name('me');
+        Route::post('/logout', [PlatformAuthController::class, 'logout'])->name('logout');
+
+        Route::post('/refresh', [PlatformAuthController::class, 'refresh'])->name('refresh');
         Route::post('/verify-email/resend', [PlatformAuthController::class, 'resendVerification'])->name('verify-email.resend');
+        
         Route::post('/2fa/enable', [PlatformAuthController::class, 'enable2fa'])->name('2fa.enable');
         Route::post('/2fa/confirm', [PlatformAuthController::class, 'confirm2fa'])->name('2fa.confirm');
         Route::post('/2fa/disable', [PlatformAuthController::class, 'disable2fa'])->name('2fa.disable');
@@ -42,14 +47,17 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
 
     Route::get('/profile', [PlatformAuthController::class, 'profile'])->name('profile.show');
     Route::match(['put', 'patch'], '/profile', [PlatformAuthController::class, 'updateProfile'])->name('profile.update');
+
     Route::put('/profile/password', [PlatformAuthController::class, 'changePassword'])->name('profile.password');
     Route::get('/settings/preferences', [PlatformAuthController::class, 'preferences'])->name('settings.preferences.show');
     Route::put('/settings/preferences', [PlatformAuthController::class, 'updatePreferences'])->name('settings.preferences.update');
+    
     Route::get('/profile/sessions', [PlatformAuthController::class, 'sessions'])->name('profile.sessions.index');
     Route::delete('/profile/sessions/{session_id}', [PlatformAuthController::class, 'revokeSession'])->whereNumber('session_id')->name('profile.sessions.revoke');
 
 
 
+    // Dashboard widgets and reports used by the platform admin portal.
     Route::prefix('dashboard')->name('dashboard.')->group(function (): void {
         Route::get('/summary', [PlatformDashboardController::class, 'summary'])->middleware('platform.permission:dashboard.view')->name('summary');
         Route::get('/charts', [PlatformDashboardController::class, 'charts'])->middleware('platform.permission:dashboard.view')->name('charts');
@@ -373,6 +381,4 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::post('/api-tokens/{token_uuid}/rotate', [PlatformApiTokenController::class, 'rotate'])->name('api-tokens.rotate');
     Route::post('/api-tokens/{token_uuid}/revoke', [PlatformApiTokenController::class, 'revoke'])->name('api-tokens.revoke');
 });
-
-
 

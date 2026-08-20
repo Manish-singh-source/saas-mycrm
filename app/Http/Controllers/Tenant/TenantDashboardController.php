@@ -66,6 +66,7 @@ class TenantDashboardController extends BaseTenantController
             'upcoming-events' => $this->recentRows('calendar_events', ['uuid', 'title', 'starts_at', 'ends_at'], 'starts_at'),
             'recent-leads' => $this->recentRows('lead_profiles', ['uuid', 'lead_number', 'stage_id', 'expected_value'], 'id'),
             'overdue-invoices' => $this->recentRows('tenant_invoices', ['uuid', 'invoice_number', 'due_date', 'balance_amount'], 'due_date'),
+            'recent-activities' => $this->recentRows('activity_logs', ['uuid', 'event', 'description', 'created_at'], 'created_at'),
             default => abort(404, 'Dashboard widget not found.'),
         };
 
@@ -78,7 +79,7 @@ class TenantDashboardController extends BaseTenantController
             ->leftJoin('users', 'users.id', '=', 'activity_logs.actor_user_id')
             ->where('activity_logs.tenant_id', app(\App\Tenancy\TenantContext::class)->id())
             ->orderByDesc('activity_logs.created_at')
-            ->limit(20)
+            ->limit(5)
             ->get(['activity_logs.*', 'users.uuid as actor_uuid', 'users.display_name as actor_name'])]);
     }
 
@@ -126,7 +127,7 @@ class TenantDashboardController extends BaseTenantController
         }
         $select = array_values(array_filter($columns, fn ($column) => \Illuminate\Support\Facades\Schema::hasColumn($table, $column)));
 
-        return DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->orderByDesc(\Illuminate\Support\Facades\Schema::hasColumn($table, $order) ? $order : 'id')->limit(10)->get($select ?: ['*'])->all();
+        return DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->orderByDesc(\Illuminate\Support\Facades\Schema::hasColumn($table, $order) ? $order : 'id')->limit(5)->get($select ?: ['*'])->all();
     }
 
     private function revenueSeries(): array

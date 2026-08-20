@@ -220,7 +220,7 @@ class PlatformDashboardController extends BaseApiController
             ->leftJoin('plans', 'plans.id', '=', 'subscriptions.plan_id')
             ->whereNull('tenants.deleted_at')
             ->latest('tenants.id')
-            ->limit(10)
+            ->limit(5)
             ->get([
                 'tenants.uuid',
                 'tenants.organization_name',
@@ -239,7 +239,7 @@ class PlatformDashboardController extends BaseApiController
         return DB::table('platform_payments')
             ->join('tenants', 'tenants.id', '=', 'platform_payments.tenant_id')
             ->latest('platform_payments.id')
-            ->limit(10)
+            ->limit(5)
             ->get([
                 'platform_payments.uuid',
                 'platform_payments.payment_number',
@@ -261,7 +261,7 @@ class PlatformDashboardController extends BaseApiController
             ->where('balance_amount', '>', 0)
             ->whereDate('due_date', '<', now())
             ->latest('platform_invoices.id')
-            ->limit(10)
+            ->limit(5)
             ->get([
                 'platform_invoices.uuid',
                 'platform_invoices.invoice_number',
@@ -279,7 +279,7 @@ class PlatformDashboardController extends BaseApiController
         return DB::table('monitoring_alerts')
             ->where('status', 'open')
             ->latest('id')
-            ->limit(20)
+            ->limit(5)
             ->get();
     }
 
@@ -289,7 +289,7 @@ class PlatformDashboardController extends BaseApiController
             ->leftJoin('tenants', 'tenants.id', '=', 'security_events.tenant_id')
             ->leftJoin('users', 'users.id', '=', 'security_events.user_id')
             ->latest('security_events.id')
-            ->limit(20)
+            ->limit(5)
             ->get([
                 'security_events.id',
                 'security_events.event',

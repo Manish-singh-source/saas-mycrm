@@ -19,13 +19,16 @@ use App\Http\Controllers\Tenant\TenantVendorController;
 use App\Http\Controllers\Shared\SharedPrimitiveController;
 use Illuminate\Support\Facades\Route;
 
+// Tenant surface health check for uptime and deployment validation.
 Route::get('/health', TenantHealthController::class)->name('health');
 
+// Password recovery before authentication, still scoped by tenant context.
 Route::middleware('tenant.context')->prefix('auth')->name('auth.')->group(function (): void {
     Route::post('/forgot-password', [TenantAuthController::class, 'forgotPassword'])->name('forgot-password');
     Route::post('/reset-password', [TenantAuthController::class, 'resetPassword'])->name('reset-password');
 });
 
+// All tenant-admin endpoints require tenant context and a valid Sanctum token.
 Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(function (): void {
     Route::prefix('auth')->name('auth.')->group(function (): void {
         Route::post('/logout', [TenantAuthController::class, 'logout'])->name('logout');
@@ -46,6 +49,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::delete('/profile/sessions/{session_id}', [TenantAuthController::class, 'revokeSession'])->whereNumber('session_id')->name('profile.sessions.revoke');
 
 
+    // Dashboard endpoints aligned with the phase-0 dashboard requirements.
     Route::get('/navigation/sidebar', [TenantDashboardController::class, 'sidebar'])->name('navigation.sidebar');
     Route::get('/dashboard/summary', [TenantDashboardController::class, 'summary'])->middleware('tenant.permission:dashboard.view')->name('dashboard.summary');
     Route::get('/dashboard/charts/{chart}', [TenantDashboardController::class, 'chart'])->middleware('tenant.permission:dashboard.view')->name('dashboard.charts');
@@ -53,7 +57,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::get('/dashboard/widgets', [TenantDashboardController::class, 'widgets'])->middleware('tenant.permission:dashboard.view')->name('dashboard.widgets');
     Route::put('/dashboard/widgets', [TenantDashboardController::class, 'updateWidgets'])->middleware('tenant.permission:dashboard.customize')->name('dashboard.widgets.update');
     Route::post('/dashboard/export', [TenantDashboardController::class, 'export'])->middleware('tenant.permission:dashboard.view')->name('dashboard.export');
-    Route::get('/dashboard/{widget}', [TenantDashboardController::class, 'table'])->whereIn('widget', ['my-tasks', 'upcoming-events', 'recent-leads', 'overdue-invoices'])->middleware('tenant.permission:dashboard.view')->name('dashboard.widgets.tables');
+    Route::get('/dashboard/{widget}', [TenantDashboardController::class, 'table'])->whereIn('widget', ['my-tasks', 'upcoming-events', 'recent-leads', 'overdue-invoices', 'recent-activities'])->middleware('tenant.permission:dashboard.view')->name('dashboard.widgets.tables');
     Route::prefix('access-control')->name('access-control.')->group(function (): void {
         Route::get('/roles', [TenantRoleController::class, 'index'])->middleware('tenant.permission:role.view')->name('roles.index');
         Route::post('/roles', [TenantRoleController::class, 'store'])->middleware('tenant.permission:role.create')->name('roles.store');
@@ -519,7 +523,6 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::post('/profile/api-tokens/{token_uuid}/rotate', [TenantApiTokenController::class, 'rotate'])->name('profile.api-tokens.rotate');
     Route::post('/profile/api-tokens/{token_uuid}/revoke', [TenantApiTokenController::class, 'revoke'])->name('profile.api-tokens.revoke');
 });
-
 
 
 
