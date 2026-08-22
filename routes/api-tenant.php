@@ -63,6 +63,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::prefix('access-control')->name('access-control.')->group(function (): void {
         Route::get('/roles', [TenantRoleController::class, 'index'])->middleware('tenant.permission:role.view')->name('roles.index');
         Route::post('/roles', [TenantRoleController::class, 'store'])->middleware('tenant.permission:role.create')->name('roles.store');
+        Route::delete('/roles/bulk', [TenantRoleController::class, 'bulkDestroy'])->middleware('tenant.permission:role.delete')->name('roles.bulk-destroy');
         Route::get('/roles/{role_uuid}', [TenantRoleController::class, 'show'])->middleware('tenant.permission:role.view')->name('roles.show');
         Route::match(['put', 'patch'], '/roles/{role_uuid}', [TenantRoleController::class, 'update'])->middleware('tenant.permission:role.edit')->name('roles.update');
         Route::delete('/roles/{role_uuid}', [TenantRoleController::class, 'destroy'])->middleware('tenant.permission:role.delete')->name('roles.destroy');
@@ -533,5 +534,6 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::post('/profile/api-tokens/{token_uuid}/rotate', [TenantApiTokenController::class, 'rotate'])->name('profile.api-tokens.rotate');
     Route::post('/profile/api-tokens/{token_uuid}/revoke', [TenantApiTokenController::class, 'revoke'])->name('profile.api-tokens.revoke');
 });
+
 
 
