@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Services\Tenant\TenantWorkspaceService;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class TenantDashboardController extends BaseTenantController
 {
@@ -26,23 +28,23 @@ class TenantDashboardController extends BaseTenantController
         ]]);
     }
 
-    public function summary(): JsonResponse
+    public function summary(Request $request): JsonResponse
     {
         return $this->success(['summary' => [
-            'leads' => $this->tenant->count('lead_profiles'),
-            'clients' => $this->tenant->count('client_profiles'),
-            'vendors' => $this->tenant->count('vendor_profiles'),
-            'active_projects' => $this->tenant->count('projects', ['status' => ['active', 'in_progress']]),
-            'open_tasks' => $this->tenant->count('tasks', ['status' => ['open', 'in_progress']]),
-            'open_support_issues' => $this->tenant->count('client_issues', ['status' => ['open', 'in_progress']]),
-            'staff_count' => $this->tenant->count('staff'),
+            'leads' => $this->dateCount('lead_profiles', $request),
+            'clients' => $this->dateCount('client_profiles', $request),
+            'vendors' => $this->dateCount('vendor_profiles', $request),
+            'active_projects' => $this->dateCount('projects', $request, ['status' => ['active', 'in_progress']]),
+            'open_tasks' => $this->dateCount('tasks', $request, ['status' => ['open', 'in_progress']]),
+            'open_support_issues' => $this->dateCount('client_issues', $request, ['status' => ['open', 'in_progress']]),
+            'staff_count' => $this->dateCount('staff', $request),
             'present_today' => $this->todayAttendanceCount(true),
             'absent_today' => max($this->tenant->count('staff', ['employment_status' => 'active']) - $this->todayAttendanceCount(true), 0),
-            'pending_leave_approvals' => $this->tenant->count('leave_requests'),
+            'pending_leave_approvals' => $this->dateCount('leave_requests', $request),
         ]]);
     }
 
-    public function chart(string $chart): JsonResponse
+    public function chart(Request $request, string $chart): JsonResponse
     {
         $map = [
             'leads-pipeline' => ['table' => 'lead_profiles', 'group' => 'stage_id'],
@@ -52,36 +54,39 @@ class TenantDashboardController extends BaseTenantController
             'support' => ['table' => 'client_issues', 'group' => 'status'],
             'revenue' => ['table' => 'tenant_payments', 'group' => 'created_at'],
         ];
+
         if (in_array($chart, ['revenue', 'payment-success-failure-trend'], true)) {
-            return $this->success(['chart' => ['code' => $chart, 'series' => $this->revenueSeries()]]);
+            return $this->success(['chart' => ['code' => $chart, 'series' => $this->revenueSeries($request)]]);
         }
+
         abort_unless(isset($map[$chart]), 404, 'Chart not found.');
 
-        return $this->success(['chart' => ['code' => $chart, 'series' => $this->groupedCount($map[$chart]['table'], $map[$chart]['group'])]]);
+        return $this->success(['chart' => ['code' => $chart, 'series' => $this->groupedCount($map[$chart]['table'], $map[$chart]['group'], $request)]]);
     }
 
-    public function table(string $widget): JsonResponse
+    public function table(Request $request, string $widget): JsonResponse
     {
         $data = match ($widget) {
-            'my-tasks' => $this->recentRows('tasks', ['uuid', 'title', 'status', 'priority', 'due_date'], 'due_date'),
-            'upcoming-events' => $this->recentRows('calendar_events', ['uuid', 'title', 'starts_at', 'ends_at'], 'starts_at'),
-            'recent-leads' => $this->recentRows('lead_profiles', ['uuid', 'lead_number', 'stage_id', 'expected_value'], 'id'),
-            'overdue-invoices' => $this->recentRows('tenant_invoices', ['uuid', 'invoice_number', 'due_date', 'balance_amount'], 'due_date'),
-            'recent-activities' => $this->recentRows('activity_logs', ['uuid', 'event', 'description', 'created_at'], 'created_at'),
+            'my-tasks' => $this->recentRows('tasks', ['uuid', 'title', 'status', 'priority', 'due_date'], 'due_date', $request),
+            'upcoming-events' => $this->recentRows('calendar_events', ['uuid', 'title', 'starts_at', 'ends_at'], 'starts_at', $request),
+            'recent-leads' => $this->recentRows('lead_profiles', ['uuid', 'lead_number', 'stage_id', 'expected_value'], 'id', $request),
+            'overdue-invoices' => $this->recentRows('tenant_invoices', ['uuid', 'invoice_number', 'due_date', 'balance_amount'], 'due_date', $request),
+            'recent-activities' => $this->recentRows('activity_logs', ['uuid', 'event', 'description', 'created_at'], 'created_at', $request),
             default => abort(404, 'Dashboard widget not found.'),
         };
 
         return $this->success([str_replace('-', '_', $widget) => $data]);
     }
 
-    public function recentActivities(): JsonResponse
+    public function recentActivities(Request $request): JsonResponse
     {
-        return $this->success(['activities' => DB::table('activity_logs')
+        $query = DB::table('activity_logs')
             ->leftJoin('users', 'users.id', '=', 'activity_logs.actor_user_id')
             ->where('activity_logs.tenant_id', app(\App\Tenancy\TenantContext::class)->id())
             ->orderByDesc('activity_logs.created_at')
-            ->limit(5)
-            ->get(['activity_logs.*', 'users.uuid as actor_uuid', 'users.display_name as actor_name'])]);
+            ->limit(5);
+
+        return $this->success(['activities' => $this->dateFiltered($query, $request, 'activity_logs.created_at')->get(['activity_logs.*', 'users.uuid as actor_uuid', 'users.display_name as actor_name'])]);
     }
 
     public function widgets(Request $request): JsonResponse
@@ -112,37 +117,88 @@ class TenantDashboardController extends BaseTenantController
         return $this->success(['job' => $this->tenant->createJob($request, 'export', 'dashboard', $request->all())], 'Dashboard export queued.', 202);
     }
 
-    private function groupedCount(string $table, string $group): array
+    private function dateCount(string $table, Request $request, array $filters = []): int
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable($table) || ! \Illuminate\Support\Facades\Schema::hasColumn($table, $group)) {
-            return [];
+        if (! Schema::hasTable($table)) {
+            return 0;
         }
 
-        return DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->selectRaw($group.' as label, count(*) as total')->groupBy($group)->orderBy($group)->get()->all();
+        $query = DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id());
+        foreach ($filters as $column => $value) {
+            is_array($value) ? $query->whereIn($column, $value) : $query->where($column, $value);
+        }
+
+        return (int) $this->dateFiltered($query, $request)->count();
     }
 
-    private function recentRows(string $table, array $columns, string $order): array
+    private function groupedCount(string $table, string $group, Request $request): array
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable($table)) {
+        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, $group)) {
             return [];
         }
-        $select = array_values(array_filter($columns, fn ($column) => \Illuminate\Support\Facades\Schema::hasColumn($table, $column)));
 
-        return DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->orderByDesc(\Illuminate\Support\Facades\Schema::hasColumn($table, $order) ? $order : 'id')->limit(5)->get($select ?: ['*'])->all();
+        $query = DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id());
+
+        return $this->dateFiltered($query, $request)->selectRaw($group.' as label, count(*) as total')->groupBy($group)->orderBy($group)->get()->all();
     }
 
-    private function revenueSeries(): array
+    private function recentRows(string $table, array $columns, string $order, Request $request): array
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('tenant_payments')) {
+        if (! Schema::hasTable($table)) {
             return [];
         }
 
-        return DB::table('tenant_payments')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as label, sum(amount) as total")->groupBy('label')->orderBy('label')->limit(12)->get()->all();
+        $select = array_values(array_filter($columns, fn ($column) => Schema::hasColumn($table, $column)));
+        $query = DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id());
+
+        return $this->dateFiltered($query, $request)
+            ->orderByDesc(Schema::hasColumn($table, $order) ? $order : 'id')
+            ->limit(5)
+            ->get($select ?: ['*'])
+            ->all();
+    }
+
+    private function revenueSeries(Request $request): array
+    {
+        if (! Schema::hasTable('tenant_payments')) {
+            return [];
+        }
+
+        $query = DB::table('tenant_payments')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id());
+
+        return $this->dateFiltered($query, $request)
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as label, sum(amount) as total")
+            ->groupBy('label')
+            ->orderBy('label')
+            ->limit(12)
+            ->get()
+            ->all();
+    }
+
+    private function dateFiltered(Builder $query, Request $request, string $column = 'created_at'): Builder
+    {
+        $from = $query->from;
+        $table = is_string($from) && ! str_contains($from, ' ') ? $from : null;
+        $plainColumn = str_contains($column, '.') ? substr($column, strrpos($column, '.') + 1) : $column;
+
+        if ($table && ! Schema::hasColumn($table, $plainColumn)) {
+            return $query;
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate($column, '>=', $request->input('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate($column, '<=', $request->input('date_to'));
+        }
+
+        return $query;
     }
 
     private function todayAttendanceCount(bool $present): int
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('attendance_records')) {
+        if (! Schema::hasTable('attendance_records')) {
             return 0;
         }
 
@@ -151,15 +207,15 @@ class TenantDashboardController extends BaseTenantController
 
     private function overdueTasksCount(): int
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('tasks')) {
+        if (! Schema::hasTable('tasks')) {
             return 0;
         }
 
         $query = DB::table('tasks')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id());
-        if (\Illuminate\Support\Facades\Schema::hasColumn('tasks', 'status')) {
+        if (Schema::hasColumn('tasks', 'status')) {
             $query->whereIn('status', ['open', 'in_progress']);
         }
-        if (\Illuminate\Support\Facades\Schema::hasColumn('tasks', 'due_date')) {
+        if (Schema::hasColumn('tasks', 'due_date')) {
             $query->whereDate('due_date', '<', now()->toDateString());
         }
 
@@ -168,7 +224,7 @@ class TenantDashboardController extends BaseTenantController
 
     private function unreadNotificationsCount(): int
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('notifications')) {
+        if (! Schema::hasTable('notifications')) {
             return 0;
         }
 
@@ -180,15 +236,15 @@ class TenantDashboardController extends BaseTenantController
 
     private function renewalsDueSoonCount(): int
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('renewals')) {
+        if (! Schema::hasTable('renewals')) {
             return 0;
         }
 
         $query = DB::table('renewals')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id());
-        if (\Illuminate\Support\Facades\Schema::hasColumn('renewals', 'renewal_date')) {
+        if (Schema::hasColumn('renewals', 'renewal_date')) {
             $query->whereBetween('renewal_date', [now()->toDateString(), now()->addDays(30)->toDateString()]);
         }
-        if (\Illuminate\Support\Facades\Schema::hasColumn('renewals', 'status')) {
+        if (Schema::hasColumn('renewals', 'status')) {
             $query->whereNotIn('status', ['cancelled', 'completed']);
         }
 
@@ -198,7 +254,7 @@ class TenantDashboardController extends BaseTenantController
     private function defaultWidgets(): array
     {
         return [
-            ['code' => 'my_tasks', 'position' => 1, 'visible' => true, 'settings' => ['limit' => 10]],
+            ['code' => 'my_tasks', 'position' => 1, 'visible' => true, 'settings' => ['limit' => 5]],
             ['code' => 'calendar', 'position' => 2, 'visible' => true],
             ['code' => 'notifications', 'position' => 3, 'visible' => true],
         ];

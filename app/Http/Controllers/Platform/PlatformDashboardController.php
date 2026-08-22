@@ -15,39 +15,49 @@ class PlatformDashboardController extends BaseApiController
 {
     public function __construct(private readonly PlatformAdminService $admin) {}
 
-    public function summary()
+    public function summary(Request $request)
     {
         $today = now()->startOfDay();
         $month = now()->startOfMonth();
 
+        $tenantQuery = $this->dateFiltered(DB::table('tenants')->whereNull('deleted_at'), $request, 'created_at');
+        $subscriptionQuery = $this->dateFiltered(DB::table('subscriptions')->whereNull('deleted_at'), $request, 'created_at');
+        $paymentQuery = $this->dateFiltered(DB::table('platform_payments'), $request, 'paid_at');
+        $invoiceQuery = $this->dateFiltered(DB::table('platform_invoices')->whereNull('deleted_at'), $request, 'due_date');
+        $incidentQuery = $this->dateFiltered(DB::table('system_incidents'), $request, 'created_at');
+        $queueJobQuery = $this->dateFiltered(DB::table('queue_job_logs'), $request, 'created_at');
+
+        $monthlyMrr = (clone $subscriptionQuery)->whereIn('status', ['active', 'trial'])->where('billing_cycle', 'monthly')->sum('payable_amount');
+        $overdueInvoices = (clone $invoiceQuery)->where(fn (Builder $query) => $query->where('status', 'overdue')->orWhere(fn (Builder $q) => $q->where('balance_amount', '>', 0)->whereDate('due_date', '<', now())));
+
         return $this->success([
             'tenants' => [
-                'total' => DB::table('tenants')->whereNull('deleted_at')->count(),
-                'active' => DB::table('tenants')->where('status', 'active')->whereNull('deleted_at')->count(),
-                'trial' => DB::table('tenants')->where('status', 'trial')->whereNull('deleted_at')->count(),
-                'suspended' => DB::table('tenants')->where('status', 'suspended')->whereNull('deleted_at')->count(),
-                'expired' => DB::table('tenants')->where('status', 'expired')->whereNull('deleted_at')->count(),
-                'new_today' => DB::table('tenants')->where('created_at', '>=', $today)->count(),
-                'new_this_week' => DB::table('tenants')->where('created_at', '>=', now()->startOfWeek())->count(),
-                'new_this_month' => DB::table('tenants')->where('created_at', '>=', $month)->count(),
+                'total' => (clone $tenantQuery)->count(),
+                'active' => (clone $tenantQuery)->where('status', 'active')->count(),
+                'trial' => (clone $tenantQuery)->where('status', 'trial')->count(),
+                'suspended' => (clone $tenantQuery)->where('status', 'suspended')->count(),
+                'expired' => (clone $tenantQuery)->where('status', 'expired')->count(),
+                'new_today' => DB::table('tenants')->whereNull('deleted_at')->where('created_at', '>=', $today)->count(),
+                'new_this_week' => DB::table('tenants')->whereNull('deleted_at')->where('created_at', '>=', now()->startOfWeek())->count(),
+                'new_this_month' => DB::table('tenants')->whereNull('deleted_at')->where('created_at', '>=', $month)->count(),
             ],
             'revenue' => [
-                'mrr' => (string) DB::table('subscriptions')->whereIn('status', ['active', 'trial'])->where('billing_cycle', 'monthly')->sum('payable_amount'),
-                'arr' => (string) (DB::table('subscriptions')->whereIn('status', ['active', 'trial'])->where('billing_cycle', 'monthly')->sum('payable_amount') * 12),
+                'mrr' => (string) $monthlyMrr,
+                'arr' => (string) ($monthlyMrr * 12),
                 'collected_today' => (string) DB::table('platform_payments')->whereIn('payment_status', ['paid', 'success', 'completed'])->where('paid_at', '>=', $today)->sum('amount'),
                 'collected_this_month' => (string) DB::table('platform_payments')->whereIn('payment_status', ['paid', 'success', 'completed'])->where('paid_at', '>=', $month)->sum('amount'),
                 'currency' => 'INR',
             ],
             'billing' => [
-                'overdue_invoice_count' => DB::table('platform_invoices')->whereNull('deleted_at')->where(fn (Builder $query) => $query->where('status', 'overdue')->orWhere(fn (Builder $q) => $q->where('balance_amount', '>', 0)->whereDate('due_date', '<', now())))->count(),
-                'overdue_balance' => (string) DB::table('platform_invoices')->whereNull('deleted_at')->where('balance_amount', '>', 0)->whereDate('due_date', '<', now())->sum('balance_amount'),
-                'failed_payment_count' => DB::table('platform_payments')->where('payment_status', 'failed')->count(),
+                'overdue_invoice_count' => (clone $overdueInvoices)->count(),
+                'overdue_balance' => (string) (clone $invoiceQuery)->where('balance_amount', '>', 0)->whereDate('due_date', '<', now())->sum('balance_amount'),
+                'failed_payment_count' => (clone $paymentQuery)->where('payment_status', 'failed')->count(),
             ],
             'operations' => [
-                'open_incidents' => DB::table('system_incidents')->whereNull('resolved_at')->count(),
-                'critical_security_events' => DB::table('security_events')->where('severity', 'critical')->where('created_at', '>=', now()->subDays(7))->count(),
-                'failed_queue_jobs' => DB::table('queue_job_logs')->where('status', 'failed')->count(),
-                'failed_scheduler_runs' => DB::table('scheduler_logs')->where('status', 'failed')->count(),
+                'open_incidents' => (clone $incidentQuery)->whereNull('resolved_at')->count(),
+                'critical_security_events' => $this->dateFiltered(DB::table('security_events')->where('severity', 'critical'), $request, 'created_at')->count(),
+                'failed_queue_jobs' => (clone $queueJobQuery)->where('status', 'failed')->count(),
+                'failed_scheduler_runs' => $this->dateFiltered(DB::table('scheduler_logs')->where('status', 'failed'), $request, 'created_at')->count(),
             ],
         ]);
     }
