@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Platform;
 
 use App\Services\Platform\PlatformBillingCatalogService;
+use App\Services\Shared\CrmMailerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -10,17 +11,17 @@ use Illuminate\Validation\Rule;
 
 class PlatformSubscriptionController extends BasePlatformController
 {
-    public function __construct(private readonly PlatformBillingCatalogService $billing) {}
+    public function __construct(private readonly PlatformBillingCatalogService $billing, private readonly CrmMailerService $mailer) {}
 
     public function index(Request $request)
     {
-        $q = DB::table('subscriptions')->whereNull('deleted_at');
+        $q = $this->subscriptionQuery()->whereNull('subscriptions.deleted_at');
         foreach (['status', 'type', 'billing_cycle', 'renewal_type'] as $filter) {
             if ($request->filled($filter)) $q->where($filter, $request->input($filter));
         }
-        if ($request->filled('tenant_uuid')) $q->where('tenant_id', $this->billing->tenantId((string) $request->input('tenant_uuid')));
-        if ($request->filled('plan_uuid')) $q->where('plan_id', $this->billing->byUuid('plans', (string) $request->input('plan_uuid'))->id);
-        $p = $q->latest('id')->paginate((int) $request->integer('per_page', 25));
+        if ($request->filled('tenant_uuid')) $q->where('subscriptions.tenant_id', $this->billing->tenantId((string) $request->input('tenant_uuid')));
+        if ($request->filled('plan_uuid')) $q->where('subscriptions.plan_id', $this->billing->byUuid('plans', (string) $request->input('plan_uuid'))->id);
+        $p = $q->latest('subscriptions.id')->paginate((int) $request->integer('per_page', 25));
         return $this->list($p->items(), $p);
     }
 
@@ -64,6 +65,7 @@ class PlatformSubscriptionController extends BasePlatformController
             $this->billing->writeSubscriptionVersion($request, $id, $plan->id, 1, 'created', $data['starts_at'] ?? null, $data['expires_at'] ?? null);
             $subscription = DB::table('subscriptions')->where('id', $id)->first();
             $this->billing->audit($request, 'subscription_created', 'subscriptions', $id, null, (array) $subscription);
+            $this->sendSubscriptionEmail($this->subscriptionQuery()->where('subscriptions.id', $id)->first(), 'Subscription created', 'Your subscription has been created.');
 
             return $this->success(['subscription' => $subscription], 'Subscription created.', 201);
         }));
@@ -94,6 +96,7 @@ class PlatformSubscriptionController extends BasePlatformController
             DB::table('subscriptions')->where('id', $subscription->id)->update([...$data, 'updated_by' => $request->user()?->id, 'updated_at' => now()]);
             $fresh = DB::table('subscriptions')->where('id', $subscription->id)->first();
             $this->billing->audit($request, 'subscription_updated', 'subscriptions', $subscription->id, (array) $subscription, (array) $fresh);
+            $this->sendSubscriptionEmail($this->subscriptionQuery()->where('subscriptions.id', $subscription->id)->first(), 'Subscription updated', 'Your subscription details have been updated.');
             return $this->success(['subscription' => $fresh], 'Subscription updated.');
         }));
     }
@@ -119,6 +122,7 @@ class PlatformSubscriptionController extends BasePlatformController
             DB::table('subscription_renewals')->insert(['subscription_id' => $subscription->id, 'old_expires_at' => $oldExpires, 'new_expires_at' => $data['renewal_expires_at'], 'amount' => $data['amount'] ?? $subscription->payable_amount, 'status' => 'completed', 'renewed_at' => now()]);
             $fresh = DB::table('subscriptions')->where('id', $subscription->id)->first();
             $this->billing->audit($request, 'subscription_renewed', 'subscriptions', $subscription->id, (array) $subscription, (array) $fresh, $data['notes'] ?? null);
+            $this->sendSubscriptionEmail($this->subscriptionQuery()->where('subscriptions.id', $subscription->id)->first(), 'Subscription renewed', 'Your subscription has been renewed.');
             return $this->success(['subscription' => $fresh], 'Subscription renewed.');
         }));
     }
@@ -249,6 +253,7 @@ class PlatformSubscriptionController extends BasePlatformController
             $this->billing->writeSubscriptionVersion($request, $subscription->id, $plan->id, $version, $event . ': ' . ($data['reason'] ?? 'plan change'), $data['effective_at'] ?? null);
             $fresh = DB::table('subscriptions')->where('id', $subscription->id)->first();
             $this->billing->audit($request, 'subscription_' . $event, 'subscriptions', $subscription->id, (array) $subscription, (array) $fresh, $data['reason'] ?? null);
+            $this->sendSubscriptionEmail($this->subscriptionQuery()->where('subscriptions.id', $subscription->id)->first(), 'Subscription ' . $event . ' completed', 'Your subscription plan change has been completed.');
             return $this->success(['subscription' => $fresh], 'Subscription ' . $event . ' completed.');
         }));
     }
@@ -261,10 +266,39 @@ class PlatformSubscriptionController extends BasePlatformController
             DB::table('subscriptions')->where('id', $subscription->id)->update([...$extra, 'status' => $status, 'updated_by' => $request->user()?->id, 'updated_at' => now()]);
             $fresh = DB::table('subscriptions')->where('id', $subscription->id)->first();
             $this->billing->audit($request, str_replace('.', '_', $operation), 'subscriptions', $subscription->id, (array) $subscription, (array) $fresh, $request->input('reason'));
+            $this->sendSubscriptionEmail($this->subscriptionQuery()->where('subscriptions.id', $subscription->id)->first(), 'Subscription status updated', 'Your subscription status is now ' . $status . '.');
             return $this->success(['subscription' => $fresh], 'Subscription status updated.');
         }));
     }
 
+
+    private function sendSubscriptionEmail(?object $subscription, string $subject, string $intro): bool
+    {
+        if (! $subscription) {
+            return false;
+        }
+
+        $tenantName = $subscription->tenant_name ?? $this->mailer->tenantName($subscription->tenant_id ?? null);
+
+        return $this->mailer->send(
+            $this->mailer->tenantRecipients($subscription->tenant_id ?? null),
+            $subject . ' - ' . ($subscription->subscription_number ?? 'Subscription'),
+            $subject,
+            $intro,
+            [
+                'Tenant' => $tenantName,
+                'Subscription' => $subscription->subscription_number ?? '-',
+                'Plan' => $subscription->plan_name ?? '-',
+                'Billing Cycle' => $subscription->billing_cycle ?? '-',
+                'Status' => $subscription->status ?? '-',
+                'Amount' => $this->mailer->money($subscription->payable_amount ?? 0, $subscription->currency ?? null),
+                'Starts At' => $subscription->starts_at ?? '-',
+                'Expires At' => $subscription->expires_at ?? '-',
+            ],
+            'View subscription',
+            rtrim((string) config('app.url'), '/')
+        );
+    }
     private function relations(object $subscription): array
     {
         $redemptions = DB::table('coupon_redemptions')
@@ -299,6 +333,13 @@ class PlatformSubscriptionController extends BasePlatformController
         ];
     }
 
+    private function subscriptionQuery()
+    {
+        return DB::table('subscriptions')
+            ->leftJoin('tenants', 'tenants.id', '=', 'subscriptions.tenant_id')
+            ->leftJoin('plans', 'plans.id', '=', 'subscriptions.plan_id')
+            ->select('subscriptions.*', 'tenants.uuid as tenant_uuid', 'tenants.organization_name as tenant_name', 'tenants.slug as tenant_slug', 'plans.uuid as plan_uuid', 'plans.name as plan_name', 'plans.code as plan_code');
+    }
     private function subscriptionData(Request $request): array
     {
         return $request->validate([
@@ -325,3 +366,4 @@ class PlatformSubscriptionController extends BasePlatformController
         ]);
     }
 }
+

@@ -17,8 +17,8 @@ class PlatformCouponController extends BasePlatformController
         $q = DB::table('coupons')->whereNull('deleted_at');
         foreach (['status', 'discount_type'] as $filter) if ($request->filled($filter)) $q->where($filter, $request->input($filter));
         if ($request->filled('search')) $q->where(fn($x) => $x->where('code', 'like', '%' . $request->string('search') . '%')->orWhere('name', 'like', '%' . $request->string('search') . '%'));
-        $p = $q->latest('id')->paginate((int) $request->integer('per_page', 25));
-        return $this->list($p->items(), $p);
+        $p = $q->latest('id')->paginate((int) $request->integer('per_page', 10));
+        return $this->list($p->items(), $p, 'Coupons fetched successfully.', ['stats' => $this->stats()]);
     }
 
     public function store(Request $request)
@@ -76,8 +76,8 @@ class PlatformCouponController extends BasePlatformController
     public function redemptions(Request $request, string $coupon_uuid)
     {
         $coupon = $this->billing->byUuid('coupons', $coupon_uuid);
-        $p = DB::table('coupon_redemptions')->where('coupon_id', $coupon->id)->latest('id')->paginate((int) $request->integer('per_page', 25));
-        return $this->list($p->items(), $p);
+        $p = $this->redemptionsQuery($coupon->id)->paginate((int) $request->integer('per_page', 10));
+        return $this->list($p->items(), $p, 'Coupon redemptions fetched successfully.');
     }
     public function plans(Request $request, string $coupon_uuid)
     {
@@ -97,6 +97,40 @@ class PlatformCouponController extends BasePlatformController
     {
         return $this->success(['export' => ['status' => 'queued', 'format' => 'csv']], 'Coupon export queued.');
     }
+
+    public function bulkDestroy(Request $request)
+    {
+        $data = $request->validate([
+            'coupon_uuids' => ['required', 'array', 'min:1'],
+            'coupon_uuids.*' => ['required', 'uuid'],
+        ]);
+
+        $coupons = DB::table('coupons')->whereIn('uuid', $data['coupon_uuids'])->whereNull('deleted_at')->get();
+        $usedIds = DB::table('coupon_redemptions')->whereIn('coupon_id', $coupons->pluck('id'))->pluck('coupon_id')->all();
+        $deleted = 0;
+        $archived = 0;
+
+        DB::transaction(function () use ($request, $coupons, $usedIds, &$deleted, &$archived): void {
+            foreach ($coupons as $coupon) {
+                $used = in_array($coupon->id, $usedIds, true);
+                DB::table('coupons')->where('id', $coupon->id)->update([
+                    'status' => 'archived',
+                    'deleted_at' => $used ? null : now(),
+                    'updated_at' => now(),
+                ]);
+                $this->billing->audit($request, $used ? 'coupon_archived' : 'coupon_deleted', 'coupons', $coupon->id, (array) $coupon, ['status' => 'archived']);
+                $used ? $archived++ : $deleted++;
+            }
+        });
+
+        return $this->success(['deleted' => $deleted, 'archived' => $archived], 'Coupon bulk delete completed.');
+    }
+
+    public function import()
+    {
+        return $this->success(['import' => ['status' => 'queued']], 'Coupon import queued.');
+    }
+
 
     private function status(Request $request, string $uuid, string $status)
     {
@@ -126,9 +160,32 @@ class PlatformCouponController extends BasePlatformController
     private function relations(int $couponId): array
     {
         return [
-            'plans' => DB::table('coupon_plan_assignments')->join('plans', 'plans.id', '=', 'coupon_plan_assignments.plan_id')->where('coupon_id', $couponId)->select('plans.uuid', 'plans.name', 'plans.code')->get(),
+            'plans' => DB::table('coupon_plan_assignments')->join('plans', 'plans.id', '=', 'coupon_plan_assignments.plan_id')->where('coupon_id', $couponId)->select('plans.uuid', 'plans.name', 'plans.code', 'plans.status')->get(),
             'tenants' => DB::table('coupon_tenant_assignments')->join('tenants', 'tenants.id', '=', 'coupon_tenant_assignments.tenant_id')->where('coupon_id', $couponId)->select('tenants.uuid', 'tenants.organization_name', 'tenants.slug')->get(),
-            'redemptions' => DB::table('coupon_redemptions')->where('coupon_id', $couponId)->latest('id')->limit(25)->get(),
+            'redemptions' => $this->redemptionsQuery($couponId)->limit(25)->get(),
+            'payments' => DB::table('coupon_redemptions')->join('platform_invoices', 'platform_invoices.id', '=', 'coupon_redemptions.platform_invoice_id')->leftJoin('platform_payments', 'platform_payments.platform_invoice_id', '=', 'platform_invoices.id')->where('coupon_redemptions.coupon_id', $couponId)->select('platform_payments.uuid', 'platform_payments.payment_number', 'platform_payments.amount', 'platform_payments.currency', 'platform_payments.payment_status', 'platform_payments.paid_at', 'platform_invoices.invoice_number')->latest('platform_payments.id')->limit(25)->get(),
+            'activity' => DB::table('activity_logs')->where('subject_type', 'coupons')->where('subject_id', $couponId)->latest('id')->limit(25)->get(),
+        ];
+    }
+
+    private function redemptionsQuery(int $couponId)
+    {
+        return DB::table('coupon_redemptions')
+            ->leftJoin('tenants', 'tenants.id', '=', 'coupon_redemptions.tenant_id')
+            ->leftJoin('subscriptions', 'subscriptions.id', '=', 'coupon_redemptions.subscription_id')
+            ->leftJoin('platform_invoices', 'platform_invoices.id', '=', 'coupon_redemptions.platform_invoice_id')
+            ->where('coupon_redemptions.coupon_id', $couponId)
+            ->select('coupon_redemptions.*', 'tenants.organization_name', 'tenants.slug', 'subscriptions.subscription_number', 'platform_invoices.invoice_number')
+            ->latest('coupon_redemptions.id');
+    }
+
+    private function stats(): array
+    {
+        return [
+            'total' => DB::table('coupons')->whereNull('deleted_at')->count(),
+            'amount' => (float) DB::table('coupon_redemptions')->sum('discount_amount'),
+            'active_success' => DB::table('coupons')->whereNull('deleted_at')->where('status', 'active')->count(),
+            'failed_cancelled' => DB::table('coupons')->whereIn('status', ['failed', 'cancelled', 'canceled', 'archived', 'inactive'])->count(),
         ];
     }
 

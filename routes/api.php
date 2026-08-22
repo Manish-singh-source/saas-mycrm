@@ -22,6 +22,7 @@ Route::prefix('common/v1')
 Route::prefix('auth/v1')
     ->as('api.auth.v1.')
     ->group(function (): void {
+        Route::get('/tenants/plans', [TenantRegistrationController::class, 'plans'])->name('tenants.plans');
         Route::post('/tenants/register', [TenantRegistrationController::class, 'store'])->name('tenants.register');
         Route::post('/accounts/discover', [UnifiedAuthController::class, 'discover'])->name('accounts.discover');
         Route::post('/accounts/login', [UnifiedAuthController::class, 'login'])->name('accounts.login');

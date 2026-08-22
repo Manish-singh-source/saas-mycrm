@@ -6,19 +6,33 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Shared\AuthAuditService;
+use App\Services\Shared\CrmMailerService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 class TenantRegistrationController extends Controller
 {
-    public function __construct(private readonly AuthAuditService $audit) {}
+    public function __construct(private readonly AuthAuditService $audit, private readonly CrmMailerService $mailer) {}
 
+    public function plans(): JsonResponse
+    {
+        $plans = DB::table('plans')
+            ->where('status', 'active')
+            ->where('is_public', true)
+            ->whereNull('deleted_at')
+            ->orderBy('base_price')
+            ->get(['uuid', 'name', 'code', 'billing_cycle', 'base_price', 'currency', 'trial_days', 'description']);
+
+        return ApiResponse::success(['plans' => $plans], 'Public plans fetched successfully.');
+    }
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -51,6 +65,15 @@ class TenantRegistrationController extends Controller
             'office.city_id' => ['nullable', 'integer', 'exists:cities,id'],
             'office.postal_code' => ['nullable', 'string', 'max:20'],
             'office.contact_phone' => ['nullable', 'string', 'max:20'],
+            'plan_uuid' => [
+                'nullable',
+                'uuid',
+                Rule::exists('plans', 'uuid')->where(fn ($query) => $query->where('status', 'active')->where('is_public', true)),
+            ],
+            'trial_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'subscription.type' => ['nullable', 'string', 'max:50'],
+            'subscription.billing_cycle' => ['nullable', 'string', 'max:50'],
+            'payment.method' => ['nullable', Rule::in(['online', 'cash', 'free'])],
         ]);
 
         $email = Str::lower($data['owner']['email']);
@@ -73,7 +96,7 @@ class TenantRegistrationController extends Controller
                 'default_currency' => strtoupper($data['default_currency'] ?? 'INR'),
                 'default_timezone' => $data['default_timezone'] ?? 'Asia/Kolkata',
                 'onboarded_at' => now(),
-                'trial_ends_at' => now()->addDays(14),
+                'trial_ends_at' => now()->addDays((int) ($data['trial_days'] ?? 15)),
                 'status' => 'trial',
             ]);
 
@@ -96,8 +119,12 @@ class TenantRegistrationController extends Controller
             ]);
 
             $this->assignOwnerRole($tenant, $owner);
+            $subscription = $this->createInitialSubscription($request, $tenant, $data);
+            $invoice = $this->createRegistrationInvoice($tenant, $subscription);
+            $paymentOrder = $this->createRegistrationPayment($tenant, $subscription, $invoice, $data);
             $token = $owner->createToken('tenant-registration', ['tenant:'.$tenant->uuid], now()->addHours(12));
             $this->audit->log($request, 'tenant_registered', tenantUser: $owner, metadata: ['tenant_uuid' => $tenant->uuid, 'tenant_slug' => $tenant->slug]);
+            $this->sendRegistrationEmail($owner, $tenant, $subscription, $invoice['invoice'] ?? null, $paymentOrder['payment'] ?? null);
 
             return ApiResponse::success([
                 'access_token' => $token->plainTextToken,
@@ -105,13 +132,209 @@ class TenantRegistrationController extends Controller
                 'expires_at' => optional($token->accessToken->expires_at)->toISOString(),
                 'tenant' => $tenant->only(['uuid', 'organization_name', 'display_name', 'organization_code', 'slug', 'default_currency', 'default_timezone', 'status', 'trial_ends_at']),
                 'owner' => $owner->only(['uuid', 'display_name', 'email', 'mobile', 'account_type', 'status']),
+                'subscription' => $subscription,
+                'invoice' => $invoice['invoice'] ?? null,
+                'invoice_items' => $invoice['items'] ?? [],
+                'payment_order' => $paymentOrder['order'] ?? null,
+                'payment' => $paymentOrder['payment'] ?? null,
+                'razorpay_key' => $paymentOrder['key'] ?? null,
                 'roles' => ['owner'],
                 'permissions' => DB::table('permissions')->where('guard_name', 'tenant')->pluck('name')->all(),
             ], 'Tenant registered.', Response::HTTP_CREATED);
         });
     }
 
-    private function createHeadOffice(Tenant $tenant, array $office, array $owner): int
+    private function createInitialSubscription(Request $request, Tenant $tenant, array $data): ?object
+    {
+        $plan = ! empty($data['plan_uuid'])
+            ? DB::table('plans')->where('uuid', $data['plan_uuid'])->first()
+            : DB::table('plans')->where('status', 'active')->where('is_public', true)->orderBy('base_price')->first();
+
+        if (! $plan) {
+            return null;
+        }
+
+        $type = $data['subscription']['type'] ?? (((float) $plan->base_price) > 0 ? 'trial' : 'free');
+        $billingCycle = $data['subscription']['billing_cycle'] ?? $plan->billing_cycle;
+        $trialDays = (int) ($data['trial_days'] ?? $plan->trial_days ?? 15);
+        $subscriptionId = DB::table('subscriptions')->insertGetId([
+            'uuid' => (string) Str::uuid(),
+            'subscription_number' => 'SUB-' . Str::upper(Str::random(10)),
+            'tenant_id' => $tenant->id,
+            'plan_id' => $plan->id,
+            'type' => $type,
+            'billing_cycle' => $billingCycle,
+            'status' => $type === 'paid' ? 'pending_payment' : 'trial',
+            'renewal_type' => 'manual',
+            'starts_at' => now(),
+            'trial_starts_at' => now(),
+            'trial_ends_at' => now()->addDays($trialDays),
+            'base_amount' => $plan->base_price,
+            'taxable_amount' => $plan->base_price,
+            'payable_amount' => $plan->base_price,
+            'currency' => $plan->currency,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('subscription_versions')->insert(['subscription_id' => $subscriptionId, 'version' => 1, 'plan_id' => $plan->id, 'billing_cycle' => $billingCycle, 'starts_at' => now(), 'pricing_snapshot' => json_encode((array) $plan), 'created_at' => now()]);
+
+        return DB::table('subscriptions')->where('id', $subscriptionId)->first();
+    }
+    private function createRegistrationInvoice(Tenant $tenant, ?object $subscription): ?array
+    {
+        if (! $subscription) {
+            return null;
+        }
+
+        $amount = (float) $subscription->payable_amount;
+        $currency = $subscription->currency ?? $tenant->default_currency ?? 'INR';
+        $invoiceId = DB::table('platform_invoices')->insertGetId([
+            'uuid' => (string) Str::uuid(),
+            'invoice_number' => 'INV-' . Str::upper(Str::random(10)),
+            'tenant_id' => $tenant->id,
+            'subscription_id' => $subscription->id,
+            'invoice_date' => now()->toDateString(),
+            'due_date' => $amount > 0 ? now()->addDays(7)->toDateString() : now()->toDateString(),
+            'subtotal' => $subscription->base_amount,
+            'discount_amount' => $subscription->discount_amount ?? 0,
+            'taxable_amount' => $subscription->taxable_amount,
+            'tax_amount' => $subscription->tax_amount ?? 0,
+            'total_amount' => $amount,
+            'paid_amount' => $amount <= 0 ? 0 : 0,
+            'balance_amount' => $amount,
+            'currency' => $currency,
+            'status' => $amount <= 0 ? 'paid' : 'sent',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('platform_invoice_items')->insert([
+            'platform_invoice_id' => $invoiceId,
+            'item_type' => 'subscription',
+            'description' => 'Initial subscription charge for ' . $subscription->subscription_number,
+            'quantity' => 1,
+            'unit_price' => $subscription->base_amount,
+            'amount' => $subscription->base_amount,
+            'metadata' => json_encode([
+                'subscription_uuid' => $subscription->uuid,
+                'billing_cycle' => $subscription->billing_cycle,
+            ]),
+        ]);
+
+        DB::table('subscriptions')->where('id', $subscription->id)->update([
+            'last_platform_invoice_id' => $invoiceId,
+            'updated_at' => now(),
+        ]);
+
+        return [
+            'invoice' => DB::table('platform_invoices')->where('id', $invoiceId)->first(),
+            'items' => DB::table('platform_invoice_items')->where('platform_invoice_id', $invoiceId)->get(),
+        ];
+    }
+
+    private function createRegistrationPayment(Tenant $tenant, ?object $subscription, ?array $invoice, array $data): ?array
+    {
+        if (! $subscription || ! ($invoice['invoice'] ?? null)) {
+            return null;
+        }
+
+        $method = $data['payment']['method'] ?? 'free';
+        $amount = (float) $subscription->payable_amount;
+        $invoiceRow = $invoice['invoice'];
+
+        if ($method !== 'online' || $amount <= 0) {
+            $payment = $this->createRegistrationPaymentRecord($tenant, $subscription, $invoiceRow, [
+                'gateway' => $method === 'cash' ? 'cash' : null,
+                'gateway_payment_id' => null,
+                'payment_method' => $method,
+                'amount' => $amount,
+                'payment_status' => $amount <= 0 ? 'paid' : 'pending',
+                'paid_at' => $amount <= 0 ? now() : null,
+                'raw_response' => ['source' => 'tenant_registration', 'method' => $method],
+            ]);
+
+            if ($amount <= 0) {
+                DB::table('platform_invoices')->where('id', $invoiceRow->id)->update([
+                    'paid_amount' => 0,
+                    'balance_amount' => 0,
+                    'status' => 'paid',
+                    'updated_at' => now(),
+                ]);
+            }
+
+            return ['payment' => $payment];
+        }
+
+        $key = env('RAZORPAY_KEY_ID');
+        $secret = env('RAZORPAY_KEY_SECRET');
+        if (! $key || ! $secret) {
+            throw ValidationException::withMessages([
+                'payment.method' => 'Razorpay is not configured for online registration payments.',
+            ]);
+        }
+
+        $orderResponse = Http::withBasicAuth($key, $secret)->post('https://api.razorpay.com/v1/orders', [
+            'amount' => (int) round($amount * 100),
+            'currency' => $subscription->currency ?? $tenant->default_currency ?? 'INR',
+            'receipt' => 'reg-'.$tenant->id.'-'.Str::lower(Str::random(8)),
+            'notes' => [
+                'tenant_uuid' => $tenant->uuid,
+                'subscription_uuid' => $subscription->uuid,
+                'invoice_uuid' => $invoiceRow->uuid,
+            ],
+        ]);
+
+        if (! $orderResponse->successful()) {
+            throw ValidationException::withMessages([
+                'payment.method' => 'Unable to initialize Razorpay payment. Please try again.',
+            ]);
+        }
+
+        $order = $orderResponse->json();
+        $payment = $this->createRegistrationPaymentRecord($tenant, $subscription, $invoiceRow, [
+            'gateway' => 'razorpay',
+            'gateway_payment_id' => $order['id'] ?? null,
+            'payment_method' => 'online',
+            'amount' => $amount,
+            'payment_status' => 'pending',
+            'paid_at' => null,
+            'raw_response' => $order,
+        ]);
+
+        return [
+            'key' => $key,
+            'order' => $order,
+            'payment' => $payment,
+        ];
+    }
+
+    private function createRegistrationPaymentRecord(Tenant $tenant, object $subscription, object $invoice, array $payment): object
+    {
+        $paymentId = DB::table('platform_payments')->insertGetId([
+            'uuid' => (string) Str::uuid(),
+            'payment_number' => 'PAY-' . Str::upper(Str::random(10)),
+            'tenant_id' => $tenant->id,
+            'platform_invoice_id' => $invoice->id,
+            'subscription_id' => $subscription->id,
+            'gateway' => $payment['gateway'],
+            'gateway_payment_id' => $payment['gateway_payment_id'],
+            'payment_method' => $payment['payment_method'],
+            'amount' => $payment['amount'],
+            'currency' => $subscription->currency ?? $tenant->default_currency ?? 'INR',
+            'payment_status' => $payment['payment_status'],
+            'paid_at' => $payment['paid_at'],
+            'raw_response' => json_encode($payment['raw_response']),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('subscriptions')->where('id', $subscription->id)->update([
+            'last_platform_payment_id' => $paymentId,
+            'updated_at' => now(),
+        ]);
+
+        return DB::table('platform_payments')->where('id', $paymentId)->first();
+    }    private function createHeadOffice(Tenant $tenant, array $office, array $owner): int
     {
         return (int) DB::table('tenant_offices')->insertGetId([
             'uuid' => (string) Str::uuid(),
@@ -187,3 +410,10 @@ class TenantRegistrationController extends Controller
         return $code;
     }
 }
+
+
+
+
+
+
+

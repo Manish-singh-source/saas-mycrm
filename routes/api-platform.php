@@ -115,6 +115,8 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::post('/tenants', [PlatformTenantController::class, 'store'])->middleware('platform.permission:tenant.create')->name('tenants.store');
     Route::get('/tenants/{tenant_uuid}', [PlatformTenantController::class, 'show'])->middleware('platform.permission:tenant.view')->name('tenants.show');
     Route::match(['put', 'patch'], '/tenants/{tenant_uuid}', [PlatformTenantController::class, 'update'])->middleware('platform.permission:tenant.edit')->name('tenants.update');
+    // Tenants: lifecycle CRUD, bulk actions, subscription plan changes, payments, and support access.
+    Route::delete('/tenants/bulk', [PlatformTenantController::class, 'bulkDelete'])->middleware('platform.permission:tenant.delete')->name('tenants.bulk-destroy');
     Route::delete('/tenants/{tenant_uuid}', [PlatformTenantController::class, 'destroy'])->middleware('platform.permission:tenant.delete')->name('tenants.destroy');
     Route::post('/tenants/{tenant_uuid}/restore', [PlatformTenantController::class, 'restore'])->middleware('platform.permission:tenant.edit')->name('tenants.restore');
     Route::post('/tenants/{tenant_uuid}/activate', [PlatformTenantController::class, 'activate'])->middleware('platform.permission:tenant.activate')->name('tenants.activate');
@@ -122,6 +124,9 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::post('/tenants/{tenant_uuid}/reactivate', [PlatformTenantController::class, 'reactivate'])->middleware('platform.permission:tenant.activate')->name('tenants.reactivate');
     Route::post('/tenants/{tenant_uuid}/archive', [PlatformTenantController::class, 'archive'])->middleware('platform.permission:tenant.delete')->name('tenants.archive');
     Route::post('/tenants/{tenant_uuid}/extend-trial', [PlatformTenantController::class, 'extendTrial'])->middleware('platform.permission:subscription.edit')->name('tenants.extend-trial');
+    Route::post('/tenants/{tenant_uuid}/change-plan', [PlatformTenantController::class, 'changePlan'])->middleware('platform.permission:subscription.edit')->name('tenants.change-plan');
+    Route::post('/tenants/{tenant_uuid}/reset-owner-password', [PlatformTenantController::class, 'resetOwnerPassword'])->middleware('platform.permission:tenant.edit')->name('tenants.reset-owner-password');
+    Route::post('/tenants/{tenant_uuid}/payment-order', [PlatformTenantController::class, 'paymentOrder'])->middleware('platform.permission:billing.payment.create')->name('tenants.payment-order');
     Route::post('/tenants/{tenant_uuid}/impersonate', [PlatformTenantController::class, 'remoteLogin'])->middleware('platform.permission:tenant.impersonate')->name('tenants.impersonate');
     Route::delete('/tenants/{tenant_uuid}/impersonate/{session_uuid}', [PlatformTenantController::class, 'endRemoteLogin'])->middleware('platform.permission:tenant.impersonate')->name('tenants.impersonate.end');
     Route::get('/tenants/{tenant_uuid}/{tab}', [PlatformTenantController::class, 'tab'])->whereIn('tab', ['users','offices','subscription','billing','usage','modules','settings','integrations','security','support','files','activity'])->middleware('platform.permission:tenant.view')->name('tenants.tab');
@@ -146,23 +151,38 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::post('/subscriptions/{subscription_uuid}/invoice', [PlatformSubscriptionController::class, 'createInvoice'])->middleware('platform.permission:billing.invoice.create')->name('subscriptions.invoice');
     Route::get('/subscriptions/{subscription_uuid}/history', [PlatformSubscriptionController::class, 'history'])->middleware('platform.permission:subscription.view')->name('subscriptions.history');
 
+    // Plans: subscription plan CRUD, lifecycle, import/export, bulk actions, features, add-ons, and subscriptions.
     Route::get('/plans', [PlatformCatalogController::class, 'plans'])->middleware('platform.permission:plan.view')->name('plans.index');
     Route::post('/plans', [PlatformCatalogController::class, 'storePlan'])->middleware('platform.permission:plan.create')->name('plans.store');
     Route::post('/plans/export', [PlatformCatalogController::class, 'exportPlans'])->middleware('platform.permission:plan.view')->name('plans.export');
+    Route::post('/plans/import', [PlatformCatalogController::class, 'importPlans'])->middleware('platform.permission:plan.create')->name('plans.import');
+    Route::delete('/plans/bulk', [PlatformCatalogController::class, 'bulkDeletePlans'])->middleware('platform.permission:plan.delete')->name('plans.bulk-destroy');
     Route::get('/plans/{plan_uuid}', [PlatformCatalogController::class, 'showPlan'])->middleware('platform.permission:plan.view')->name('plans.show');
     Route::match(['put', 'patch'], '/plans/{plan_uuid}', [PlatformCatalogController::class, 'updatePlan'])->middleware('platform.permission:plan.edit')->name('plans.update');
     Route::delete('/plans/{plan_uuid}', [PlatformCatalogController::class, 'deletePlan'])->middleware('platform.permission:plan.delete')->name('plans.destroy');
     Route::post('/plans/{plan_uuid}/clone', [PlatformCatalogController::class, 'clonePlan'])->middleware('platform.permission:plan.create')->name('plans.clone');
+    Route::post('/plans/{plan_uuid}/activate', [PlatformCatalogController::class, 'activatePlan'])->middleware('platform.permission:plan.edit')->name('plans.activate');
+    Route::post('/plans/{plan_uuid}/deactivate', [PlatformCatalogController::class, 'deactivatePlan'])->middleware('platform.permission:plan.edit')->name('plans.deactivate');
     Route::get('/plans/{plan_uuid}/features', [PlatformCatalogController::class, 'planFeatures'])->middleware('platform.permission:plan.view')->name('plans.features');
     Route::put('/plans/{plan_uuid}/features', [PlatformCatalogController::class, 'replacePlanFeatures'])->middleware('platform.permission:plan.edit')->name('plans.features.update');
+    Route::get('/plans/{plan_uuid}/addons', [PlatformCatalogController::class, 'planAddons'])->middleware('platform.permission:plan.view')->name('plans.addons');
+    Route::put('/plans/{plan_uuid}/addons', [PlatformCatalogController::class, 'replacePlanAddons'])->middleware('platform.permission:plan.edit')->name('plans.addons.update');
     Route::get('/plans/{plan_uuid}/subscriptions', [PlatformCatalogController::class, 'planSubscriptions'])->middleware('platform.permission:plan.view')->name('plans.subscriptions');
+    // Features: platform catalog CRUD, import/export, bulk deletion, and detail relations.
     Route::get('/features', [PlatformCatalogController::class, 'features'])->middleware('platform.permission:feature.view')->name('features.index');
     Route::post('/features', [PlatformCatalogController::class, 'storeFeature'])->middleware('platform.permission:feature.create')->name('features.store');
+    Route::post('/features/export', [PlatformCatalogController::class, 'exportFeatures'])->middleware('platform.permission:feature.view')->name('features.export');
+    Route::post('/features/import', [PlatformCatalogController::class, 'importFeatures'])->middleware('platform.permission:feature.create')->name('features.import');
+    Route::delete('/features/bulk', [PlatformCatalogController::class, 'bulkDeleteFeatures'])->middleware('platform.permission:feature.delete')->name('features.bulk-destroy');
     Route::get('/features/{feature_uuid}', [PlatformCatalogController::class, 'showFeature'])->middleware('platform.permission:feature.view')->name('features.show');
     Route::match(['put', 'patch'], '/features/{feature_uuid}', [PlatformCatalogController::class, 'updateFeature'])->middleware('platform.permission:feature.edit')->name('features.update');
     Route::delete('/features/{feature_uuid}', [PlatformCatalogController::class, 'deleteFeature'])->middleware('platform.permission:feature.delete')->name('features.destroy');
+    // Add-ons: platform catalog CRUD, import/export and bulk deletion.
     Route::get('/addons', [PlatformCatalogController::class, 'addons'])->middleware('platform.permission:plan.view')->name('addons.index');
     Route::post('/addons', [PlatformCatalogController::class, 'storeAddon'])->middleware('platform.permission:plan.create')->name('addons.store');
+    Route::post('/addons/export', [PlatformCatalogController::class, 'exportAddons'])->middleware('platform.permission:plan.view')->name('addons.export');
+    Route::post('/addons/import', [PlatformCatalogController::class, 'importAddons'])->middleware('platform.permission:plan.create')->name('addons.import');
+    Route::delete('/addons/bulk', [PlatformCatalogController::class, 'bulkDeleteAddons'])->middleware('platform.permission:plan.delete')->name('addons.bulk-destroy');
     Route::get('/addons/{addon_uuid}', [PlatformCatalogController::class, 'showAddon'])->middleware('platform.permission:plan.view')->name('addons.show');
     Route::match(['put', 'patch'], '/addons/{addon_uuid}', [PlatformCatalogController::class, 'updateAddon'])->middleware('platform.permission:plan.edit')->name('addons.update');
     Route::delete('/addons/{addon_uuid}', [PlatformCatalogController::class, 'deleteAddon'])->middleware('platform.permission:plan.delete')->name('addons.destroy');
@@ -189,9 +209,12 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::get('/billing/refunds/{refund_uuid}', [PlatformBillingController::class, 'showRefund'])->middleware('platform.permission:billing.payment.view')->name('billing.refunds.show');
     Route::post('/billing/refunds/{refund_uuid}/retry', [PlatformBillingController::class, 'retryRefund'])->middleware('platform.permission:billing.payment.refund')->name('billing.refunds.retry');
 
+    // Coupons: billing coupon CRUD, assignments, lifecycle, import/export, and bulk actions.
     Route::get('/coupons', [PlatformCouponController::class, 'index'])->middleware('platform.permission:coupon.view')->name('coupons.index');
     Route::post('/coupons', [PlatformCouponController::class, 'store'])->middleware('platform.permission:coupon.create')->name('coupons.store');
     Route::post('/coupons/export', [PlatformCouponController::class, 'export'])->middleware('platform.permission:coupon.view')->name('coupons.export');
+    Route::post('/coupons/import', [PlatformCouponController::class, 'import'])->middleware('platform.permission:coupon.create')->name('coupons.import');
+    Route::delete('/coupons/bulk', [PlatformCouponController::class, 'bulkDestroy'])->middleware('platform.permission:coupon.delete')->name('coupons.bulk-destroy');
     Route::get('/coupons/{coupon_uuid}', [PlatformCouponController::class, 'show'])->middleware('platform.permission:coupon.view')->name('coupons.show');
     Route::match(['put', 'patch'], '/coupons/{coupon_uuid}', [PlatformCouponController::class, 'update'])->middleware('platform.permission:coupon.edit')->name('coupons.update');
     Route::delete('/coupons/{coupon_uuid}', [PlatformCouponController::class, 'destroy'])->middleware('platform.permission:coupon.delete')->name('coupons.destroy');
@@ -201,10 +224,15 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::put('/coupons/{coupon_uuid}/plans', [PlatformCouponController::class, 'plans'])->middleware('platform.permission:coupon.edit')->name('coupons.plans');
     Route::put('/coupons/{coupon_uuid}/tenants', [PlatformCouponController::class, 'tenants'])->middleware('platform.permission:coupon.edit')->name('coupons.tenants');
 
+    // Modules: registry CRUD, feature assignments, exports/imports, and bulk actions.
     Route::get('/modules', [PlatformModuleController::class, 'index'])->middleware('platform.permission:module.view')->name('modules.index');
     Route::post('/modules', [PlatformModuleController::class, 'store'])->middleware('platform.permission:module.edit')->name('modules.store');
+    Route::post('/modules/export', [PlatformModuleController::class, 'export'])->middleware('platform.permission:module.view')->name('modules.export');
+    Route::post('/modules/import', [PlatformModuleController::class, 'import'])->middleware('platform.permission:module.edit')->name('modules.import');
+    Route::delete('/modules/bulk', [PlatformModuleController::class, 'bulkDestroy'])->middleware('platform.permission:module.edit')->name('modules.bulk-destroy');
     Route::get('/modules/{module_uuid}', [PlatformModuleController::class, 'show'])->middleware('platform.permission:module.view')->name('modules.show');
     Route::match(['put', 'patch'], '/modules/{module_uuid}', [PlatformModuleController::class, 'update'])->middleware('platform.permission:module.edit')->name('modules.update');
+    Route::delete('/modules/{module_uuid}', [PlatformModuleController::class, 'destroy'])->middleware('platform.permission:module.edit')->name('modules.destroy');
     Route::post('/modules/{module_uuid}/enable', [PlatformModuleController::class, 'enable'])->middleware('platform.permission:module.edit')->name('modules.enable');
     Route::post('/modules/{module_uuid}/disable', [PlatformModuleController::class, 'disable'])->middleware('platform.permission:module.edit')->name('modules.disable');
     Route::get('/modules/{module_uuid}/features', [PlatformModuleController::class, 'features'])->middleware('platform.permission:module.view')->name('modules.features');
@@ -381,4 +409,5 @@ Route::middleware(['auth:sanctum', 'platform.token'])->group(function (): void {
     Route::post('/api-tokens/{token_uuid}/rotate', [PlatformApiTokenController::class, 'rotate'])->name('api-tokens.rotate');
     Route::post('/api-tokens/{token_uuid}/revoke', [PlatformApiTokenController::class, 'revoke'])->name('api-tokens.revoke');
 });
+
 

@@ -15,10 +15,11 @@ class PlatformModuleController extends BasePlatformController
     public function index(Request $request)
     {
         $q = DB::table('modules');
+        if ($request->filled('search')) $q->where(fn ($x) => $x->where('name', 'like', '%' . $request->string('search') . '%')->orWhere('code', 'like', '%' . $request->string('search') . '%'));
         if ($request->filled('status')) $q->where('status', $request->input('status'));
         if ($request->filled('category')) $q->where('category', $request->input('category'));
-        $p = $q->orderBy('sort_order')->orderBy('name')->paginate((int) $request->integer('per_page', 25));
-        return $this->list($p->items(), $p, 'OK', ['feature_modules' => DB::table('features')->select('module')->distinct()->orderBy('module')->pluck('module')]);
+        $p = $q->orderBy('sort_order')->orderBy('name')->paginate((int) $request->integer('per_page', 10));
+        return $this->list($p->items(), $p, 'Modules fetched successfully.', ['feature_modules' => DB::table('features')->select('module')->distinct()->orderBy('module')->pluck('module'), 'stats' => $this->moduleStats()]);
     }
 
     public function store(Request $request)
@@ -46,6 +47,67 @@ class PlatformModuleController extends BasePlatformController
         return $this->success(['module' => $fresh], 'Module updated.');
     }
 
+    public function destroy(Request $request, string $module_uuid)
+    {
+        $module = $this->billing->byUuid('modules', $module_uuid);
+        $blocked = (bool) $module->is_core
+            || DB::table('features')->where('module', $module->code)->exists()
+            || DB::table('tenant_module_overrides')->where('module_code', $module->code)->exists();
+
+        if ($blocked) {
+            return ApiResponse::businessError(
+                'This module is core or has related features/tenant overrides and cannot be deleted.',
+                'MODULE_IN_USE',
+                409
+            );
+        }
+
+        DB::table('modules')->where('id', $module->id)->delete();
+        $this->billing->audit($request, 'module_deleted', 'modules', $module->id, (array) $module, null);
+
+        return $this->success(null, 'Module deleted.');
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $data = $request->validate([
+            'module_uuids' => ['required', 'array', 'min:1'],
+            'module_uuids.*' => ['required', 'uuid'],
+        ]);
+        $modules = DB::table('modules')->whereIn('uuid', $data['module_uuids'])->get();
+        $deleted = 0;
+        $skipped = 0;
+
+        DB::transaction(function () use ($request, $modules, &$deleted, &$skipped): void {
+            foreach ($modules as $module) {
+                $blocked = (bool) $module->is_core
+                    || DB::table('features')->where('module', $module->code)->exists()
+                    || DB::table('tenant_module_overrides')->where('module_code', $module->code)->exists();
+
+                if ($blocked) {
+                    $skipped++;
+                    continue;
+                }
+
+                DB::table('modules')->where('id', $module->id)->delete();
+                $this->billing->audit($request, 'module_deleted', 'modules', $module->id, (array) $module, null);
+                $deleted++;
+            }
+        });
+
+        return $this->success(['deleted' => $deleted, 'skipped' => $skipped], 'Module bulk delete completed.');
+    }
+
+    public function export()
+    {
+        return $this->success(['export' => ['status' => 'queued', 'format' => 'csv']], 'Module export queued.');
+    }
+
+    public function import()
+    {
+        return $this->success(['import' => ['status' => 'queued']], 'Module import queued.');
+    }
+
     public function enable(Request $request, string $module_uuid)
     {
         return $this->status($request, $module_uuid, 'active');
@@ -65,9 +127,17 @@ class PlatformModuleController extends BasePlatformController
     {
         $module = $this->billing->byUuid('modules', $module_uuid);
         $data = $request->validate(['feature_uuids' => ['required', 'array'], 'feature_uuids.*' => ['uuid']]);
+        $featureIds = [];
         foreach ($data['feature_uuids'] as $uuid) {
             $feature = $this->billing->byUuid('features', $uuid);
-            DB::table('features')->where('id', $feature->id)->update(['module' => $module->code, 'updated_at' => now()]);
+            $featureIds[] = $feature->id;
+        }
+        DB::table('features')
+            ->where('module', $module->code)
+            ->when($featureIds !== [], fn ($query) => $query->whereNotIn('id', $featureIds))
+            ->update(['module' => 'unassigned', 'updated_at' => now()]);
+        foreach ($featureIds as $featureId) {
+            DB::table('features')->where('id', $featureId)->update(['module' => $module->code, 'updated_at' => now()]);
         }
         $this->billing->audit($request, 'module_features_replaced', 'modules', $module->id, null, $data);
         return $this->success(['features' => DB::table('features')->where('module', $module->code)->orderBy('name')->get()], 'Module features updated.');
@@ -94,6 +164,13 @@ class PlatformModuleController extends BasePlatformController
         return $this->success(['override' => DB::table('tenant_module_overrides')->where('tenant_id', $tenantId)->where('module_code', $module_code)->first()], 'Tenant module override updated.');
     }
 
+    private function moduleStats(): array
+    {
+        return [
+            'total' => DB::table('modules')->count(),
+            'active' => DB::table('modules')->where('status', 'active')->count(),
+        ];
+    }
     private function status(Request $request, string $uuid, string $status)
     {
         $module = $this->billing->byUuid('modules', $uuid);
@@ -107,6 +184,8 @@ class PlatformModuleController extends BasePlatformController
         return [
             'features' => DB::table('features')->where('module', $module->code)->orderBy('name')->get(),
             'enabled_tenant_count' => DB::table('tenant_module_overrides')->where('module_code', $module->code)->where('enabled', true)->count(),
+            'tenant_overrides' => DB::table('tenant_module_overrides')->join('tenants', 'tenants.id', '=', 'tenant_module_overrides.tenant_id')->where('module_code', $module->code)->select('tenants.uuid', 'tenants.organization_name', 'tenants.slug', 'tenant_module_overrides.enabled', 'tenant_module_overrides.limits')->get(),
+            'activity' => DB::table('activity_logs')->where('subject_type', 'modules')->where('subject_id', $module->id)->latest('id')->limit(25)->get(),
         ];
     }
 

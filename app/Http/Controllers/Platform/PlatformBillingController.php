@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Platform;
 
 use App\Services\Platform\PlatformBillingCatalogService;
+use App\Services\Shared\CrmMailerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -10,15 +11,15 @@ use Illuminate\Validation\Rule;
 
 class PlatformBillingController extends BasePlatformController
 {
-    public function __construct(private readonly PlatformBillingCatalogService $billing) {}
+    public function __construct(private readonly PlatformBillingCatalogService $billing, private readonly CrmMailerService $mailer) {}
 
     public function invoices(Request $request)
     {
-        $q = DB::table('platform_invoices')->whereNull('deleted_at');
+        $q = $this->invoiceQuery()->whereNull('platform_invoices.deleted_at');
         foreach (['status', 'currency'] as $filter) if ($request->filled($filter)) $q->where($filter, $request->input($filter));
-        if ($request->filled('tenant_uuid')) $q->where('tenant_id', $this->billing->tenantId((string) $request->input('tenant_uuid')));
+        if ($request->filled('tenant_uuid')) $q->where('platform_invoices.tenant_id', $this->billing->tenantId((string) $request->input('tenant_uuid')));
         if ($request->boolean('overdue')) $q->where('due_date', '<', now()->toDateString())->where('balance_amount', '>', 0);
-        $p = $q->latest('id')->paginate((int) $request->integer('per_page', 25));
+        $p = $q->latest('platform_invoices.id')->paginate((int) $request->integer('per_page', 25));
         return $this->list($p->items(), $p);
     }
 
@@ -58,7 +59,8 @@ class PlatformBillingController extends BasePlatformController
 
     public function showInvoice(string $invoice_uuid)
     {
-        $invoice = $this->billing->byUuid('platform_invoices', $invoice_uuid);
+        $invoice = $this->invoiceQuery()->where('platform_invoices.uuid', $invoice_uuid)->first();
+        abort_if(! $invoice, 404);
         return $this->success(['invoice' => $invoice, 'items' => DB::table('platform_invoice_items')->where('platform_invoice_id', $invoice->id)->get(), 'payments' => $this->paymentsForInvoice($invoice->id)]);
     }
 
@@ -123,10 +125,10 @@ class PlatformBillingController extends BasePlatformController
 
     public function payments(Request $request)
     {
-        $q = DB::table('platform_payments');
+        $q = $this->paymentQuery();
         foreach (['payment_status', 'gateway', 'currency'] as $filter) if ($request->filled($filter)) $q->where($filter, $request->input($filter));
-        if ($request->filled('tenant_uuid')) $q->where('tenant_id', $this->billing->tenantId((string) $request->input('tenant_uuid')));
-        $p = $q->latest('id')->paginate((int) $request->integer('per_page', 25));
+        if ($request->filled('tenant_uuid')) $q->where('platform_payments.tenant_id', $this->billing->tenantId((string) $request->input('tenant_uuid')));
+        $p = $q->latest('platform_invoices.id')->paginate((int) $request->integer('per_page', 25));
         $items = collect($p->items())->map(fn($payment) => tap($payment, fn($p) => $p->raw_response = $this->billing->maskRaw($p->raw_response)))->all();
         return $this->list($items, $p);
     }
@@ -152,7 +154,8 @@ class PlatformBillingController extends BasePlatformController
 
     public function showPayment(string $payment_uuid)
     {
-        $payment = $this->billing->byUuid('platform_payments', $payment_uuid);
+        $payment = $this->paymentQuery()->where('platform_payments.uuid', $payment_uuid)->first();
+        abort_if(! $payment, 404);
         $payment->raw_response = $this->billing->maskRaw($payment->raw_response);
         return $this->success(['payment' => $payment]);
     }
@@ -177,7 +180,7 @@ class PlatformBillingController extends BasePlatformController
 
     public function refunds(Request $request)
     {
-        $p = DB::table('platform_refunds')->latest('id')->paginate((int) $request->integer('per_page', 25));
+        $p = $this->refundQuery()->latest('platform_refunds.id')->paginate((int) $request->integer('per_page', 25));
         $items = collect($p->items())->map(fn($refund) => tap($refund, fn($r) => $r->raw_response = $this->billing->maskRaw($r->raw_response)))->all();
         return $this->list($items, $p);
     }
@@ -204,7 +207,8 @@ class PlatformBillingController extends BasePlatformController
     }
     public function showRefund(string $refund_uuid)
     {
-        $refund = $this->billing->byUuid('platform_refunds', $refund_uuid);
+        $refund = $this->refundQuery()->where('platform_refunds.uuid', $refund_uuid)->first();
+        abort_if(! $refund, 404);
         $refund->raw_response = $this->billing->maskRaw($refund->raw_response);
         return $this->success(['refund' => $refund]);
     }
@@ -247,13 +251,98 @@ class PlatformBillingController extends BasePlatformController
         DB::table('platform_invoice_items')->insert(['platform_invoice_id' => $invoiceId, 'item_type' => $item['item_type'], 'description' => $item['description'], 'quantity' => $item['quantity'] ?? 1, 'unit_price' => $item['unit_price'] ?? 0, 'amount' => $item['amount'] ?? ((float) ($item['quantity'] ?? 1) * (float) ($item['unit_price'] ?? 0)), 'metadata' => isset($item['metadata']) ? json_encode($item['metadata']) : null]);
     }
 
+    private function sendInvoiceEmail(object $invoice, ?array $to = null, array $cc = [], ?string $message = null): bool
+    {
+        $recipients = $to ?: $this->mailer->tenantRecipients($invoice->tenant_id ?? null);
+        $tenantName = $invoice->tenant_name ?? $this->mailer->tenantName($invoice->tenant_id ?? null);
+
+        return $this->mailer->send(
+            $recipients,
+            'Invoice ' . ($invoice->invoice_number ?? '') . ' from ' . config('app.name', 'SaaS CRM'),
+            'Invoice ' . ($invoice->invoice_number ?? 'available'),
+            $message ?: 'A billing invoice has been issued for ' . $tenantName . '.',
+            [
+                'Tenant' => $tenantName,
+                'Plan' => $invoice->plan_name ?? '-',
+                'Subscription' => $invoice->subscription_number ?? '-',
+                'Invoice Date' => $invoice->invoice_date ?? '-',
+                'Due Date' => $invoice->due_date ?? '-',
+                'Status' => $invoice->status ?? '-',
+                'Amount Due' => $this->mailer->money($invoice->balance_amount ?? $invoice->total_amount ?? 0, $invoice->currency ?? null),
+            ],
+            'View billing',
+            rtrim((string) config('app.url'), '/')
+        , null, $cc);
+    }
+
+    private function sendPaymentEmail(?object $payment): bool
+    {
+        if (! $payment) {
+            return false;
+        }
+
+        $tenantName = $payment->tenant_name ?? $this->mailer->tenantName($payment->tenant_id ?? null);
+
+        return $this->mailer->send(
+            $this->mailer->tenantRecipients($payment->tenant_id ?? null),
+            'Payment ' . ($payment->payment_number ?? '') . ' recorded',
+            'Payment recorded',
+            'A payment has been recorded for ' . $tenantName . '.',
+            [
+                'Tenant' => $tenantName,
+                'Payment' => $payment->payment_number ?? '-',
+                'Invoice' => $payment->invoice_number ?? '-',
+                'Subscription' => $payment->subscription_number ?? '-',
+                'Gateway' => $payment->gateway ?? '-',
+                'Status' => $payment->payment_status ?? '-',
+                'Amount' => $this->mailer->money($payment->amount ?? 0, $payment->currency ?? null),
+                'Paid At' => $payment->paid_at ?? '-',
+            ],
+            'View billing',
+            rtrim((string) config('app.url'), '/')
+        );
+    }
     private function paymentsForInvoice(int $invoiceId)
     {
-        return DB::table('platform_payments')->where('platform_invoice_id', $invoiceId)->latest('id')->get()->map(fn($p) => tap($p, fn($x) => $x->raw_response = $this->billing->maskRaw($x->raw_response)));
+        return $this->paymentQuery()
+            ->where('platform_payments.platform_invoice_id', $invoiceId)
+            ->latest('platform_payments.id')
+            ->get()
+            ->map(fn($p) => tap($p, fn($x) => $x->raw_response = $this->billing->maskRaw($x->raw_response)));
     }
 
     private function invoiceData(Request $request): array
     {
         return $request->validate(['tenant_id' => ['required', 'uuid'], 'subscription_id' => ['nullable', 'uuid'], 'invoice_date' => ['required', 'date'], 'due_date' => ['nullable', 'date'], 'currency' => ['nullable', 'string', 'size:3'], 'status' => ['nullable', Rule::in(['draft', 'sent', 'paid', 'partially_paid', 'overdue', 'cancelled', 'void'])], 'discount_amount' => ['nullable', 'numeric', 'min:0'], 'tax_amount' => ['nullable', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'items' => ['required', 'array', 'min:1'], 'items.*.item_type' => ['required', 'string'], 'items.*.description' => ['required', 'string'], 'items.*.quantity' => ['nullable', 'numeric'], 'items.*.unit_price' => ['nullable', 'numeric'], 'items.*.amount' => ['nullable', 'numeric'], 'items.*.metadata' => ['nullable', 'array']]);
     }
+
+    private function invoiceQuery()
+    {
+        return DB::table('platform_invoices')
+            ->leftJoin('tenants', 'tenants.id', '=', 'platform_invoices.tenant_id')
+            ->leftJoin('subscriptions', 'subscriptions.id', '=', 'platform_invoices.subscription_id')
+            ->leftJoin('plans', 'plans.id', '=', 'subscriptions.plan_id')
+            ->select('platform_invoices.*', 'tenants.uuid as tenant_uuid', 'tenants.organization_name as tenant_name', 'tenants.slug as tenant_slug', 'subscriptions.uuid as subscription_uuid', 'subscriptions.subscription_number', 'plans.uuid as plan_uuid', 'plans.name as plan_name');
+    }
+
+    private function paymentQuery()
+    {
+        return DB::table('platform_payments')
+            ->leftJoin('tenants', 'tenants.id', '=', 'platform_payments.tenant_id')
+            ->leftJoin('subscriptions', 'subscriptions.id', '=', 'platform_payments.subscription_id')
+            ->leftJoin('plans', 'plans.id', '=', 'subscriptions.plan_id')
+            ->leftJoin('platform_invoices', 'platform_invoices.id', '=', 'platform_payments.platform_invoice_id')
+            ->select('platform_payments.*', 'tenants.uuid as tenant_uuid', 'tenants.organization_name as tenant_name', 'tenants.slug as tenant_slug', 'subscriptions.uuid as subscription_uuid', 'subscriptions.subscription_number', 'plans.uuid as plan_uuid', 'plans.name as plan_name', 'platform_invoices.uuid as invoice_uuid', 'platform_invoices.invoice_number');
+    }
+
+    private function refundQuery()
+    {
+        return DB::table('platform_refunds')
+            ->leftJoin('tenants', 'tenants.id', '=', 'platform_refunds.tenant_id')
+            ->leftJoin('platform_payments', 'platform_payments.id', '=', 'platform_refunds.platform_payment_id')
+            ->leftJoin('platform_invoices', 'platform_invoices.id', '=', 'platform_payments.platform_invoice_id')
+            ->leftJoin('subscriptions', 'subscriptions.id', '=', 'platform_payments.subscription_id')
+            ->select('platform_refunds.*', 'tenants.uuid as tenant_uuid', 'tenants.organization_name as tenant_name', 'platform_payments.uuid as payment_uuid', 'platform_payments.payment_number', 'platform_invoices.uuid as invoice_uuid', 'platform_invoices.invoice_number', 'subscriptions.uuid as subscription_uuid', 'subscriptions.subscription_number');
+    }
 }
+

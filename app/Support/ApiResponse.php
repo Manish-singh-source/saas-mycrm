@@ -21,13 +21,18 @@ final class ApiResponse
         array $meta = [],
         array $headers = []
     ): JsonResponse {
-        return response()->json([
+        $payload = [
             'success' => true,
             'message' => $message,
             'data' => $data,
-            'meta' => self::meta($meta),
-            'errors' => null,
-        ], $status, $headers);
+        ];
+
+        $normalizedMeta = self::meta($meta);
+        if ($normalizedMeta !== []) {
+            $payload['meta'] = $normalizedMeta;
+        }
+
+        return response()->json($payload, $status, $headers);
     }
 
     /**
@@ -43,13 +48,12 @@ final class ApiResponse
         array $headers = []
     ): JsonResponse {
         if ($paginator !== null) {
-            $meta['pagination'] = [
+            $meta = [
                 'current_page' => $paginator->currentPage(),
-                'from' => $paginator->firstItem(),
-                'last_page' => $paginator->lastPage(),
                 'per_page' => $paginator->perPage(),
-                'to' => $paginator->lastItem(),
                 'total' => $paginator->total(),
+                'last_page' => $paginator->lastPage(),
+                ...$meta,
             ];
         }
 
@@ -68,18 +72,19 @@ final class ApiResponse
         array $meta = [],
         array $headers = []
     ): JsonResponse {
-        return response()->json([
+        $payload = [
             'success' => false,
             'message' => $message,
             'data' => null,
-            'meta' => self::meta([
-                'error_code' => 'VALIDATION_ERROR',
-                ...$meta,
-            ]),
-            'errors' => [
-                'details' => self::normalizeErrors($errors),
-            ],
-        ], $status, $headers);
+            'errors' => self::normalizeErrors($errors),
+        ];
+
+        $normalizedMeta = self::meta($meta);
+        if ($normalizedMeta !== []) {
+            $payload['meta'] = $normalizedMeta;
+        }
+
+        return response()->json($payload, $status, $headers);
     }
 
     /**
@@ -111,16 +116,22 @@ final class ApiResponse
         array $meta = [],
         array $headers = []
     ): JsonResponse {
-        return response()->json([
+        $payload = [
             'success' => false,
             'message' => $message,
             'data' => null,
-            'meta' => self::meta($meta),
             'errors' => [
                 'code' => $code,
-                'details' => $errors,
+                ...$errors,
             ],
-        ], $status, $headers);
+        ];
+
+        $normalizedMeta = self::meta($meta);
+        if ($normalizedMeta !== []) {
+            $payload['meta'] = $normalizedMeta;
+        }
+
+        return response()->json($payload, $status, $headers);
     }
 
     /**
@@ -129,10 +140,7 @@ final class ApiResponse
      */
     private static function meta(array $meta): array
     {
-        return array_filter([
-            'request_id' => request()->attributes->get('request_id'),
-            ...$meta,
-        ], static fn (mixed $value): bool => $value !== null);
+        return array_filter($meta, static fn (mixed $value): bool => $value !== null);
     }
 
     /**
