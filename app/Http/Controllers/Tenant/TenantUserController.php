@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class TenantUserController extends BaseTenantController
@@ -101,6 +102,38 @@ class TenantUserController extends BaseTenantController
         return $this->success(['temporary_password' => app()->isLocal() ? $password : null], 'Password reset queued.');
     }
 
+    public function forceLogout(Request $request, string $user_uuid): JsonResponse
+    {
+        $user = $this->findUser($user_uuid);
+        if (Schema::hasTable('sessions') && Schema::hasColumn('sessions', 'user_id')) {
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+        }
+        if (Schema::hasTable('personal_access_tokens')) {
+            DB::table('personal_access_tokens')->where('tokenable_type', User::class)->where('tokenable_id', $user->id)->delete();
+        }
+        $user->forceFill(['remember_token' => null, 'updated_by' => $request->user()?->id])->save();
+        $this->tenant->audit($request, 'tenant_user_force_logout', 'user', $user->id, null, ['sessions_revoked' => true]);
+
+        return $this->success(['user' => $user->fresh()], 'Tenant user logged out from active sessions.');
+    }
+
+    public function requireTwoFactor(Request $request, string $user_uuid): JsonResponse
+    {
+        $user = $this->findUser($user_uuid);
+        $required = $request->boolean('required', true);
+        $updates = ['updated_by' => $request->user()?->id];
+        if (Schema::hasColumn('users', 'two_factor_required')) {
+            $updates['two_factor_required'] = $required;
+        } else {
+            $updates['two_factor_enabled'] = $required ? false : (bool) $user->two_factor_enabled;
+        }
+        $old = $user->toArray();
+        $user->forceFill($updates)->save();
+        $this->tenant->audit($request, 'tenant_user_two_factor_requirement_updated', 'user', $user->id, $old, $user->fresh()->toArray());
+
+        return $this->success(['user' => $user->fresh(), 'requires_two_factor_setup' => $required], 'Two-factor requirement updated.');
+    }
+
     private function status(Request $request, string $uuid, string $status): JsonResponse
     {
         $user = $this->findUser($uuid);
@@ -117,6 +150,19 @@ class TenantUserController extends BaseTenantController
     private function findUser(string $uuid): User
     {
         return User::query()->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('uuid', $uuid)->firstOrFail();
+    }
+
+    private function userStats(): array
+    {
+        $tenantId = app(\App\Tenancy\TenantContext::class)->id();
+        $base = User::query()->where('tenant_id', $tenantId);
+
+        return [
+            'total' => (clone $base)->count(),
+            'active' => (clone $base)->where('status', 'active')->count(),
+            'inactive' => (clone $base)->whereIn('status', ['inactive', 'suspended'])->count(),
+            'invited' => (clone $base)->where('status', 'invited')->count(),
+        ];
     }
 
     private function syncRoles(Request $request, User $user, array $roleUuids): void
@@ -148,3 +194,4 @@ class TenantUserController extends BaseTenantController
         return DB::table('model_has_roles')->join('roles', 'roles.id', '=', 'model_has_roles.role_id')->where('model_has_roles.tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('model_has_roles.model_type', User::class)->whereIn('roles.name', ['owner', 'admin'])->where('roles.status', 'active')->distinct('model_has_roles.model_id')->count('model_has_roles.model_id') <= 1;
     }
 }
+

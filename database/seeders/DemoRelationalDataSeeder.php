@@ -1253,15 +1253,34 @@ class DemoRelationalDataSeeder extends Seeder
             'audience' => 'all',
             'status' => 'active',
         ], true);
-        $this->seedRecord('knowledge_base_articles', ['slug' => 'demo-getting-started'], [
-            'category_id' => $kbCategoryId,
-            'title' => 'Demo Getting Started',
-            'body' => 'Seeded knowledge base article.',
-            'audience' => 'all',
-            'status' => 'published',
-            'created_by' => $this->platformUserId ?: null,
-            'published_at' => now(),
-        ], true);
+        $helpArticles = [
+            [
+                'slug' => 'demo-getting-started',
+                'title' => 'Getting Started with Your Workspace',
+                'body' => "Learn the basic workspace flow: review your dashboard, invite staff, create teams, and configure your tenant settings. Start with the sidebar navigation and use Help Center articles whenever you need a quick reminder.",
+            ],
+            [
+                'slug' => 'demo-manage-staff-and-teams',
+                'title' => 'Manage Staff and Teams',
+                'body' => "Open Access Control to create staff records, assign roles, and organize users into teams. Team members can then collaborate on projects and tasks using the permissions granted by their role.",
+            ],
+            [
+                'slug' => 'demo-export-your-data',
+                'title' => 'Export Reports and Data',
+                'body' => "Use the export action on supported list pages to download CSV data. Choose the required filters before exporting so the file contains only the records you need.",
+            ],
+        ];
+        foreach ($helpArticles as $article) {
+            $this->seedRecord('knowledge_base_articles', ['slug' => $article['slug']], [
+                'category_id' => $kbCategoryId,
+                'title' => $article['title'],
+                'body' => $article['body'],
+                'audience' => 'all',
+                'status' => 'published',
+                'created_by' => $this->platformUserId ?: null,
+                'published_at' => now(),
+            ], true);
+        }
         if ($this->platformUserId) {
             $this->seedRecord('remote_login_sessions', ['tenant_id' => $this->tenantId, 'platform_user_id' => $this->platformUserId, 'reason' => 'Demo support access'], [
                 'impersonated_user_id' => Schema::hasColumn('remote_login_sessions', 'impersonated_user_id') ? $this->ownerId : null,

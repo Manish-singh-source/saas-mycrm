@@ -190,7 +190,12 @@ class TenantEngagementController extends BaseApiController
 
     public function releaseNotes()
     {
-        return $this->success(['release_notes' => []]);
+        return $this->success([
+            'release_notes' => [
+                ['version' => '2026.08', 'title' => 'Workspace improvements', 'summary' => 'Improved staff, team, and profile workflows across the tenant workspace.', 'released_at' => '2026-08-01'],
+                ['version' => '2026.07', 'title' => 'Faster exports', 'summary' => 'List pages now provide clearer export feedback and more consistent filters.', 'released_at' => '2026-07-15'],
+            ],
+        ]);
     }
 
     public function contactSupport(Request $request)

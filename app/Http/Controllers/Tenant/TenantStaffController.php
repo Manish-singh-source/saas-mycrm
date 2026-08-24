@@ -120,6 +120,143 @@ class TenantStaffController extends BaseTenantController
         return $this->success(null, 'Staff archived.');
     }
 
+    public function bulkDestroy(Request $request): JsonResponse
+    {
+        $data = $request->validate(['ids' => ['required', 'array', 'min:1'], 'ids.*' => ['string'], 'audit_reason' => ['nullable', 'string', 'max:500']]);
+        $tenantId = app(\App\Tenancy\TenantContext::class)->id();
+        $staffRows = DB::table('staff')->where('tenant_id', $tenantId)->whereIn('uuid', $data['ids'])->whereNull('deleted_at')->get(['id', 'uuid']);
+        $ids = $staffRows->pluck('id')->all();
+
+        if ($ids !== []) {
+            DB::table('staff')->where('tenant_id', $tenantId)->whereIn('id', $ids)->update(['deleted_at' => now(), 'updated_by' => $request->user()?->id, 'updated_at' => now()]);
+            DB::table('users')->where('tenant_id', $tenantId)->whereIn('staff_id', $ids)->update(['status' => 'suspended', 'updated_at' => now()]);
+        }
+
+        $this->tenant->audit($request, 'tenant_staff_bulk_archived', 'staff', null, null, ['staff_ids' => $ids, 'reason' => $data['audit_reason'] ?? null]);
+
+        return $this->success(['deleted' => count($ids)], 'Selected staff archived.');
+    }
+
+    public function roles(string $staff_uuid): JsonResponse
+    {
+        $staff = $this->findStaff($staff_uuid);
+
+        return $this->success(['roles' => $this->userRolesForStaff($staff->id)]);
+    }
+
+    public function syncRoles(Request $request, string $staff_uuid): JsonResponse
+    {
+        $staff = $this->findStaff($staff_uuid);
+        $data = $request->validate(['role_ids' => ['nullable', 'array'], 'role_ids.*' => ['string']]);
+        $userIds = $this->staffUserIds($staff->id);
+        abort_if($userIds === [], 422, 'Create or invite a login user before assigning roles to this staff member.');
+        $tenantId = app(\App\Tenancy\TenantContext::class)->id();
+        $roleIds = $this->tenantIdsFromUuids('roles', $data['role_ids'] ?? []);
+
+        DB::transaction(function () use ($request, $tenantId, $userIds, $roleIds) {
+            DB::table('model_has_roles')->where('tenant_id', $tenantId)->where('model_type', User::class)->whereIn('model_id', $userIds)->delete();
+            foreach ($userIds as $userId) {
+                foreach ($roleIds as $roleId) {
+                    DB::table('model_has_roles')->insert(['tenant_id' => $tenantId, 'role_id' => $roleId, 'model_id' => $userId, 'model_type' => User::class]);
+                }
+                $this->tenant->audit($request, 'tenant_staff_roles_synced', 'user', $userId, null, ['role_ids' => $roleIds]);
+            }
+        });
+
+        return $this->success(['roles' => $this->userRolesForStaff($staff->id)], 'Staff roles updated.');
+    }
+
+    public function teams(string $staff_uuid): JsonResponse
+    {
+        $staff = $this->findStaff($staff_uuid);
+
+        return $this->success(['teams' => $this->joinedRows('team_members', fn($q) => $q
+            ->leftJoin('teams', 'teams.id', '=', 'team_members.team_id')
+            ->leftJoin('team_roles', 'team_roles.id', '=', 'team_members.team_role_id')
+            ->where('team_members.staff_id', $staff->id)
+            ->select('team_members.*', 'teams.uuid as team_uuid', 'teams.name as team_name', 'team_roles.name as team_role_name'))]);
+    }
+
+    public function syncTeams(Request $request, string $staff_uuid): JsonResponse
+    {
+        $staff = $this->findStaff($staff_uuid);
+        $data = $request->validate(['team_ids' => ['nullable', 'array'], 'team_ids.*' => ['string']]);
+        $tenantId = app(\App\Tenancy\TenantContext::class)->id();
+        $teamIds = $this->tenantIdsFromUuids('teams', $data['team_ids'] ?? []);
+
+        DB::transaction(function () use ($request, $tenantId, $staff, $teamIds) {
+            DB::table('team_members')->where('tenant_id', $tenantId)->where('staff_id', $staff->id)->when($teamIds !== [], fn($q) => $q->whereNotIn('team_id', $teamIds))->delete();
+            foreach ($teamIds as $teamId) {
+                DB::table('team_members')->updateOrInsert(
+                    ['tenant_id' => $tenantId, 'team_id' => $teamId, 'staff_id' => $staff->id],
+                    ['uuid' => (string) Str::uuid(), 'member_type' => 'staff', 'allocation_percent' => 100, 'status' => 'active', 'created_by' => $request->user()?->id, 'created_at' => now(), 'updated_at' => now()]
+                );
+            }
+        });
+        $this->tenant->audit($request, 'tenant_staff_teams_synced', 'staff', $staff->id, null, ['team_ids' => $teamIds]);
+
+        return $this->teams($staff_uuid);
+    }
+
+    public function projects(string $staff_uuid): JsonResponse
+    {
+        $staff = $this->findStaff($staff_uuid);
+
+        return $this->success(['projects' => $this->projectRowsForStaff($staff->id)]);
+    }
+
+    public function syncProjects(Request $request, string $staff_uuid): JsonResponse
+    {
+        $staff = $this->findStaff($staff_uuid);
+        $data = $request->validate(['project_ids' => ['nullable', 'array'], 'project_ids.*' => ['string']]);
+        $tenantId = app(\App\Tenancy\TenantContext::class)->id();
+        $userIds = $this->staffUserIds($staff->id);
+        abort_if($userIds === [], 422, 'Create or invite a login user before assigning projects to this staff member.');
+        $projectIds = $this->tenantIdsFromUuids('projects', $data['project_ids'] ?? []);
+        $primaryUserId = $userIds[0];
+
+        DB::transaction(function () use ($request, $tenantId, $userIds, $projectIds, $primaryUserId) {
+            DB::table('project_members')->where('tenant_id', $tenantId)->whereIn('user_id', $userIds)->when($projectIds !== [], fn($q) => $q->whereNotIn('project_id', $projectIds))->delete();
+            foreach ($projectIds as $projectId) {
+                DB::table('project_members')->updateOrInsert(
+                    ['tenant_id' => $tenantId, 'project_id' => $projectId, 'user_id' => $primaryUserId],
+                    ['uuid' => (string) Str::uuid(), 'role' => 'member', 'allocation_percent' => 100, 'joined_at' => now(), 'created_by' => $request->user()?->id, 'created_at' => now(), 'updated_at' => now()]
+                );
+            }
+        });
+        $this->tenant->audit($request, 'tenant_staff_projects_synced', 'staff', $staff->id, null, ['project_ids' => $projectIds]);
+
+        return $this->projects($staff_uuid);
+    }
+
+    public function tasks(string $staff_uuid): JsonResponse
+    {
+        $staff = $this->findStaff($staff_uuid);
+
+        return $this->success(['tasks' => $this->taskRowsForStaff($staff->id)]);
+    }
+
+    public function syncTasks(Request $request, string $staff_uuid): JsonResponse
+    {
+        $staff = $this->findStaff($staff_uuid);
+        $data = $request->validate(['task_ids' => ['nullable', 'array'], 'task_ids.*' => ['string']]);
+        $tenantId = app(\App\Tenancy\TenantContext::class)->id();
+        $userIds = $this->staffUserIds($staff->id);
+        abort_if($userIds === [], 422, 'Create or invite a login user before assigning tasks to this staff member.');
+        $taskIds = $this->tenantIdsFromUuids('tasks', $data['task_ids'] ?? []);
+        $primaryUserId = $userIds[0];
+
+        DB::transaction(function () use ($tenantId, $userIds, $taskIds, $primaryUserId) {
+            DB::table('tasks')->where('tenant_id', $tenantId)->whereIn('assigned_to', $userIds)->when($taskIds !== [], fn($q) => $q->whereNotIn('id', $taskIds))->update(['assigned_to' => null, 'updated_at' => now()]);
+            if ($taskIds !== []) {
+                DB::table('tasks')->where('tenant_id', $tenantId)->whereIn('id', $taskIds)->update(['assigned_to' => $primaryUserId, 'updated_at' => now()]);
+            }
+        });
+        $this->tenant->audit($request, 'tenant_staff_tasks_synced', 'staff', $staff->id, null, ['task_ids' => $taskIds]);
+
+        return $this->tasks($staff_uuid);
+    }
+
     public function restore(Request $request, string $staff_uuid): JsonResponse
     {
         $staff = DB::table('staff')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('uuid', $staff_uuid)->first() ?: abort(404, 'Staff not found.');
@@ -300,7 +437,33 @@ class TenantStaffController extends BaseTenantController
             ->leftJoin('designations', 'designations.id', '=', 'staff.designation_id')
             ->leftJoin('tenant_offices', 'tenant_offices.id', '=', 'staff.office_id')
             ->leftJoin('teams', 'teams.id', '=', 'staff.primary_team_id')
-            ->select('staff.*', 'departments.uuid as department_uuid', 'departments.name as department_name', 'designations.uuid as designation_uuid', 'designations.name as designation_name', 'tenant_offices.uuid as office_uuid', 'tenant_offices.name as office_name', 'teams.uuid as primary_team_uuid', 'teams.name as primary_team_name');
+            ->select('staff.*', 'departments.uuid as department_uuid', 'departments.name as department_name', 'designations.uuid as designation_uuid', 'designations.name as designation_name', 'tenant_offices.uuid as office_uuid', 'tenant_offices.office_name as office_name', 'teams.uuid as primary_team_uuid', 'teams.name as primary_team_name');
+    }
+
+    private function staffStats(): array
+    {
+        $tenantId = app(\App\Tenancy\TenantContext::class)->id();
+        $base = DB::table('staff')->where('tenant_id', $tenantId)->whereNull('deleted_at');
+
+        return [
+            'total' => (clone $base)->count(),
+            'active' => (clone $base)->where('employment_status', 'active')->count(),
+            'inactive' => (clone $base)->where('employment_status', 'inactive')->count(),
+        ];
+    }
+
+    private function tenantIdsFromUuids(string $table, array $uuids): array
+    {
+        if ($uuids === []) {
+            return [];
+        }
+
+        return DB::table($table)->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->whereIn('uuid', $uuids)->pluck('id')->all();
+    }
+
+    private function staffUserIds(int $staffId): array
+    {
+        return DB::table('users')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('staff_id', $staffId)->pluck('id')->all();
     }
 
     private function childMeta(string $resource): array
@@ -465,3 +628,5 @@ class TenantStaffController extends BaseTenantController
         return Schema::hasColumn($table, 'updated_at') ? ['updated_at' => now()] : [];
     }
 }
+
+

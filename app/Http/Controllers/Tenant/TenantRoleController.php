@@ -356,3 +356,4 @@ class TenantRoleController extends BaseApiController
             ->count('model_has_roles.model_id');
     }
 }
+

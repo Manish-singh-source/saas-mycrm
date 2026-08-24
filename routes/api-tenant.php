@@ -74,6 +74,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
         Route::put('/roles/{role_uuid}/permissions', [TenantRoleController::class, 'syncPermissions'])->middleware('tenant.permission:role.assign_permissions')->name('roles.permissions.sync');
         Route::get('/roles/{role_uuid}/users', [TenantRoleController::class, 'users'])->middleware('tenant.permission:role.view')->name('roles.users');
         Route::post('/roles/{role_uuid}/users', [TenantRoleController::class, 'assignUsers'])->middleware('tenant.permission:role.edit')->name('roles.users.assign');
+        Route::put('/roles/{role_uuid}/users', [TenantRoleController::class, 'syncUsers'])->middleware('tenant.permission:role.edit')->name('roles.users.sync');
         Route::delete('/roles/{role_uuid}/users/{user_uuid}', [TenantRoleController::class, 'removeUser'])->middleware('tenant.permission:role.edit')->name('roles.users.remove');
 
         Route::get('/permissions/grouped', [TenantPermissionController::class, 'grouped'])->middleware('tenant.permission:permission.view')->name('permissions.grouped');
@@ -91,8 +92,12 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::post('/teams', [TenantTeamController::class, 'store'])->middleware('tenant.permission:team.create')->name('teams.store');
     Route::get('/teams/{team_uuid}', [TenantTeamController::class, 'show'])->middleware('tenant.permission:team.view')->name('teams.show');
     Route::match(['put', 'patch'], '/teams/{team_uuid}', [TenantTeamController::class, 'update'])->middleware('tenant.permission:team.edit')->name('teams.update');
+    Route::delete('/teams/bulk', [TenantTeamController::class, 'bulkDestroy'])->middleware('tenant.permission:team.delete')->name('teams.bulk-destroy');
     Route::delete('/teams/{team_uuid}', [TenantTeamController::class, 'destroy'])->middleware('tenant.permission:team.delete')->name('teams.destroy');
     Route::get('/teams/{team_uuid}/members', [TenantTeamController::class, 'members'])->middleware('tenant.permission:team.view')->name('teams.members.index');
+    Route::get('/teams/{team_uuid}/projects', [TenantTeamController::class, 'projects'])->middleware('tenant.permission:team.view')->name('teams.projects');
+    Route::get('/teams/{team_uuid}/tasks', [TenantTeamController::class, 'tasks'])->middleware('tenant.permission:team.view')->name('teams.tasks');
+    Route::get('/teams/{team_uuid}/activity', [TenantTeamController::class, 'activity'])->middleware('tenant.permission:activity_log.view')->name('teams.activity');
     Route::post('/teams/{team_uuid}/members', [TenantTeamController::class, 'addMembers'])->middleware('tenant.permission:team.assign')->name('teams.members.store');
     Route::match(['put', 'patch'], '/teams/{team_uuid}/members/{member_uuid}', [TenantTeamController::class, 'updateMember'])->middleware('tenant.permission:team.assign')->name('teams.members.update');
     Route::delete('/teams/{team_uuid}/members/{member_uuid}', [TenantTeamController::class, 'removeMember'])->middleware('tenant.permission:team.assign')->name('teams.members.destroy');
@@ -113,6 +118,8 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::post('/users/{user_uuid}/suspend', [TenantUserController::class, 'suspend'])->middleware('tenant.permission:staff.edit')->name('users.suspend');
     Route::post('/users/{user_uuid}/activate', [TenantUserController::class, 'activate'])->middleware('tenant.permission:staff.edit')->name('users.activate');
     Route::post('/users/{user_uuid}/reset-password', [TenantUserController::class, 'resetPassword'])->middleware('tenant.permission:staff.edit')->name('users.reset-password');
+    Route::post('/users/{user_uuid}/force-logout', [TenantUserController::class, 'forceLogout'])->middleware('tenant.permission:staff.edit')->name('users.force-logout');
+    Route::post('/users/{user_uuid}/require-2fa', [TenantUserController::class, 'requireTwoFactor'])->middleware('tenant.permission:staff.edit')->name('users.require-2fa');
 
     Route::get('/staff/dashboard', [TenantStaffController::class, 'dashboard'])->middleware('tenant.permission:staff.view')->name('staff.dashboard');
     Route::get('/staff/grid', [TenantStaffController::class, 'grid'])->middleware('tenant.permission:staff.view')->name('staff.grid');
@@ -120,6 +127,15 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::post('/staff/export', [TenantStaffController::class, 'export'])->middleware('tenant.permission:staff.export')->name('staff.export');
     Route::get('/staff', [TenantStaffController::class, 'index'])->middleware('tenant.permission:staff.view')->name('staff.index');
     Route::post('/staff', [TenantStaffController::class, 'store'])->middleware('tenant.permission:staff.create')->name('staff.store');
+    Route::delete('/staff/bulk', [TenantStaffController::class, 'bulkDestroy'])->middleware('tenant.permission:staff.delete')->name('staff.bulk-destroy');
+    Route::get('/staff/{staff_uuid}/roles', [TenantStaffController::class, 'roles'])->middleware('tenant.permission:staff.view')->name('staff.roles.index');
+    Route::put('/staff/{staff_uuid}/roles', [TenantStaffController::class, 'syncRoles'])->middleware('tenant.permission:role.edit')->name('staff.roles.sync');
+    Route::get('/staff/{staff_uuid}/teams', [TenantStaffController::class, 'teams'])->middleware('tenant.permission:staff.view')->name('staff.teams.index');
+    Route::put('/staff/{staff_uuid}/teams', [TenantStaffController::class, 'syncTeams'])->middleware('tenant.permission:team.assign')->name('staff.teams.sync');
+    Route::get('/staff/{staff_uuid}/projects', [TenantStaffController::class, 'projects'])->middleware('tenant.permission:staff.view')->name('staff.projects.index');
+    Route::put('/staff/{staff_uuid}/projects', [TenantStaffController::class, 'syncProjects'])->middleware('tenant.permission:project.edit')->name('staff.projects.sync');
+    Route::get('/staff/{staff_uuid}/tasks', [TenantStaffController::class, 'tasks'])->middleware('tenant.permission:staff.view')->name('staff.tasks.index');
+    Route::put('/staff/{staff_uuid}/tasks', [TenantStaffController::class, 'syncTasks'])->middleware('tenant.permission:task.assign')->name('staff.tasks.sync');
     Route::get('/staff/{staff_uuid}', [TenantStaffController::class, 'show'])->middleware('tenant.permission:staff.view')->name('staff.show');
     Route::match(['put', 'patch'], '/staff/{staff_uuid}', [TenantStaffController::class, 'update'])->middleware('tenant.permission:staff.edit')->name('staff.update');
     Route::delete('/staff/{staff_uuid}', [TenantStaffController::class, 'destroy'])->middleware('tenant.permission:staff.delete')->name('staff.destroy');
@@ -534,6 +550,10 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::post('/profile/api-tokens/{token_uuid}/rotate', [TenantApiTokenController::class, 'rotate'])->name('profile.api-tokens.rotate');
     Route::post('/profile/api-tokens/{token_uuid}/revoke', [TenantApiTokenController::class, 'revoke'])->name('profile.api-tokens.revoke');
 });
+
+
+
+
 
 
 

@@ -18,7 +18,7 @@ class TenantTeamController extends BaseTenantController
             ->leftJoin('departments', 'departments.id', '=', 'teams.department_id')
             ->leftJoin('tenant_offices', 'tenant_offices.id', '=', 'teams.office_id')
             ->leftJoin('users as leads', 'leads.id', '=', 'teams.lead_user_id')
-            ->select('teams.*', 'departments.uuid as department_uuid', 'departments.name as department_name', 'tenant_offices.uuid as office_uuid', 'tenant_offices.name as office_name', 'leads.uuid as lead_user_uuid', 'leads.display_name as lead_name')
+            ->select('teams.*', 'departments.uuid as department_uuid', 'departments.name as department_name', 'tenant_offices.uuid as office_uuid', 'tenant_offices.office_name as office_name', 'leads.uuid as lead_user_uuid', 'leads.display_name as lead_name')
             ->selectSub(fn($q) => $q->from('team_members')->selectRaw('count(*)')->whereColumn('team_members.team_id', 'teams.id')->where('team_members.tenant_id', app(\App\Tenancy\TenantContext::class)->id()), 'members_count');
 
         foreach (['status', 'visibility'] as $field) {
@@ -32,7 +32,14 @@ class TenantTeamController extends BaseTenantController
 
         $page = $query->orderBy('teams.name')->paginate((int) $request->integer('per_page', 25));
 
-        return $this->list($page->items(), $page);
+        $tenantId = app(\App\Tenancy\TenantContext::class)->id();
+        $stats = [
+            'total' => DB::table('teams')->where('tenant_id', $tenantId)->whereNull('deleted_at')->count(),
+            'active' => DB::table('teams')->where('tenant_id', $tenantId)->whereNull('deleted_at')->where('status', 'active')->count(),
+            'inactive' => DB::table('teams')->where('tenant_id', $tenantId)->whereNull('deleted_at')->where('status', 'inactive')->count(),
+        ];
+
+        return $this->list($page->items(), $page, 'OK', ['stats' => $stats]);
     }
 
     public function store(Request $request): JsonResponse
@@ -53,6 +60,8 @@ class TenantTeamController extends BaseTenantController
             'members_count' => $this->memberQuery($team->id)->count(),
             'permissions_count' => DB::table('team_permissions')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('team_id', $team->id)->count(),
             'assignments_count' => DB::table('team_assignments')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('team_id', $team->id)->where('status', 'active')->count(),
+            'projects_count' => $this->assignmentQuery($team->id, 'project')->count(),
+            'tasks_count' => $this->assignmentQuery($team->id, 'task')->count(),
         ]]);
     }
 
@@ -75,6 +84,20 @@ class TenantTeamController extends BaseTenantController
         $this->tenant->audit($request, 'tenant_team_deleted', 'team', $team->id, (array) $team, null);
 
         return $this->success(null, 'Team archived.');
+    }
+
+    public function bulkDestroy(Request $request): JsonResponse
+    {
+        $data = $request->validate(['team_uuids' => ['required', 'array', 'min:1'], 'team_uuids.*' => ['required', 'string'], 'audit_reason' => ['nullable', 'string', 'max:500']]);
+        $tenantId = app(\App\Tenancy\TenantContext::class)->id();
+        $teams = DB::table('teams')->where('tenant_id', $tenantId)->whereIn('uuid', $data['team_uuids'])->whereNull('deleted_at')->get();
+
+        foreach ($teams as $team) {
+            DB::table('teams')->where('id', $team->id)->update(['deleted_at' => now(), 'updated_by' => $request->user()?->id, 'updated_at' => now()]);
+            $this->tenant->audit($request, 'tenant_team_deleted', 'team', $team->id, (array) $team, null, $data['audit_reason'] ?? null);
+        }
+
+        return $this->success(['deleted_count' => $teams->count()], 'Teams archived.');
     }
 
     public function members(string $team_uuid): JsonResponse
@@ -167,6 +190,38 @@ class TenantTeamController extends BaseTenantController
         return $this->success(['assignments' => DB::table('team_assignments')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->where('team_id', $team->id)->orderByDesc('id')->get()]);
     }
 
+    public function projects(string $team_uuid): JsonResponse
+    {
+        $team = $this->tenant->byUuid('teams', $team_uuid, false);
+
+        return $this->success(['projects' => $this->assignmentQuery($team->id, 'project')
+            ->join('projects', 'projects.id', '=', 'team_assignments.assignable_id')
+            ->orderBy('projects.name')
+            ->get(['team_assignments.id as assignment_id', 'team_assignments.assignment_role', 'team_assignments.assigned_at', 'team_assignments.status as assignment_status', 'projects.uuid', 'projects.project_number', 'projects.name', 'projects.status'])]);
+    }
+
+    public function tasks(string $team_uuid): JsonResponse
+    {
+        $team = $this->tenant->byUuid('teams', $team_uuid, false);
+
+        return $this->success(['tasks' => $this->assignmentQuery($team->id, 'task')
+            ->join('tasks', 'tasks.id', '=', 'team_assignments.assignable_id')
+            ->orderByDesc('tasks.due_at')
+            ->get(['team_assignments.id as assignment_id', 'team_assignments.assignment_role', 'team_assignments.assigned_at', 'team_assignments.status as assignment_status', 'tasks.uuid', 'tasks.task_number', 'tasks.title', 'tasks.status', 'tasks.due_at'])]);
+    }
+
+    public function activity(string $team_uuid): JsonResponse
+    {
+        $team = $this->tenant->byUuid('teams', $team_uuid, false);
+
+        return $this->success(['activity' => DB::table('activity_logs')
+            ->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())
+            ->where('subject_type', 'team')
+            ->where('subject_id', $team->id)
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get()]);
+    }
     public function createAssignment(Request $request, string $team_uuid): JsonResponse
     {
         $team = $this->tenant->byUuid('teams', $team_uuid, false);
@@ -195,7 +250,6 @@ class TenantTeamController extends BaseTenantController
 
         return $this->list($page->items(), $page);
     }
-
     public function storeTeamRole(Request $request): JsonResponse
     {
         $data = $request->validate(['name' => ['required', 'string', 'max:150'], 'code' => ['required', 'string', 'max:80'], 'description' => ['nullable', 'string'], 'permissions' => ['nullable', 'array'], 'sort_order' => ['nullable', 'integer'], 'status' => ['nullable', 'string', 'max:50']]);
@@ -270,6 +324,15 @@ class TenantTeamController extends BaseTenantController
         return $partial ? $data : [...$data, 'uuid' => (string) \Illuminate\Support\Str::uuid(), 'tenant_id' => app(\App\Tenancy\TenantContext::class)->id(), 'team_id' => $teamId, 'created_by' => $request->user()?->id, 'updated_by' => $request->user()?->id, 'joined_at' => now(), 'created_at' => now(), 'updated_at' => now()];
     }
 
+    private function assignmentQuery(int $teamId, string $type)
+    {
+        return DB::table('team_assignments')
+            ->where('team_assignments.tenant_id', app(\App\Tenancy\TenantContext::class)->id())
+            ->where('team_assignments.team_id', $teamId)
+            ->where('team_assignments.assignable_type', $type)
+            ->where('team_assignments.status', 'active');
+    }
+
     private function memberQuery(int $teamId)
     {
         return DB::table('team_members')
@@ -281,3 +344,4 @@ class TenantTeamController extends BaseTenantController
             ->select('team_members.*', 'users.uuid as user_uuid', 'users.display_name as user_name', 'staff.uuid as staff_uuid', 'staff.display_name as staff_name', 'team_roles.uuid as team_role_uuid', 'team_roles.name as team_role_name');
     }
 }
+
