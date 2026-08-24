@@ -10,7 +10,7 @@ use Throwable;
 
 class CrmMailerService
 {
-    public function send(array|string|null $to, string $subject, string $heading, string $intro, array $rows = [], ?string $actionText = null, ?string $actionUrl = null, ?string $outro = null, array $cc = []): bool
+    public function send(array|string|null $to, string $subject, string $heading, string $intro, array $rows = [], ?string $actionText = null, ?string $actionUrl = null, ?string $outro = null, array $cc = [], ?string $fromName = null, ?string $replyTo = null): bool
     {
         $recipients = $this->normalizeEmails($to);
 
@@ -25,7 +25,7 @@ class CrmMailerService
             if ($cc !== []) {
                 $message->cc($cc);
             }
-            $message->send(new CrmNotificationMail($subject, $heading, $intro, $rows, $actionText, $actionUrl, $outro));
+            $message->send(new CrmNotificationMail($subject, $heading, $intro, $rows, $actionText, $actionUrl, $outro, $fromName, $replyTo));
             return true;
         } catch (Throwable $e) {
             Log::warning('CRM email could not be sent.', [
@@ -81,3 +81,4 @@ class CrmMailerService
             ->all();
     }
 }
+

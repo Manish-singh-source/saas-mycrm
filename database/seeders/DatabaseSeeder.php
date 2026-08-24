@@ -23,8 +23,12 @@ class DatabaseSeeder extends Seeder
             Phase2PlatformCatalogSeeder::class,
             Phase3PlatformConfigurationSeeder::class,
             DemoTenantFoundationSeeder::class,
+            DemoTenantSettingsSeeder::class,
+            TenantIntegrationProviderSeeder::class,
             TenantRoleSeeder::class,
             DemoRelationalDataSeeder::class,
         ]);
     }
 }
+
+

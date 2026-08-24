@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Services\Shared\CrmMailerService;
+use App\Services\Shared\TwilioSmsService;
 use App\Services\Tenant\TenantWorkspaceService;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -14,7 +16,7 @@ use Illuminate\Support\Str;
 
 class TenantBusinessController extends BaseTenantController
 {
-    public function __construct(private readonly TenantWorkspaceService $tenant) {}
+    public function __construct(private readonly TenantWorkspaceService $tenant, private readonly CrmMailerService $mailer, private readonly TwilioSmsService $sms) {}
 
     public function financeDashboard(): JsonResponse
     {
@@ -401,7 +403,13 @@ class TenantBusinessController extends BaseTenantController
             }
         }
 
-        return $this->success(['group' => $group, 'settings' => $this->settingsRows($group)]);
+        $settings = $this->settingsRows($group);
+
+        return $this->success([
+            'group' => $group,
+            'settings' => $settings,
+            'values' => $this->settingsValues($settings),
+        ]);
     }
 
     public function settingsLookups(Request $request): JsonResponse
@@ -452,12 +460,58 @@ class TenantBusinessController extends BaseTenantController
 
     public function testNotificationTemplate(Request $request, string $template_uuid): JsonResponse
     {
+        $data = $request->validate([
+            'to' => ['required', 'string', 'max:150'],
+            'variables' => ['nullable', 'array'],
+        ]);
         $template = DB::table('notification_templates')->where(fn($q) => $q->where('tenant_id', $this->tenantId())->orWhereNull('tenant_id'))->where('uuid', $template_uuid)->first() ?: abort(404);
-        $logId = $this->logCommunication($request, $template->channel, 'outbound', $template->subject ?: 'Template test', $template->body, 'queued');
+        $channel = $template->channel === 'in_app' ? 'push' : (string) $template->channel;
 
-        return $this->success(['log' => DB::table('communication_logs')->where('id', $logId)->first()], 'Template test queued.', 202);
+        abort_if(! in_array($channel, ['email', 'sms', 'whatsapp', 'push'], true), 422, 'Unsupported notification template channel.');
+
+        $variables = $this->templateVariables($template, $data['variables'] ?? []);
+        $subject = $this->renderTemplateText($template->subject ?: 'Template test', $variables);
+        $body = $this->renderTemplateText($template->body, $variables);
+
+        if (! $this->communicationEnabled($channel)) {
+            $logId = $this->logCommunication($request, $channel, 'outbound', $subject, $body, 'blocked', null, ['to' => $data['to'], 'template_uuid' => $template_uuid, 'reason' => $channel . '_notifications_disabled']);
+
+            return $this->success(['log' => DB::table('communication_logs')->where('id', $logId)->first(), 'sent' => false, 'blocked' => true], ucfirst($channel) . ' notifications are disabled for this tenant.', 423);
+        }
+
+        if ($channel === 'email') {
+            $mailOptions = $this->tenantMailOptions();
+            $sent = $this->mailer->send($data['to'], $subject, $subject, $body, [], null, null, null, [], $mailOptions['from_name'], $mailOptions['reply_to']);
+            $logId = $this->logCommunication($request, 'email', 'outbound', $subject, $body, $sent ? 'sent' : 'failed', null, ['to' => $data['to'], 'template_uuid' => $template_uuid], $sent ? now() : null, 'smtp');
+
+            return $this->success(['log' => DB::table('communication_logs')->where('id', $logId)->first(), 'sent' => $sent], $sent ? 'Template test email sent.' : 'Template test email could not be sent. Check mail logs/configuration.', $sent ? 200 : 202);
+        }
+
+        if ($channel === 'sms') {
+            $result = $this->sms->send($data['to'], $body);
+            $logId = $this->logCommunication(
+                $request,
+                'sms',
+                'outbound',
+                $subject,
+                $body,
+                $result['sent'] ? 'sent' : 'failed',
+                null,
+                ['to' => $data['to'], 'template_uuid' => $template_uuid, 'twilio_status' => $result['status'] ?? null],
+                $result['sent'] ? now() : null,
+                'twilio',
+                $result['provider_message_id'] ?? null,
+                $result['error'] ?? null
+            );
+
+            return $this->success(['log' => DB::table('communication_logs')->where('id', $logId)->first(), 'sent' => (bool) $result['sent'], 'provider_status' => $result['status'] ?? null], $result['sent'] ? 'Template test SMS sent through Twilio.' : 'Template test SMS could not be sent through Twilio.', $result['sent'] ? 200 : 202);
+        }
+
+        $notificationId = $channel === 'push' ? $this->createPushNotification($request, $subject, $body, ['template_uuid' => $template_uuid]) : null;
+        $logId = $this->logCommunication($request, $channel, 'outbound', $subject, $body, $channel === 'push' ? 'sent' : 'queued', null, ['to' => $data['to'], 'template_uuid' => $template_uuid, 'notification_id' => $notificationId, 'provider_ready' => $channel !== 'push'], $channel === 'push' ? now() : null, $channel === 'push' ? 'in_app' : 'provider_queue');
+
+        return $this->success(['log' => DB::table('communication_logs')->where('id', $logId)->first(), 'notification_id' => $notificationId, 'queued' => $channel !== 'push', 'sent' => $channel === 'push'], $channel === 'push' ? 'Template push notification created.' : 'Template ' . strtoupper($channel) . ' message queued for provider delivery.', $channel === 'push' ? 201 : 202);
     }
-
     public function backupRuns(Request $request): JsonResponse
     {
         $page = $this->base('tenant_backup_runs')->orderByDesc('id')->paginate($request->integer('per_page', 25));
@@ -481,7 +535,9 @@ class TenantBusinessController extends BaseTenantController
     public function providers(Request $request): JsonResponse
     {
         $page = DB::table('integration_providers')->where('status', 'active')->orderBy('category')->orderBy('name')->paginate($request->integer('per_page', 25));
-        return $this->list($page->items(), $page);
+        $items = collect($page->items())->map(fn($provider) => $this->providerPayload($provider))->all();
+
+        return $this->list($items, $page);
     }
 
     public function integrations(Request $request): JsonResponse
@@ -584,11 +640,12 @@ class TenantBusinessController extends BaseTenantController
             'users' => $this->base('users')->orderBy('display_name')->limit(200)->get(['uuid', 'display_name', 'email']),
             'clients' => $this->base('parties')->where('party_type', 'client')->orderBy('display_name')->limit(200)->get(['uuid', 'display_name', 'email', 'phone']),
             'vendors' => $this->base('parties')->where('party_type', 'vendor')->orderBy('display_name')->limit(200)->get(['uuid', 'display_name', 'email', 'phone']),
+            'parties' => $this->base('parties')->orderBy('display_name')->limit(300)->get(['uuid', 'party_type', 'display_name', 'email', 'phone']),
             'projects' => $this->base('projects')->orderBy('name')->limit(200)->get(['uuid', 'name', 'project_number']),
             'staff' => $this->base('staff')->orderBy('display_name')->limit(200)->get(['uuid', 'display_name', 'employee_code']),
             'invoices' => $this->invoiceRows()->orderByDesc('tenant_invoices.id')->limit(200)->get(['tenant_invoices.uuid', 'tenant_invoices.invoice_number', 'tenant_invoices.balance_amount', 'parties.display_name as client_name']),
             'accounts' => collect($this->base('bank_accounts')->orderBy('bank_name')->limit(200)->get())->map(fn($row) => $this->bankAccount((int) $row->id))->all(),
-            'providers' => DB::table('integration_providers')->where('status', 'active')->orderBy('name')->limit(200)->get(['id', 'name', 'code', 'category']),
+            'providers' => DB::table('integration_providers')->where('status', 'active')->orderBy('name')->limit(200)->get(['id', 'name', 'code', 'category', 'auth_type', 'metadata']),
             'lookups' => $this->base('tenant_lookups')->orderBy('group')->orderBy('name')->limit(400)->get(['uuid', 'id', 'group', 'name', 'code']),
         ]);
     }
@@ -805,27 +862,140 @@ class TenantBusinessController extends BaseTenantController
     {
         return $this->base('tenant_settings')->where('group', $group)->orderBy('key')->get()->map(fn($row) => tap($row, fn($item) => $item->value_display = $this->displayJson($item->value)));
     }
+    private function settingsValues($settings): array
+    {
+        return collect($settings)->mapWithKeys(fn($row) => [$row->key => $this->displayJson($row->value)])->all();
+    }
     private function displayJson(mixed $value): mixed
     {
         $decoded = json_decode((string) $value, true);
         return is_array($decoded) ? collect($decoded)->map(fn($item, $key) => is_scalar($item) ? "{$key}: {$item}" : "{$key}: configured")->implode(', ') : $decoded;
     }
-    private function logCommunication(Request $request, string $channel, string $direction, string $subject, string $body, string $status, ?int $partyId = null): int
+    private function tenantMailOptions(): array
     {
-        return DB::table('communication_logs')->insertGetId(['uuid' => (string) Str::uuid(), 'tenant_id' => $this->tenantId(), 'user_id' => $request->user()?->id, 'party_id' => $partyId, 'channel' => $channel, 'direction' => $direction, 'subject' => $subject, 'body' => $body, 'provider' => 'manual', 'status' => $status, 'created_at' => now()]);
+        $settings = DB::table('tenant_settings')
+            ->where('tenant_id', $this->tenantId())
+            ->where('group', 'communication')
+            ->whereIn('key', ['sender_name', 'reply_to_email'])
+            ->pluck('value', 'key')
+            ->map(fn($value) => $this->displayJson($value));
+
+        return [
+            'from_name' => (string) ($settings['sender_name'] ?? $this->mailer->tenantName($this->tenantId())),
+            'reply_to' => (string) ($settings['reply_to_email'] ?? ''),
+        ];
+    }
+    private function templateVariables(object $template, array $overrides = []): array
+    {
+        $configured = json_decode((string) $template->variables, true);
+        $variables = collect(is_array($configured) ? $configured : [])
+            ->mapWithKeys(fn($key) => [(string) $key => Str::headline((string) $key)])
+            ->all();
+
+        return array_merge($variables, $overrides, [
+            'workspace_name' => $this->mailer->tenantName($this->tenantId()),
+            'tenant_name' => $this->mailer->tenantName($this->tenantId()),
+        ]);
+    }
+
+    private function renderTemplateText(string $text, array $variables): string
+    {
+        foreach ($variables as $key => $value) {
+            $text = str_replace('{{'.$key.'}}', (string) $value, $text);
+        }
+
+        return $text;
+    }
+    private function communicationEnabled(string $channel): bool
+    {
+        $key = match ($channel) {
+            'email' => 'email_notifications',
+            'sms' => 'sms_notifications',
+            'whatsapp' => 'whatsapp_notifications',
+            'push', 'in_app' => 'push_notifications',
+            default => null,
+        };
+
+        if (! $key) return true;
+
+        $value = DB::table('tenant_settings')
+            ->where('tenant_id', $this->tenantId())
+            ->where('group', 'communication')
+            ->where('key', $key)
+            ->value('value');
+
+        return $value === null ? true : filter_var($this->displayJson($value), FILTER_VALIDATE_BOOLEAN);
+    }
+
+    private function createPushNotification(Request $request, string $title, string $body, array $metadata = []): string
+    {
+        $id = (string) Str::uuid();
+
+        DB::table('notifications')->insert([
+            'id' => $id,
+            'tenant_id' => $this->tenantId(),
+            'type' => 'tenant_push',
+            'notifiable_type' => 'tenant_user',
+            'notifiable_id' => (int) ($request->user()?->id ?? 0),
+            'data' => json_encode(['title' => $title, 'message' => $body, ...$metadata]),
+            'read_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $id;
+    }
+
+    private function logCommunication(Request $request, string $channel, string $direction, string $subject, string $body, string $status, ?int $partyId = null, array $metadata = [], mixed $sentAt = null, ?string $provider = 'manual', ?string $providerMessageId = null, ?string $failedReason = null): int
+    {
+        return DB::table('communication_logs')->insertGetId(['uuid' => (string) Str::uuid(), 'tenant_id' => $this->tenantId(), 'user_id' => $request->user()?->id, 'party_id' => $partyId, 'channel' => $channel, 'direction' => $direction, 'subject' => $subject, 'body' => $body, 'provider' => $provider, 'provider_message_id' => $providerMessageId, 'status' => $status, 'sent_at' => $sentAt, 'failed_reason' => $failedReason ?: ($status === 'blocked' ? ($metadata['reason'] ?? 'disabled_by_tenant_preferences') : null), 'metadata' => json_encode($metadata), 'created_at' => now()]);
     }
     private function integrationRows()
     {
-        return $this->base('tenant_integrations')->join('integration_providers', 'integration_providers.id', '=', 'tenant_integrations.provider_id')->select('tenant_integrations.*', 'integration_providers.name as provider_name', 'integration_providers.code as provider_code', 'integration_providers.category', 'integration_providers.auth_type');
+        return $this->base('tenant_integrations')->join('integration_providers', 'integration_providers.id', '=', 'tenant_integrations.provider_id')->select('tenant_integrations.*', 'integration_providers.name as provider_name', 'integration_providers.code as provider_code', 'integration_providers.category', 'integration_providers.auth_type', 'integration_providers.metadata as metadata');
     }
     private function integrationBundle(int $id): array
     {
-        return ['record' => $this->integrationRows()->where('tenant_integrations.id', $id)->first(), 'credentials' => DB::table('integration_credentials')->where('tenant_integration_id', $id)->get(['key', 'expires_at']), 'webhooks' => DB::table('integration_webhooks')->where('tenant_integration_id', $id)->get(), 'sync_jobs' => DB::table('integration_sync_jobs')->where('tenant_integration_id', $id)->orderByDesc('id')->limit(25)->get(), 'mappings' => DB::table('integration_field_mappings')->where('tenant_integration_id', $id)->get(), 'rate_limits' => DB::table('integration_rate_limits')->where('tenant_integration_id', $id)->orderByDesc('id')->limit(25)->get()];
+        return ['record' => $this->integrationRows()->where('tenant_integrations.id', $id)->first(), 'credentials' => $this->credentialSummary($id), 'webhooks' => DB::table('integration_webhooks')->where('tenant_integration_id', $id)->get(), 'sync_jobs' => DB::table('integration_sync_jobs')->where('tenant_integration_id', $id)->orderByDesc('id')->limit(25)->get(), 'mappings' => DB::table('integration_field_mappings')->where('tenant_integration_id', $id)->get(), 'rate_limits' => DB::table('integration_rate_limits')->where('tenant_integration_id', $id)->orderByDesc('id')->limit(25)->get()];
     }
+
     private function storeCredentials(int $integrationId, array $credentials): void
     {
-        foreach ($credentials as $key => $value) DB::table('integration_credentials')->updateOrInsert(['tenant_integration_id' => $integrationId, 'key' => $key], ['encrypted_value' => Crypt::encryptString((string) $value), 'expires_at' => null]);
+        foreach ($credentials as $key => $value) {
+            if ($value === null || $value === '') continue;
+
+            DB::table('integration_credentials')->updateOrInsert(
+                ['tenant_integration_id' => $integrationId, 'key' => (string) $key],
+                ['encrypted_value' => Crypt::encryptString((string) $value), 'expires_at' => null]
+            );
+        }
     }
+
+    private function providerPayload(object $provider): object
+    {
+        $provider->metadata = $this->jsonArray($provider->metadata ?? null);
+        $provider->credential_fields = array_keys($provider->metadata['credential_template'] ?? []);
+
+        return $provider;
+    }
+
+    private function credentialSummary(int $integrationId): array
+    {
+        return DB::table('integration_credentials')
+            ->where('tenant_integration_id', $integrationId)
+            ->orderBy('key')
+            ->get(['key', 'expires_at'])
+            ->map(fn($row) => ['key' => $row->key, 'status' => 'stored', 'expires_at' => $row->expires_at])
+            ->all();
+    }
+
+    private function jsonArray(mixed $value): array
+    {
+        $decoded = json_decode((string) $value, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
     private function integrationChildIndex(Request $request, string $table, string $key): JsonResponse
     {
         $ids = $this->base('tenant_integrations')->pluck('id');
@@ -833,3 +1003,9 @@ class TenantBusinessController extends BaseTenantController
         return $this->list($page->items(), $page);
     }
 }
+
+
+
+
+
+

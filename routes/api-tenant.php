@@ -532,12 +532,16 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     // Workspace tools, notifications, and help center.
     Route::get('/notifications', [TenantEngagementController::class, 'notifications'])->middleware('tenant.permission:notification.view')->name('notifications.index');
     Route::get('/notifications/unread-count', [TenantEngagementController::class, 'unreadCount'])->middleware('tenant.permission:notification.view')->name('notifications.unread-count');
+    Route::get('/notifications/{notification_id}', [TenantEngagementController::class, 'showNotification'])->middleware('tenant.permission:notification.view')->name('notifications.show');
     Route::post('/notifications/bulk/read', [TenantEngagementController::class, 'bulkRead'])->middleware('tenant.permission:notification.manage')->name('notifications.bulk.read');
     Route::post('/notifications/{notification_id}/read', [TenantEngagementController::class, 'markRead'])->middleware('tenant.permission:notification.manage')->name('notifications.read');
     Route::post('/notifications/{notification_id}/unread', [TenantEngagementController::class, 'markUnread'])->middleware('tenant.permission:notification.manage')->name('notifications.unread');
     Route::delete('/notifications/{notification_id}', [TenantEngagementController::class, 'deleteNotification'])->middleware('tenant.permission:notification.manage')->name('notifications.delete');
     Route::get('/communication/logs', [TenantEngagementController::class, 'communicationLogs'])->middleware('tenant.permission:setting.view')->name('communication.logs');
     Route::post('/communication/email', [TenantEngagementController::class, 'sendEmail'])->name('communication.email');
+    Route::post('/communication/sms', [TenantEngagementController::class, 'sendSms'])->name('communication.sms');
+    Route::post('/communication/whatsapp', [TenantEngagementController::class, 'sendWhatsApp'])->name('communication.whatsapp');
+    Route::post('/communication/push', [TenantEngagementController::class, 'sendPush'])->name('communication.push');
     Route::post('/communication/logs/{log_uuid}/retry', [TenantEngagementController::class, 'retryCommunication'])->middleware('tenant.permission:setting.edit')->name('communication.logs.retry');
     Route::get('/help/articles', [TenantEngagementController::class, 'helpArticles'])->name('help.articles');
     Route::get('/help/articles/{slug}', [TenantEngagementController::class, 'helpArticle'])->name('help.articles.show');
@@ -550,6 +554,8 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token'])->group(fun
     Route::post('/profile/api-tokens/{token_uuid}/rotate', [TenantApiTokenController::class, 'rotate'])->name('profile.api-tokens.rotate');
     Route::post('/profile/api-tokens/{token_uuid}/revoke', [TenantApiTokenController::class, 'revoke'])->name('profile.api-tokens.revoke');
 });
+
+
 
 
 
