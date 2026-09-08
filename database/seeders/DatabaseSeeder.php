@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             TenantLookupSeeder::class,
             BillingCatalogSeeder::class,
             Phase2PlatformCatalogSeeder::class,
+            Phase2CatalogRelationsSeeder::class,
             Phase3PlatformConfigurationSeeder::class,
             DemoTenantFoundationSeeder::class,
             DemoTenantSettingsSeeder::class,

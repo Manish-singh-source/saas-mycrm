@@ -1046,7 +1046,7 @@ class DemoRelationalDataSeeder extends Seeder
         }
         $couponId = $this->seedRecord('coupons', ['code' => 'DEMO10'], [
             'name' => 'Demo Ten Percent',
-            'discount_type' => 'percentage',
+            'discount_type' => 'percent',
             'discount_value' => 10,
             'starts_at' => now()->subDay(),
             'expires_at' => now()->addMonth(),

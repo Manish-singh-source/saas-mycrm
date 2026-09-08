@@ -18,6 +18,7 @@ Route::get('/api-docs/rbac.yaml', function () {
         'Content-Type' => 'application/yaml; charset=UTF-8',
     ]);
 })->name('api-docs.rbac.spec');
+
 Route::get('/api-docs', function () {
     return view('api-docs.rbac');
 })->name('api-docs.completed');

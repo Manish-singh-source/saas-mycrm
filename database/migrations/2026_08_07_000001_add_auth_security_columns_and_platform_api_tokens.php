@@ -31,7 +31,7 @@ return new class extends Migration
             $table->dateTime('expires_at')->nullable();
             $table->foreignId('created_by')->nullable()->constrained('platform_users')->nullOnDelete();
             $table->timestamps();
-            $table->softDeletes();
+            $table->softDeletes(); 
             $table->index(['expires_at']);
         });
     }
