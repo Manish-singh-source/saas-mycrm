@@ -1,26 +1,8 @@
 <?php
 
-use App\Exceptions\BusinessException;
-use App\Http\Middleware\EnsurePlatformPermission;
-use App\Http\Middleware\EnsurePlatformToken;
-use App\Http\Middleware\EnsureTenantPermission;
-use App\Http\Middleware\EnsureTenantToken;
-use App\Http\Middleware\IdempotencyMiddleware;
-use App\Http\Middleware\ResolveTenantContext;
-use App\Http\Middleware\LocaleTimezoneMiddleware;
-use App\Http\Middleware\RequestIdMiddleware;
-use App\Support\ApiResponse;
-use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Auth\AuthenticationException;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -30,87 +12,39 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->appendToGroup('api', [
-            RequestIdMiddleware::class,
-            LocaleTimezoneMiddleware::class,
-            IdempotencyMiddleware::class,
-        ]);
-
         $middleware->alias([
-            'request.id' => RequestIdMiddleware::class,
-            'locale.timezone' => LocaleTimezoneMiddleware::class,
-            'idempotency' => IdempotencyMiddleware::class,
-            'platform.token' => EnsurePlatformToken::class,
-            'platform.permission' => EnsurePlatformPermission::class,
-            'tenant.context' => ResolveTenantContext::class,
-            'tenant.token' => EnsureTenantToken::class,
-            'tenant.permission' => EnsureTenantPermission::class,
+            'platform.token' => App\Http\Middleware\EnsurePlatformToken::class,
+            'tenant.context' => App\Http\Middleware\ResolveTenantContext::class,
+            'tenant.token' => App\Http\Middleware\EnsureTenantToken::class,
+            'tenant.permission' => App\Http\Middleware\EnsureTenantPermission::class,
+            'abilities' => Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
+            'ability' => Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
         ]);
+        $middleware->append(App\Http\Middleware\LogApiRequest::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $isApiRequest = static fn (Request $request): bool => $request->is('api/*') || $request->expectsJson();
-
-        $exceptions->render(function (ValidationException $exception, Request $request) use ($isApiRequest) {
-            if (! $isApiRequest($request)) {
-                return null;
-            }
-
-            return ApiResponse::validationError($exception->errors());
-        });
-
-        $exceptions->render(function (BusinessException $exception, Request $request) use ($isApiRequest) {
-            if (! $isApiRequest($request)) {
-                return null;
-            }
-
-            return ApiResponse::businessError(
-                $exception->getMessage(),
-                $exception->errorCode(),
-                $exception->statusCode(),
-                $exception->details()
-            );
-        });
-
-        $exceptions->render(function (AuthenticationException $exception, Request $request) use ($isApiRequest) {
-            if (! $isApiRequest($request)) {
-                return null;
-            }
-
-            return ApiResponse::businessError('Unauthenticated.', 'AUTHENTICATION_REQUIRED', Response::HTTP_UNAUTHORIZED);
-        });
-
-        $exceptions->render(function (AuthorizationException $exception, Request $request) use ($isApiRequest) {
-            if (! $isApiRequest($request)) {
-                return null;
-            }
-
-            return ApiResponse::businessError('Forbidden.', 'FORBIDDEN', Response::HTTP_FORBIDDEN);
-        });
-
-        $exceptions->render(function (ModelNotFoundException|NotFoundHttpException $exception, Request $request) use ($isApiRequest) {
-            if (! $isApiRequest($request)) {
-                return null;
-            }
-
-            return ApiResponse::businessError('Resource not found.', 'NOT_FOUND', Response::HTTP_NOT_FOUND);
-        });
-
-        $exceptions->render(function (\Throwable $exception, Request $request) use ($isApiRequest) {
-            if (! $isApiRequest($request)) {
-                return null;
-            }
-
-            if ($exception instanceof HttpExceptionInterface) {
-                $statusCode = $exception->getStatusCode();
-                $message = $exception->getMessage() !== ''
-                    ? $exception->getMessage()
-                    : Response::$statusTexts[$statusCode] ?? 'HTTP error.';
-
-                return ApiResponse::businessError($message, 'HTTP_ERROR', $statusCode);
-            }
-
-            report($exception);
-
-            return ApiResponse::businessError('Server error.', 'SERVER_ERROR', Response::HTTP_INTERNAL_SERVER_ERROR);
+        $exceptions->render(function (\Throwable $exception, \Illuminate\Http\Request $request) {
+            if (! $request->is('api/auth/v1/tenants/*', 'api/platform/v1/tenants', 'api/platform/v1/tenants/*')) return null;
+            if ($exception instanceof \Illuminate\Http\Exceptions\HttpResponseException) return $exception->getResponse();
+            if ($exception instanceof \Illuminate\Validation\ValidationException) return \App\Support\ApiResponse::validation($exception->errors());
+            $status = match (true) {
+                $exception instanceof \Illuminate\Auth\AuthenticationException => 401,
+                $exception instanceof \Illuminate\Auth\Access\AuthorizationException => 403,
+                $exception instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface => $exception->getStatusCode(),
+                default => 500,
+            };
+            $message = match ($status) {
+                401 => 'Unauthenticated.', 403 => 'You do not have permission to perform this action.',
+                404 => 'Resource not found.', 405 => 'Method not allowed.', 429 => 'Too many requests.',
+                default => 'Something went wrong. Please try again later.',
+            };
+            $response = \App\Support\ApiResponse::error($message, $status);
+            if ($exception instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) $response->headers->add($exception->getHeaders());
+            return $response;
         });
     })->create();
+
+
+
+
+

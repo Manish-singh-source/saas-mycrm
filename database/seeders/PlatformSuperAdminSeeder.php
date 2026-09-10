@@ -2,64 +2,67 @@
 
 namespace Database\Seeders;
 
-use Database\Seeders\Concerns\SeedsRecords;
 use Illuminate\Database\Seeder;
-use App\Models\PlatformUser;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class PlatformSuperAdminSeeder extends Seeder
 {
-    use SeedsRecords;
-
-
     public function run(): void
     {
-        $email = (string) env('PLATFORM_SUPER_ADMIN_EMAIL', 'support@technofra.com');
-        $password = (string) env('PLATFORM_SUPER_ADMIN_PASSWORD', '123456789');
-        $now = now();
+        $password = env('PLATFORM_SUPER_ADMIN_PASSWORD');
+        if (! is_string($password) || $password === '') {
+            throw new RuntimeException('PLATFORM_SUPER_ADMIN_PASSWORD must be set before seeding the platform super admin.');
+        }
 
-        $existing = DB::table('platform_users')->where('email', $email)->first();
+        DB::transaction(function () use ($password): void {
+            $now = now();
+            $roleId = DB::table('platform_roles')->where([
+                'name' => 'super_admin', 'guard_name' => 'platform',
+            ])->value('id');
 
-        $values = [
-            'employee_code' => 'SA-0001',
-            'first_name' => 'Super',
-            'last_name' => 'Admin',
-            'display_name' => 'Super Admin',
-            'designation' => 'Super Administrator',
-            'department' => 'Platform',
-            'timezone' => (string) env('APP_TIMEZONE', 'UTC'),
-            'locale' => 'en',
-            'email_verified_at' => $now,
-            'two_factor_enabled' => false,
-            'status' => 'active',
-            'updated_at' => $now,
-        ];
+            if ($roleId === null) {
+                $roleId = DB::table('platform_roles')->insertGetId([
+                    'uuid' => (string) Str::uuid(), 'name' => 'super_admin',
+                    'display_name' => 'Super Admin', 'guard_name' => 'platform',
+                    'description' => 'Full access to the platform.', 'is_system' => true,
+                    'status' => 'active', 'created_at' => $now, 'updated_at' => $now,
+                ]);
+            }
 
-        if ($existing === null) {
-            $userId = (int) DB::table('platform_users')->insertGetId(array_merge($values, [
-                'uuid' => (string) Str::uuid(),
-                'email' => $email,
+            $email = env('PLATFORM_SUPER_ADMIN_EMAIL', 'admin@example.com');
+            $userId = DB::table('platform_users')->where('email', $email)->value('id');
+            $user = [
+                'employee_code' => env('PLATFORM_SUPER_ADMIN_EMPLOYEE_CODE', 'PSA-0001'),
+                'first_name' => env('PLATFORM_SUPER_ADMIN_FIRST_NAME', 'Super'),
+                'last_name' => env('PLATFORM_SUPER_ADMIN_LAST_NAME', 'Admin'),
+                'display_name' => env('PLATFORM_SUPER_ADMIN_DISPLAY_NAME', 'Super Admin'),
+                'email' => $email, 'mobile' => env('PLATFORM_SUPER_ADMIN_MOBILE'),
                 'password' => Hash::make($password),
-                'created_at' => $now,
-            ]));
-        } else {
-            DB::table('platform_users')->where('id', $existing->id)->update($values);
-            $userId = (int) $existing->id;
-        }
+                'timezone' => config('app.timezone', 'UTC'), 'locale' => 'en',
+                'email_verified_at' => $now, 'status' => 'active', 'updated_at' => $now,
+            ];
 
-        $role = DB::table('platform_roles')
-            ->where('name', 'super_admin')
-            ->where('guard_name', 'platform')
-            ->first();
+            if ($userId === null) {
+                $user['uuid'] = (string) Str::uuid();
+                $user['created_at'] = $now;
+                $userId = DB::table('platform_users')->insertGetId($user);
+            } else {
+                DB::table('platform_users')->where('id', $userId)->update($user);
+            }
 
-        if ($role !== null) {
-            $this->seedPivot('platform_model_has_roles', [
-                'role_id' => (int) $role->id,
-                'model_id' => $userId,
-                'model_type' => PlatformUser::class,
+            DB::table('platform_role_has_permissions')->insertOrIgnore(
+                DB::table('platform_permissions')->pluck('id')->map(fn (int $permissionId): array => [
+                    'role_id' => $roleId, 'permission_id' => $permissionId,
+                ])->all(),
+            );
+
+            DB::table('platform_model_has_roles')->insertOrIgnore([
+                'role_id' => $roleId, 'model_id' => $userId,
+                'model_type' => 'App\\Models\\PlatformUser',
             ]);
-        }
+        });
     }
 }

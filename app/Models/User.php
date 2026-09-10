@@ -2,72 +2,61 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\HasTenantRbac;
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasTenantRbac, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
     protected $fillable = [
-        'uuid',
-        'tenant_id',
-        'staff_id',
-        'client_contact_id',
-        'default_office_id',
-        'employee_code',
-        'first_name',
-        'last_name',
-        'display_name',
+        'name',
         'email',
-        'mobile',
         'password',
-        'profile_photo_file_id',
-        'timezone',
-        'locale',
-        'email_verified_at',
-        'mobile_verified_at',
-        'two_factor_enabled',
-        'two_factor_secret',
-        'two_factor_recovery_codes',
-        'two_factor_confirmed_at',
-        'account_type',
-        'last_login_at',
-        'last_login_ip',
-        'status',
-        'created_by',
-        'updated_by',
     ];
 
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
     protected $hidden = [
         'password',
         'remember_token',
-        'two_factor_secret',
-        'two_factor_recovery_codes',
     ];
 
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
-            'mobile_verified_at' => 'datetime',
-            'two_factor_enabled' => 'boolean',
-            'two_factor_secret' => 'encrypted',
-            'two_factor_recovery_codes' => 'encrypted:array',
-            'two_factor_confirmed_at' => 'datetime',
-            'last_login_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
-
-    public function tenant(): BelongsTo
-    {
-        return $this->belongsTo(Tenant::class);
-    }
+    public function tenant(): BelongsTo { return $this->belongsTo(Tenant::class); }
+    public function staff(): BelongsTo { return $this->belongsTo(Staff::class, 'staff_id'); }
+    public function managedStaff(): HasMany { return $this->hasMany(Staff::class, 'reporting_manager_id'); }
+    public function defaultOffice(): BelongsTo { return $this->belongsTo(TenantOffice::class, 'default_office_id'); }
+    public function roles(): MorphToMany { return $this->morphToMany(Role::class, 'model', 'model_has_roles')->withPivot('tenant_id'); }
+    public function hasTenantPermission(string $permission): bool { return $this->roles()->where('roles.tenant_id', $this->tenant_id)->where('roles.status','active')->whereHas('permissions', fn ($q) => $q->where('permissions.name', $permission)->where('permissions.status','active'))->exists(); }
 }
+
+
+

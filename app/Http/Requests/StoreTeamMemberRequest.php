@@ -1,0 +1,7 @@
+<?php
+namespace App\Http\Requests;
+use Illuminate\Validation\Rule;
+final class StoreTeamMemberRequest extends ApiFormRequest {
+ public function authorize(): bool { return true; }
+ public function rules(): array { return ['members'=>['sometimes','array','min:1'],'members.*.platform_user_uuid'=>['nullable','uuid','exists:platform_users,uuid'],'members.*.platform_user_id'=>['nullable','integer','exists:platform_users,id'],'members.*.team_role_uuid'=>['nullable','uuid','exists:platform_team_roles,uuid'],'members.*.platform_team_role_id'=>['nullable','integer','exists:platform_team_roles,id'],'members.*.joined_at'=>['nullable','date'],'members.*.effective_from'=>['nullable','date'],'members.*.status'=>['sometimes',Rule::in(['active','inactive'])],'platform_user_uuid'=>['nullable','uuid','exists:platform_users,uuid','required_without_all:platform_user_id,members'],'platform_user_id'=>['nullable','integer','exists:platform_users,id','required_without_all:platform_user_uuid,members'],'team_role_uuid'=>['nullable','uuid','exists:platform_team_roles,uuid'],'platform_team_role_id'=>['nullable','integer','exists:platform_team_roles,id'],'joined_at'=>['nullable','date'],'effective_from'=>['nullable','date'],'status'=>['sometimes',Rule::in(['active','inactive'])]]; }
+}

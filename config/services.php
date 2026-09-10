@@ -2,6 +2,11 @@
 
 return [
 
+    'razorpay' => [
+        'key' => env('RAZORPAY_KEY_ID'),
+        'secret' => env('RAZORPAY_KEY_SECRET'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services
@@ -35,11 +40,4 @@ return [
         ],
     ],
 
-    'twilio' => [
-        'sid' => env('TWILIO_ACCOUNT_SID'),
-        'token' => env('TWILIO_AUTH_TOKEN'),
-        'from' => env('TWILIO_FROM_NUMBER'),
-    ],
-
 ];
-

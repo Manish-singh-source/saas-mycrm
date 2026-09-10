@@ -9,27 +9,24 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
+    /**
+     * Seed the application's database.
+     */
     public function run(): void
     {
+        
+        $this->call(CountryStateCitySeeder::class);
+        $this->call(MasterDataSeeder::class);
+        
         $this->call([
-            MasterDataSeeder::class,
+            PlatformCatalogSeeder::class,
             PlatformPermissionMapSeeder::class,
             TenantPermissionMapSeeder::class,
-            PlatformRoleSeeder::class,
             PlatformSuperAdminSeeder::class,
-            Phase1PlatformSeeder::class,
-            TenantLookupSeeder::class,
-            BillingCatalogSeeder::class,
-            Phase2PlatformCatalogSeeder::class,
-            Phase2CatalogRelationsSeeder::class,
-            Phase3PlatformConfigurationSeeder::class,
-            DemoTenantFoundationSeeder::class,
-            DemoTenantSettingsSeeder::class,
-            TenantIntegrationProviderSeeder::class,
-            TenantRoleSeeder::class,
-            DemoRelationalDataSeeder::class,
+            PlatformKnowledgeBaseSeeder::class,
+            PlatformLegalDocumentSeeder::class,
+            PlatformMonitoringServiceSeeder::class,
+            IntegrationProviderSeeder::class,
         ]);
     }
 }
-
-

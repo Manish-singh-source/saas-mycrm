@@ -1,47 +1,45 @@
 <?php
 
-use App\Http\Controllers\Common\LocationController;
-use App\Http\Controllers\Shared\SignedFileDownloadController;
-use App\Http\Controllers\Auth\TenantRegistrationController;
-use App\Http\Controllers\Auth\UnifiedAuthController;
+use App\Http\Controllers\LocationController;
+use App\Http\Controllers\MasterDataController;
 use Illuminate\Support\Facades\Route;
 
-// Shared endpoints used by both platform and tenant surfaces.
-Route::get('/files/signed-download/{file_uuid}', SignedFileDownloadController::class)->name('api.files.signed-download')->middleware('signed');
+Route::middleware('throttle:api-common')->prefix('common/v1')->group(function (): void {
+    Route::get('locations/countries', [LocationController::class, 'countries']);
+    Route::get('locations/states', [LocationController::class, 'states']);
+    Route::get('locations/cities', [LocationController::class, 'cities']);
 
-// Public common lookups.
-Route::prefix('common/v1')
-    ->as('api.common.v1.')
-    ->group(function (): void {
-        Route::get('/locations/countries', [LocationController::class, 'countries'])->name('locations.countries');
-        Route::get('/locations/states', [LocationController::class, 'states'])->name('locations.states');
-        Route::get('/locations/cities', [LocationController::class, 'cities'])->name('locations.cities');
+    Route::get('business-types', [MasterDataController::class, 'businessTypes']);
+    Route::get('industries', [MasterDataController::class, 'industries']);
+    Route::get('currencies', [MasterDataController::class, 'currencies']);
+    Route::get('languages', [MasterDataController::class, 'languages']);
+    Route::get('timezones', [MasterDataController::class, 'timezones']);
+    Route::get('dateformats', [MasterDataController::class, 'dateFormats']);
+    Route::get('timeformats', [MasterDataController::class, 'timeFormats']);
+});
+
+Route::prefix('auth/v1')->group(function (): void {
+    // Notifications & Legal Documents
+    Route::get('announcements', [App\Http\Controllers\PlatformAnnouncementController::class, 'publicIndex']);
+    Route::get('legal/{document_type}', [App\Http\Controllers\PlatformLegalDocumentController::class, 'publicDocument']);
+    
+    // Tenant Registration
+    Route::get('tenants/plans', [App\Http\Controllers\TenantRegistrationController::class, 'plans'])->middleware('throttle:api-common');
+    Route::post('tenants/register', [App\Http\Controllers\TenantRegistrationController::class, 'store'])->middleware('throttle:api-auth');
+    Route::post('tenants/register/payment/confirm', [App\Http\Controllers\TenantRegistrationController::class, 'confirmPayment'])->middleware('throttle:api-auth');
+    
+    // Authentication
+    Route::post('accounts/discover', [App\Http\Controllers\UnifiedAuthController::class, 'discover'])->middleware('throttle:api-auth');
+    Route::post('accounts/login', [App\Http\Controllers\UnifiedAuthController::class, 'login'])->middleware('throttle:api-auth');
+    Route::post('accounts/login/2fa', [App\Http\Controllers\UnifiedAuthController::class, 'verifyTwoFactor'])->middleware('throttle:api-auth');
+    Route::post('password/forgot', [App\Http\Controllers\PasswordRecoveryController::class, 'forgot'])->middleware('throttle:api-password-forgot');
+    Route::post('password/reset', [App\Http\Controllers\PasswordRecoveryController::class, 'reset'])->middleware('throttle:api-password-reset');
+    Route::middleware(['auth:sanctum', 'throttle:api-authenticated'])->group(function (): void {
+        Route::get('me', [App\Http\Controllers\UnifiedAuthController::class, 'me']);
+        Route::post('logout', [App\Http\Controllers\UnifiedAuthController::class, 'logout']);
+        Route::post('refresh', [App\Http\Controllers\UnifiedAuthController::class, 'refresh']);
     });
+});
 
-// Unified login, discovery, password reset, and tenant registration flows.
-Route::prefix('auth/v1')
-    ->as('api.auth.v1.')
-    ->group(function (): void {
-        Route::get('/tenants/plans', [TenantRegistrationController::class, 'plans'])->name('tenants.plans');
-        Route::post('/tenants/register', [TenantRegistrationController::class, 'store'])->name('tenants.register');
-        Route::post('/accounts/discover', [UnifiedAuthController::class, 'discover'])->name('accounts.discover');
-        Route::post('/accounts/login', [UnifiedAuthController::class, 'login'])->name('accounts.login');
-        Route::post('/accounts/login/2fa', [UnifiedAuthController::class, 'verifyTwoFactor'])->name('accounts.login.2fa');
-        Route::post('/password/forgot', [UnifiedAuthController::class, 'forgotPassword'])->name('password.forgot');
-        Route::post('/password/reset', [UnifiedAuthController::class, 'resetPassword'])->name('password.reset');
-
-        Route::middleware('auth:sanctum')->group(function (): void {
-            Route::get('/me', [UnifiedAuthController::class, 'me'])->name('me');
-            Route::post('/logout', [UnifiedAuthController::class, 'logout'])->name('logout');
-        });
-    });
-
-// Platform admin API surface.
-Route::prefix('platform/v1')
-    ->as('api.platform.v1.')
-    ->group(base_path('routes/api-platform.php'));
-
-// Tenant admin API surface.
-Route::prefix('tenant/v1')
-    ->as('api.tenant.v1.')
-    ->group(base_path('routes/api-tenant.php'));
+Route::prefix('platform/v1')->group(base_path('routes/api-platform.php'));
+Route::prefix('tenant/v1')->group(base_path('routes/api-tenant.php'));

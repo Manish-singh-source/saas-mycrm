@@ -2,33 +2,31 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-class PlatformPermission extends Model
+final class PlatformPermission extends Model
 {
-    use HasUuids;
+    protected $table = 'platform_permissions';
 
-    protected $fillable = ['uuid', 'module', 'name', 'display_name', 'guard_name', 'description', 'is_system', 'status'];
+    protected $fillable = ['module', 'name', 'display_name', 'description', 'is_system', 'status'];
 
-    public function uniqueIds(): array
-    {
-        return ['uuid'];
-    }
-
-    public function getRouteKeyName(): string
-    {
-        return 'uuid';
-    }
-
-    protected function casts(): array
-    {
-        return ['is_system' => 'boolean'];
-    }
-
-    public function roles(): BelongsToMany
+    protected $casts = [
+        'is_system' => 'boolean',
+    ];
+    
+    public function roles(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(PlatformRole::class, 'platform_role_has_permissions', 'permission_id', 'role_id');
     }
+
+    public function roleAssignments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PlatformRoleHasPermission::class, 'permission_id');
+    }
+
+    public function modelAssignments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PlatformModelHasPermission::class, 'permission_id');
+    }
+
 }
