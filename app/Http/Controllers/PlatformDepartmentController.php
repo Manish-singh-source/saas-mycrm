@@ -33,7 +33,28 @@ final class PlatformDepartmentController extends Controller
             $query->where('parent_id', $parentId);
         }
 
-        return ApiResponse::success($query->get(), 'Platform departments fetched.');
+        $kpiRows = (clone $query)->get();
+        $kpis = [
+            'total' => $kpiRows->count(),
+            'active' => $kpiRows->where('status', 'active')->count(),
+            'inactive' => $kpiRows->where('status', 'inactive')->count(),
+            'top_level' => $kpiRows->whereNull('parent_id')->count(),
+            'child_departments' => $kpiRows->whereNotNull('parent_id')->count(),
+            'with_manager' => $kpiRows->whereNotNull('platform_manager_user_id')->count(),
+            'without_manager' => $kpiRows->whereNull('platform_manager_user_id')->count(),
+            'assigned_staff' => $kpiRows->sum('users_count'),
+            'teams' => $kpiRows->sum('teams_count'),
+        ];
+
+        $paginator = $query->paginate($request->integer('per_page', 10))->withQueryString();
+
+        return ApiResponse::success($paginator->items(), 'Platform departments fetched successfully.', 200, [
+            'current_page' => $paginator->currentPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+            'last_page' => $paginator->lastPage(),
+            'kpis' => $kpis,
+        ]);
     }
 
     public function store(StorePlatformDepartmentRequest $request): mixed

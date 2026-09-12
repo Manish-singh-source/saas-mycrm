@@ -23,6 +23,8 @@ class DatabaseSeeder extends Seeder
             PlatformPermissionMapSeeder::class,
             TenantPermissionMapSeeder::class,
             PlatformSuperAdminSeeder::class,
+            PlatformDummyOrganizationSeeder::class,
+            TenantFullDemoSeeder::class,
             PlatformKnowledgeBaseSeeder::class,
             PlatformLegalDocumentSeeder::class,
             PlatformMonitoringServiceSeeder::class,

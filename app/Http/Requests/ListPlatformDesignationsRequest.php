@@ -17,6 +17,8 @@ final class ListPlatformDesignationsRequest extends ApiFormRequest
             'filter.level' => ['nullable', 'integer', 'min:0'],
             'sort' => ['nullable', Rule::in(['name', 'code', 'level', 'status', 'created_at', 'updated_at'])],
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];
     }
 }

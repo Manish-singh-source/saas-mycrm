@@ -117,19 +117,40 @@ final class ZTenantApi
     #[OA\Delete(path: '/api/tenant/v1/roles/{role_uuid}/users/{user_uuid}', summary: 'DELETE roles/{role_uuid}/users/{user_uuid}', tags: ['Access Control'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
     public function route37(): void {}
 
-    #[OA\Get(path: '/api/tenant/v1/team-roles', summary: 'GET team-roles', tags: ['Tenant API'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
+    #[OA\Get(path: '/api/tenant/v1/team-roles', summary: 'List tenant team roles', tags: ['Tenant Access Control'], security: [['bearerAuth' => []]], parameters: [new OA\Parameter(name: 'X-Tenant', in: 'header', required: true, description: 'Tenant UUID or slug.', schema: new OA\Schema(type: 'string')), new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100, default: 50))], responses: [new OA\Response(response: 200, description: 'Team roles fetched successfully'), new OA\Response(response: 401, description: 'Unauthenticated'), new OA\Response(response: 403, description: 'Insufficient team permission')])]
     public function route38(): void {}
 
-    #[OA\Post(path: '/api/tenant/v1/team-roles', summary: 'POST team-roles', tags: ['Tenant API'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
+    #[OA\Post(path: '/api/tenant/v1/team-roles', summary: 'Create a tenant team role', tags: ['Tenant Access Control'], security: [['bearerAuth' => []]], parameters: [new OA\Parameter(name: 'X-Tenant', in: 'header', required: true, description: 'Tenant UUID or slug.', schema: new OA\Schema(type: 'string'))], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(type: 'object', required: ['name', 'code'], properties: [
+        new OA\Property(property: 'name', type: 'string', maxLength: 150),
+        new OA\Property(property: 'code', type: 'string', maxLength: 80),
+        new OA\Property(property: 'description', type: 'string', nullable: true),
+        new OA\Property(property: 'permissions', type: 'array', nullable: true, items: new OA\Items(type: 'string')),
+        new OA\Property(property: 'sort_order', type: 'integer', nullable: true),
+        new OA\Property(property: 'status', type: 'string', enum: ['active', 'inactive'], default: 'active'),
+    ])), responses: [new OA\Response(response: 201, description: 'Team role created successfully'), new OA\Response(response: 401, description: 'Unauthenticated'), new OA\Response(response: 403, description: 'Insufficient team permission'), new OA\Response(response: 422, description: 'Validation error'), new OA\Response(response: 409, description: 'Team role conflict')])]
     public function route39(): void {}
 
-    #[OA\Patch(path: '/api/tenant/v1/team-roles/{team_role_uuid}', summary: 'PATCH team-roles/{team_role_uuid}', tags: ['Tenant API'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
+    #[OA\Patch(path: '/api/tenant/v1/team-roles/{team_role_uuid}', summary: 'Update a tenant team role', tags: ['Tenant Access Control'], security: [['bearerAuth' => []]], parameters: [new OA\Parameter(name: 'X-Tenant', in: 'header', required: true, description: 'Tenant UUID or slug.', schema: new OA\Schema(type: 'string')), new OA\Parameter(name: 'team_role_uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(type: 'object', properties: [
+        new OA\Property(property: 'name', type: 'string', maxLength: 150),
+        new OA\Property(property: 'code', type: 'string', maxLength: 80),
+        new OA\Property(property: 'description', type: 'string', nullable: true),
+        new OA\Property(property: 'permissions', type: 'array', nullable: true, items: new OA\Items(type: 'string')),
+        new OA\Property(property: 'sort_order', type: 'integer', nullable: true),
+        new OA\Property(property: 'status', type: 'string', enum: ['active', 'inactive']),
+    ])), responses: [new OA\Response(response: 200, description: 'Team role updated successfully'), new OA\Response(response: 401, description: 'Unauthenticated'), new OA\Response(response: 403, description: 'Insufficient permission or system role restriction'), new OA\Response(response: 404, description: 'Team role not found'), new OA\Response(response: 409, description: 'Team role conflict'), new OA\Response(response: 422, description: 'Validation error')])]
     public function route40(): void {}
 
-    #[OA\Put(path: '/api/tenant/v1/team-roles/{team_role_uuid}', summary: 'PUT team-roles/{team_role_uuid}', tags: ['Tenant API'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
+    #[OA\Put(path: '/api/tenant/v1/team-roles/{team_role_uuid}', summary: 'Update a tenant team role', tags: ['Tenant Access Control'], security: [['bearerAuth' => []]], parameters: [new OA\Parameter(name: 'X-Tenant', in: 'header', required: true, description: 'Tenant UUID or slug.', schema: new OA\Schema(type: 'string')), new OA\Parameter(name: 'team_role_uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(type: 'object', properties: [
+        new OA\Property(property: 'name', type: 'string', maxLength: 150),
+        new OA\Property(property: 'code', type: 'string', maxLength: 80),
+        new OA\Property(property: 'description', type: 'string', nullable: true),
+        new OA\Property(property: 'permissions', type: 'array', nullable: true, items: new OA\Items(type: 'string')),
+        new OA\Property(property: 'sort_order', type: 'integer', nullable: true),
+        new OA\Property(property: 'status', type: 'string', enum: ['active', 'inactive']),
+    ])), responses: [new OA\Response(response: 200, description: 'Team role updated successfully'), new OA\Response(response: 401, description: 'Unauthenticated'), new OA\Response(response: 403, description: 'Insufficient permission or system role restriction'), new OA\Response(response: 404, description: 'Team role not found'), new OA\Response(response: 409, description: 'Team role conflict'), new OA\Response(response: 422, description: 'Validation error')])]
     public function route41(): void {}
 
-    #[OA\Delete(path: '/api/tenant/v1/team-roles/{team_role_uuid}', summary: 'DELETE team-roles/{team_role_uuid}', tags: ['Tenant API'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
+    #[OA\Delete(path: '/api/tenant/v1/team-roles/{team_role_uuid}', summary: 'Delete a tenant team role', tags: ['Tenant Access Control'], security: [['bearerAuth' => []]], parameters: [new OA\Parameter(name: 'X-Tenant', in: 'header', required: true, description: 'Tenant UUID or slug.', schema: new OA\Schema(type: 'string')), new OA\Parameter(name: 'team_role_uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))], responses: [new OA\Response(response: 200, description: 'Team role deleted successfully'), new OA\Response(response: 401, description: 'Unauthenticated'), new OA\Response(response: 403, description: 'Insufficient permission or system role restriction'), new OA\Response(response: 404, description: 'Team role not found'), new OA\Response(response: 409, description: 'Team role is assigned and cannot be deleted')])]
     public function route42(): void {}
 
     #[OA\Post(path: '/api/tenant/v1/teams/export', summary: 'POST teams/export', tags: ['Access Control'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
@@ -1538,5 +1559,4 @@ final class ZTenantApi
 
     #[OA\Post(path: '/api/tenant/v1/attendance/requests/{request_uuid}/reject', summary: 'POST attendance/requests/{request_uuid}/reject', tags: ['HRMS'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
     public function route511(): void {}
-
 }

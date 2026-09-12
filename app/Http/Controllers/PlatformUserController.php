@@ -36,12 +36,32 @@ final class PlatformUserController extends Controller
     public function index(ListPlatformUsersRequest $request): mixed
     {
         $input = $request->validated();
-        $query = PlatformUser::query()->with(['roles', 'teams', 'department', 'designation', 'manager', 'profilePhotoFile'])->withCount(['permissions as direct_permissions_count'])->orderByDesc('created_at');
+        $query = PlatformUser::query()->orderByDesc('created_at');
         if (! empty($input['search'])) $query->where(fn ($q) => $q->where('display_name', 'like', '%'.$input['search'].'%')->orWhere('email', 'like', '%'.$input['search'].'%')->orWhere('employee_code', 'like', '%'.$input['search'].'%'));
         foreach ($input['filter'] ?? [] as $column => $value) if (in_array($column, ['status', 'department'], true)) $query->where($column === 'department' ? 'department_id' : $column, $value);
-        $paginator = $query->paginate($request->integer('per_page', 25))->withQueryString();
+
+        $kpiRows = (clone $query)->withCount(['roles', 'teams', 'permissions as direct_permissions_count'])->get();
+        $kpis = [
+            'total' => $kpiRows->count(),
+            'active' => $kpiRows->where('status', 'active')->count(),
+            'inactive' => $kpiRows->where('status', 'inactive')->count(),
+            'suspended' => $kpiRows->where('status', 'suspended')->count(),
+            'two_factor_enabled' => $kpiRows->where('two_factor_enabled', true)->count(),
+            'two_factor_required' => $kpiRows->where('two_factor_required', true)->count(),
+            'with_department' => $kpiRows->whereNotNull('department_id')->count(),
+            'without_department' => $kpiRows->whereNull('department_id')->count(),
+            'with_designation' => $kpiRows->whereNotNull('designation_id')->count(),
+            'without_designation' => $kpiRows->whereNull('designation_id')->count(),
+            'with_manager' => $kpiRows->whereNotNull('manager_id')->count(),
+            'without_manager' => $kpiRows->whereNull('manager_id')->count(),
+            'role_assignments' => $kpiRows->sum('roles_count'),
+            'team_assignments' => $kpiRows->sum('teams_count'),
+            'direct_permissions' => $kpiRows->sum('direct_permissions_count'),
+        ];
+
+        $paginator = (clone $query)->with(['roles', 'teams', 'department', 'designation', 'manager', 'profilePhotoFile'])->withCount(['permissions as direct_permissions_count'])->paginate($request->integer('per_page', 25))->withQueryString();
         $users = $paginator->getCollection()->map(fn (PlatformUser $user) => $this->decorateUser($user))->all();
-        return ApiResponse::success($users, 'Platform users fetched.', 200, ['current_page' => $paginator->currentPage(), 'per_page' => $paginator->perPage(), 'total' => $paginator->total(), 'last_page' => $paginator->lastPage()]);
+        return ApiResponse::success($users, 'Platform users fetched.', 200, ['current_page' => $paginator->currentPage(), 'per_page' => $paginator->perPage(), 'total' => $paginator->total(), 'last_page' => $paginator->lastPage(), 'kpis' => $kpis]);
     }
 
     public function store(StorePlatformUserRequest $request): mixed

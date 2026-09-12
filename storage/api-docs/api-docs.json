@@ -12,48 +12,6 @@
         }
     ],
     "paths": {
-        
-        "/api/auth/v1/announcements": {
-            "get": {
-                "tags": [
-                    "Announcements & Legal Documents"
-                ],
-                "summary": "List published announcements",
-                "operationId": "e9c01e621912f01cfec1afb2e9174689",
-                "responses": {
-                    "200": {
-                        "description": "Published announcements fetched"
-                    }
-                }
-            }
-        },
-        "/api/auth/v1/legal/{document_type}": {
-            "get": {
-                "tags": [
-                    "Announcements & Legal Documents"
-                ],
-                "summary": "Get a public legal document",
-                "operationId": "4891fe809c8b7148d77f2f3cbc8f1f3c",
-                "parameters": [
-                    {
-                        "name": "document_type",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Legal document fetched"
-                    },
-                    "404": {
-                        "description": "Document not found"
-                    }
-                }
-            }
-        },
         "/api/auth/v1/tenants/plans": {
             "get": {
                 "tags": [
@@ -199,6 +157,47 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/auth/v1/announcements": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "List published announcements",
+                "operationId": "e9c01e621912f01cfec1afb2e9174689",
+                "responses": {
+                    "200": {
+                        "description": "Published announcements fetched"
+                    }
+                }
+            }
+        },
+        "/api/auth/v1/legal/{document_type}": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Get a public legal document",
+                "operationId": "4891fe809c8b7148d77f2f3cbc8f1f3c",
+                "parameters": [
+                    {
+                        "name": "document_type",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Legal document fetched"
+                    },
+                    "404": {
+                        "description": "Document not found"
                     }
                 }
             }
@@ -8588,13 +8587,40 @@
         "/api/tenant/v1/team-roles": {
             "get": {
                 "tags": [
-                    "Tenant API"
+                    "Tenant Access Control"
                 ],
-                "summary": "GET team-roles",
+                "summary": "List tenant team roles",
                 "operationId": "584e371f384998af63cf5ea47ebfe668",
+                "parameters": [
+                    {
+                        "name": "X-Tenant",
+                        "in": "header",
+                        "description": "Tenant UUID or slug.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 50,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Successful response"
+                        "description": "Team roles fetched successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Insufficient team permission"
                     }
                 },
                 "security": [
@@ -8605,13 +8631,83 @@
             },
             "post": {
                 "tags": [
-                    "Tenant API"
+                    "Tenant Access Control"
                 ],
-                "summary": "POST team-roles",
+                "summary": "Create a tenant team role",
                 "operationId": "e6b6a0e96de64daeba3f061ad456b95c",
+                "parameters": [
+                    {
+                        "name": "X-Tenant",
+                        "in": "header",
+                        "description": "Tenant UUID or slug.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "code"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 150
+                                    },
+                                    "code": {
+                                        "type": "string",
+                                        "maxLength": 80
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "permissions": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "nullable": true
+                                    },
+                                    "sort_order": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "default": "active",
+                                        "enum": [
+                                            "active",
+                                            "inactive"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
-                    "200": {
-                        "description": "Successful response"
+                    "201": {
+                        "description": "Team role created successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Insufficient team permission"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "409": {
+                        "description": "Team role conflict"
                     }
                 },
                 "security": [
@@ -8624,13 +8720,90 @@
         "/api/tenant/v1/team-roles/{team_role_uuid}": {
             "put": {
                 "tags": [
-                    "Tenant API"
+                    "Tenant Access Control"
                 ],
-                "summary": "PUT team-roles/{team_role_uuid}",
+                "summary": "Update a tenant team role",
                 "operationId": "395cbdcdbdaf4f8b8a01735609f38253",
+                "parameters": [
+                    {
+                        "name": "X-Tenant",
+                        "in": "header",
+                        "description": "Tenant UUID or slug.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "team_role_uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 150
+                                    },
+                                    "code": {
+                                        "type": "string",
+                                        "maxLength": 80
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "permissions": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "nullable": true
+                                    },
+                                    "sort_order": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "active",
+                                            "inactive"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
-                        "description": "Successful response"
+                        "description": "Team role updated successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Insufficient permission or system role restriction"
+                    },
+                    "404": {
+                        "description": "Team role not found"
+                    },
+                    "409": {
+                        "description": "Team role conflict"
+                    },
+                    "422": {
+                        "description": "Validation error"
                     }
                 },
                 "security": [
@@ -8641,13 +8814,45 @@
             },
             "delete": {
                 "tags": [
-                    "Tenant API"
+                    "Tenant Access Control"
                 ],
-                "summary": "DELETE team-roles/{team_role_uuid}",
+                "summary": "Delete a tenant team role",
                 "operationId": "16c02482b6209f4b2d632a94353e8c1f",
+                "parameters": [
+                    {
+                        "name": "X-Tenant",
+                        "in": "header",
+                        "description": "Tenant UUID or slug.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "team_role_uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Successful response"
+                        "description": "Team role deleted successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Insufficient permission or system role restriction"
+                    },
+                    "404": {
+                        "description": "Team role not found"
+                    },
+                    "409": {
+                        "description": "Team role is assigned and cannot be deleted"
                     }
                 },
                 "security": [
@@ -8658,13 +8863,90 @@
             },
             "patch": {
                 "tags": [
-                    "Tenant API"
+                    "Tenant Access Control"
                 ],
-                "summary": "PATCH team-roles/{team_role_uuid}",
+                "summary": "Update a tenant team role",
                 "operationId": "a8cfc37e302329b786ecb8e097faf15c",
+                "parameters": [
+                    {
+                        "name": "X-Tenant",
+                        "in": "header",
+                        "description": "Tenant UUID or slug.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "team_role_uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 150
+                                    },
+                                    "code": {
+                                        "type": "string",
+                                        "maxLength": 80
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "permissions": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "nullable": true
+                                    },
+                                    "sort_order": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "active",
+                                            "inactive"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
-                        "description": "Successful response"
+                        "description": "Team role updated successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Insufficient permission or system role restriction"
+                    },
+                    "404": {
+                        "description": "Team role not found"
+                    },
+                    "409": {
+                        "description": "Team role conflict"
+                    },
+                    "422": {
+                        "description": "Validation error"
                     }
                 },
                 "security": [
@@ -18016,16 +18298,12 @@
     },
     "tags": [
         {
-            "name": "Common",
-            "description": "Common"
-        },
-        {
-            "name": "Announcements & Legal Documents",
-            "description": "Announcements & Legal Documents"
-        },
-        {
             "name": "Authentication",
             "description": "Authentication"
+        },
+        {
+            "name": "Common",
+            "description": "Common"
         },
         {
             "name": "Platform Health",
@@ -18130,6 +18408,10 @@
         {
             "name": "Tenant Auth & Profile",
             "description": "Tenant Auth & Profile"
+        },
+        {
+            "name": "Tenant Access Control",
+            "description": "Tenant Access Control"
         },
         {
             "name": "Tenant API",

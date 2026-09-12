@@ -7,9 +7,11 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\Rbac\RbacAuditLogger;
+use App\Support\ApiResponse;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class TenantRoleController extends BaseApiController
@@ -17,8 +19,7 @@ class TenantRoleController extends BaseApiController
     public function __construct(
         private readonly RbacAuditLogger $audit,
         private readonly TenantContext $tenant
-    ) {
-    }
+    ) {}
 
     public function index(Request $request)
     {
@@ -39,11 +40,18 @@ class TenantRoleController extends BaseApiController
 
         $page = $query->orderBy('name')->paginate((int) $request->integer('per_page', 25));
 
-        return $this->list($page->items(), $page, 'OK', [
-            'stats' => [
+        return ApiResponse::success($page->items(), 'Tenant roles fetched.', 200, [
+            'current_page' => $page->currentPage(),
+            'per_page' => $page->perPage(),
+            'total' => $page->total(),
+            'last_page' => $page->lastPage(),
+            'kpis' => [
                 'total' => (clone $baseQuery)->count(),
                 'active' => (clone $baseQuery)->where('status', 'active')->count(),
                 'inactive' => (clone $baseQuery)->where('status', 'inactive')->count(),
+                'system' => (clone $baseQuery)->where('is_system', true)->count(),
+                'custom' => (clone $baseQuery)->where('is_system', false)->count(),
+                'assignments' => (clone $baseQuery)->withCount('users')->get()->sum('users_count'),
             ],
         ]);
     }
@@ -54,7 +62,7 @@ class TenantRoleController extends BaseApiController
         $permissionIds = $this->permissionIds($data['permission_ids'] ?? []);
         unset($data['permission_ids'], $data['audit_reason']);
 
-        $role = Role::where('tenant_id', $this->tenant->id())->where('guard_name', 'tenant')->create($data);
+        $role = Role::where('tenant_id', $this->tenant->id())->where('guard_name', 'tenant')->create(array_merge(['uuid' => (string) Str::uuid(), 'tenant_id' => $this->tenant->id(), 'guard_name' => 'tenant'], $data));
         $role->permissions()->sync($permissionIds);
         $this->audit->log($request, 'tenant_role_created', $role, null, ['permission_ids' => $permissionIds], $request->input('audit_reason'));
 
@@ -120,6 +128,7 @@ class TenantRoleController extends BaseApiController
             foreach ($roles as $role) {
                 if ($this->deleteBlocker($role)) {
                     $skipped++;
+
                     continue;
                 }
 
@@ -144,6 +153,8 @@ class TenantRoleController extends BaseApiController
         ]);
 
         $role = Role::where('tenant_id', $this->tenant->id())->where('guard_name', 'tenant')->create([
+            'uuid' => (string) Str::uuid(),
+            'tenant_id' => $this->tenant->id(),
             'name' => $data['name'],
             'display_name' => $data['display_name'],
             'guard_name' => $source->guard_name,
@@ -234,10 +245,14 @@ class TenantRoleController extends BaseApiController
         $data = $request->validate(['user_ids' => ['required', 'array'], 'user_ids.*' => ['required', 'string'], 'audit_reason' => ['nullable', 'string', 'max:500']]);
         $userIds = User::query()->where('tenant_id', $this->tenant->id())->whereIn('uuid', $data['user_ids'])->pluck('id')->all();
         DB::table('model_has_roles')->where('tenant_id', $this->tenant->id())->where('role_id', $role->id)->where('model_type', User::class)->delete();
-        foreach ($userIds as $userId) DB::table('model_has_roles')->insert(['tenant_id'=>$this->tenant->id(),'role_id'=>$role->id,'model_id'=>$userId,'model_type'=>User::class]);
-        $this->audit->log($request, 'tenant_role_users_replaced', $role, null, ['user_ids'=>$userIds], $data['audit_reason'] ?? null);
+        foreach ($userIds as $userId) {
+            DB::table('model_has_roles')->insert(['tenant_id' => $this->tenant->id(), 'role_id' => $role->id, 'model_id' => $userId, 'model_type' => User::class]);
+        }
+        $this->audit->log($request, 'tenant_role_users_replaced', $role, null, ['user_ids' => $userIds], $data['audit_reason'] ?? null);
+
         return $this->success(['users' => $this->payload($role->fresh(), false, true)['users'] ?? []], 'Users updated.');
     }
+
     public function removeUser(Request $request, $role_uuid, $user_uuid)
     {
         $role = $this->findRole($role_uuid);
@@ -366,9 +381,3 @@ class TenantRoleController extends BaseApiController
             ->count('model_has_roles.model_id');
     }
 }
-
-
-
-
-
-

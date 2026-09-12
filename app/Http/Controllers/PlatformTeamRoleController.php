@@ -12,11 +12,13 @@ use Illuminate\Support\Str;
 final class PlatformTeamRoleController extends Controller
 {
  public function index(ListPlatformTeamRolesRequest $request): mixed {
-  $input=$request->validated(); $query=PlatformTeamRole::query()->with(['members.user.department', 'members.user.designation', 'members.team'])->orderBy($input['sort']??'name',$input['direction']??'asc');
+  $input=$request->validated(); $query=PlatformTeamRole::query()->orderBy($input['sort']??'name',$input['direction']??'asc');
   if(!empty($input['search']))$query->where(fn($q)=>$q->where('name','like','%'.$input['search'].'%')->orWhere('code','like','%'.$input['search'].'%'));
   if(!empty($input['filter']['status']))$query->where('status',$input['filter']['status']);
-  $p=$query->paginate($request->integer('per_page',25))->withQueryString(); $items=collect($p->items())->map(fn($role)=>$this->decorate($role))->all();
-  return ApiResponse::success($items,'Platform team roles fetched.',200,['current_page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]);
+  $kpiRows=(clone $query)->withCount('members')->get();
+  $kpis=['total'=>$kpiRows->count(),'active'=>$kpiRows->where('status','active')->count(),'inactive'=>$kpiRows->where('status','inactive')->count(),'system'=>$kpiRows->where('is_system',true)->count(),'custom'=>$kpiRows->where('is_system',false)->count(),'assignments'=>$kpiRows->sum('members_count'),'members'=>$kpiRows->sum('members_count'),'permissions'=>$kpiRows->sum(fn($role)=>is_array($role->permissions??null)?count($role->permissions):0)];
+  $p=(clone $query)->with(['members.user.department', 'members.user.designation', 'members.team'])->withCount('members')->paginate($request->integer('per_page',25))->withQueryString(); $items=collect($p->items())->map(fn($role)=>$this->decorate($role))->all();
+  return ApiResponse::success($items,'Platform team roles fetched.',200,['current_page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage(),'kpis'=>$kpis]);
  }
  public function store(StorePlatformTeamRoleRequest $request): mixed {
   $input=$request->validated(); $role=new PlatformTeamRole();

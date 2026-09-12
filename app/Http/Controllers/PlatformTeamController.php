@@ -24,13 +24,28 @@ final class PlatformTeamController extends Controller
     public function index(ListPlatformTeamsRequest $request): mixed
     {
         $input = $request->validated();
-        $query = PlatformTeam::with(['department', 'lead', 'assistantLead', 'users.department', 'users.designation'])->withCount(['users as members_count', 'assignments'])->orderBy($input['sort'] ?? 'name', $input['direction'] ?? 'asc');
+        $query = PlatformTeam::query()->orderBy($input['sort'] ?? 'name', $input['direction'] ?? 'asc');
         $search = $input['search'] ?? null;
         if ($search) $query->where(fn ($q) => $q->where('name', 'like', '%'.$search.'%')->orWhere('code', 'like', '%'.$search.'%')->orWhere('email', 'like', '%'.$search.'%'));
         $status = $input['filter']['status'] ?? $input['status'] ?? null; $visibility = $input['filter']['visibility'] ?? $input['visibility'] ?? null;
         if ($status) $query->where('status', $status); if ($visibility) $query->where('visibility', $visibility);
-        $paginator = $query->paginate($request->integer('per_page', 25))->withQueryString();
-        return ApiResponse::success($paginator->items(), 'Platform teams fetched.', 200, ['current_page'=>$paginator->currentPage(),'per_page'=>$paginator->perPage(),'total'=>$paginator->total(),'last_page'=>$paginator->lastPage()]);
+
+        $kpiRows = (clone $query)->withCount(['users as members_count', 'assignments'])->get();
+        $kpis = [
+            'total' => $kpiRows->count(),
+            'active' => $kpiRows->where('status', 'active')->count(),
+            'inactive' => $kpiRows->where('status', 'inactive')->count(),
+            'internal' => $kpiRows->where('visibility', 'internal')->count(),
+            'private' => $kpiRows->where('visibility', 'private')->count(),
+            'with_lead' => $kpiRows->whereNotNull('lead_platform_user_id')->count(),
+            'without_lead' => $kpiRows->whereNull('lead_platform_user_id')->count(),
+            'with_assistant_lead' => $kpiRows->whereNotNull('assistant_lead_platform_user_id')->count(),
+            'members' => $kpiRows->sum('members_count'),
+            'assignments' => $kpiRows->sum('assignments_count'),
+        ];
+
+        $paginator = (clone $query)->with(['department', 'lead', 'assistantLead', 'users.department', 'users.designation'])->withCount(['users as members_count', 'assignments'])->paginate($request->integer('per_page', 25))->withQueryString();
+        return ApiResponse::success($paginator->items(), 'Platform teams fetched.', 200, ['current_page'=>$paginator->currentPage(),'per_page'=>$paginator->perPage(),'total'=>$paginator->total(),'last_page'=>$paginator->lastPage(),'kpis'=>$kpis]);
     }
 
     public function store(StorePlatformTeamRequest $request): mixed

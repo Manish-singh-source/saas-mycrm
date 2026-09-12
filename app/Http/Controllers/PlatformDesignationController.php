@@ -30,7 +30,25 @@ final class PlatformDesignationController extends Controller
             }
         }
 
-        return ApiResponse::success($query->get(), 'Platform designations fetched.');
+        $kpiRows = (clone $query)->get();
+        $kpis = [
+            'total' => $kpiRows->count(),
+            'active' => $kpiRows->where('status', 'active')->count(),
+            'inactive' => $kpiRows->where('status', 'inactive')->count(),
+            'with_level' => $kpiRows->whereNotNull('level')->count(),
+            'without_level' => $kpiRows->whereNull('level')->count(),
+            'assigned_staff' => $kpiRows->sum('users_count'),
+        ];
+
+        $paginator = $query->paginate($request->integer('per_page', 10))->withQueryString();
+
+        return ApiResponse::success($paginator->items(), 'Platform designations fetched successfully.', 200, [
+            'current_page' => $paginator->currentPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+            'last_page' => $paginator->lastPage(),
+            'kpis' => $kpis,
+        ]);
     }
 
     public function store(StorePlatformDesignationRequest $request): mixed

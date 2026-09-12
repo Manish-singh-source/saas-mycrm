@@ -38,13 +38,25 @@ final class PlatformTenantController extends Controller
         if (! empty($data['filter']['status'])) {
             $query->where('status', $data['filter']['status']);
         }
+        $kpiRows = (clone $query)->get();
         $page = $query->latest('id')->paginate($data['per_page'] ?? 10);
         $stats = ['total' => Tenant::count()];
         foreach (['active', 'trial', 'suspended'] as $status) {
             $stats[$status] = Tenant::where('status', $status)->count();
         }
+        $kpis = [
+            'total' => $kpiRows->count(),
+            'pending' => $kpiRows->where('status', 'pending')->count(),
+            'trial' => $kpiRows->where('status', 'trial')->count(),
+            'active' => $kpiRows->where('status', 'active')->count(),
+            'suspended' => $kpiRows->where('status', 'suspended')->count(),
+            'expired' => $kpiRows->where('status', 'expired')->count(),
+            'cancelled' => $kpiRows->where('status', 'cancelled')->count(),
+            'archived' => $kpiRows->where('status', 'archived')->count(),
+            'users' => $kpiRows->sum('users_count'),
+        ];
 
-        return ApiResponse::success(collect($page->items())->map(fn ($tenant) => TenantPresenter::summary($tenant))->all(), 'Tenants fetched successfully.', 200, ['current_page' => $page->currentPage(), 'per_page' => $page->perPage(), 'total' => $page->total(), 'last_page' => $page->lastPage(), 'stats' => $stats]);
+        return ApiResponse::success(collect($page->items())->map(fn ($tenant) => TenantPresenter::summary($tenant))->all(), 'Tenants fetched successfully.', 200, ['current_page' => $page->currentPage(), 'per_page' => $page->perPage(), 'total' => $page->total(), 'last_page' => $page->lastPage(), 'kpis' => $kpis, 'stats' => $stats]);
     }
 
     public function store(TenantWriteRequest $request): mixed
