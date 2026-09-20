@@ -12,492 +12,7 @@
         }
     ],
     "paths": {
-        "/api/auth/v1/tenants/plans": {
-            "get": {
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "List public plans",
-                "operationId": "7c627de6d625dbd63983a4a02966c082",
-                "responses": {
-                    "200": {
-                        "description": "Public plans fetched"
-                    }
-                }
-            }
-        },
-        "/api/auth/v1/tenants/register": {
-            "post": {
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "Register a tenant",
-                "operationId": "d218971b09670795fa18fdd6fd36e9ac",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "organization_name",
-                                    "slug",
-                                    "company_size",
-                                    "default_currency",
-                                    "default_timezone",
-                                    "owner",
-                                    "office"
-                                ],
-                                "properties": {
-                                    "organization_name": {
-                                        "type": "string"
-                                    },
-                                    "slug": {
-                                        "type": "string"
-                                    },
-                                    "company_size": {
-                                        "type": "string"
-                                    },
-                                    "default_currency": {
-                                        "type": "string"
-                                    },
-                                    "default_timezone": {
-                                        "type": "string"
-                                    },
-                                    "owner": {
-                                        "properties": {
-                                            "first_name": {
-                                                "type": "string"
-                                            },
-                                            "last_name": {
-                                                "type": "string"
-                                            },
-                                            "display_name": {
-                                                "type": "string"
-                                            },
-                                            "email": {
-                                                "type": "string",
-                                                "format": "email"
-                                            },
-                                            "password": {
-                                                "type": "string",
-                                                "format": "password"
-                                            },
-                                            "password_confirmation": {
-                                                "type": "string",
-                                                "format": "password"
-                                            }
-                                        },
-                                        "type": "object"
-                                    },
-                                    "office": {
-                                        "properties": {
-                                            "office_name": {
-                                                "type": "string"
-                                            }
-                                        },
-                                        "type": "object"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Tenant registered"
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                }
-            }
-        },
-        "/api/auth/v1/tenants/register/payment/confirm": {
-            "post": {
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "Confirm registration payment",
-                "operationId": "10181a3900af95dbd21fbcd31796ba2e",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "tenant_uuid",
-                                    "razorpay_order_id",
-                                    "razorpay_payment_id",
-                                    "razorpay_signature"
-                                ],
-                                "properties": {
-                                    "tenant_uuid": {
-                                        "type": "string",
-                                        "format": "uuid"
-                                    },
-                                    "razorpay_order_id": {
-                                        "type": "string"
-                                    },
-                                    "razorpay_payment_id": {
-                                        "type": "string"
-                                    },
-                                    "razorpay_signature": {
-                                        "type": "string"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Payment verified"
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                }
-            }
-        },
-        "/api/auth/v1/announcements": {
-            "get": {
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "List published announcements",
-                "operationId": "e9c01e621912f01cfec1afb2e9174689",
-                "responses": {
-                    "200": {
-                        "description": "Published announcements fetched"
-                    }
-                }
-            }
-        },
-        "/api/auth/v1/legal/{document_type}": {
-            "get": {
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "Get a public legal document",
-                "operationId": "4891fe809c8b7148d77f2f3cbc8f1f3c",
-                "parameters": [
-                    {
-                        "name": "document_type",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Legal document fetched"
-                    },
-                    "404": {
-                        "description": "Document not found"
-                    }
-                }
-            }
-        },
-        "/api/auth/v1/accounts/discover": {
-            "post": {
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "Discover accounts by email",
-                "operationId": "e6cbd73de3301bfddc1bc85b6df171e2",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "email"
-                                ],
-                                "properties": {
-                                    "email": {
-                                        "type": "string",
-                                        "format": "email"
-                                    },
-                                    "device_name": {
-                                        "type": "string"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Accounts discovered"
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                }
-            }
-        },
-        "/api/auth/v1/accounts/login": {
-            "post": {
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "Login to an account",
-                "operationId": "5ba7c1c4b2fbc5cf4d10157be309dfa5",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "email",
-                                    "discovery_token",
-                                    "account_ref",
-                                    "password"
-                                ],
-                                "properties": {
-                                    "email": {
-                                        "type": "string",
-                                        "format": "email"
-                                    },
-                                    "discovery_token": {
-                                        "type": "string"
-                                    },
-                                    "account_ref": {
-                                        "type": "string"
-                                    },
-                                    "password": {
-                                        "type": "string",
-                                        "format": "password"
-                                    },
-                                    "remember": {
-                                        "type": "boolean"
-                                    },
-                                    "device_name": {
-                                        "type": "string"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Login successful"
-                    },
-                    "401": {
-                        "description": "Invalid credentials"
-                    }
-                }
-            }
-        },
-        "/api/auth/v1/accounts/login/2fa": {
-            "post": {
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "Verify two-factor login",
-                "operationId": "de1ade3efce09cf4624a5b25e44626e1",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "challenge_token",
-                                    "code"
-                                ],
-                                "properties": {
-                                    "challenge_token": {
-                                        "type": "string"
-                                    },
-                                    "code": {
-                                        "type": "string",
-                                        "maxLength": 6,
-                                        "minLength": 6
-                                    },
-                                    "remember_device": {
-                                        "type": "boolean"
-                                    },
-                                    "device_name": {
-                                        "type": "string"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Two-factor verification successful"
-                    },
-                    "422": {
-                        "description": "Invalid code"
-                    }
-                }
-            }
-        },
-        "/api/auth/v1/password/forgot": {
-            "post": {
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "Request password reset",
-                "operationId": "985c2af82229136b61a00681505fc06e",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "email"
-                                ],
-                                "properties": {
-                                    "email": {
-                                        "type": "string",
-                                        "format": "email"
-                                    },
-                                    "account_ref": {
-                                        "type": "string"
-                                    },
-                                    "discovery_token": {
-                                        "type": "string"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Reset instructions requested"
-                    }
-                }
-            }
-        },
-        "/api/auth/v1/password/reset": {
-            "post": {
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "Reset password",
-                "operationId": "8ef27eefd619fa5360f66955f766a955",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "email",
-                                    "token",
-                                    "password",
-                                    "password_confirmation"
-                                ],
-                                "properties": {
-                                    "email": {
-                                        "type": "string",
-                                        "format": "email"
-                                    },
-                                    "token": {
-                                        "type": "string"
-                                    },
-                                    "password": {
-                                        "type": "string",
-                                        "format": "password"
-                                    },
-                                    "password_confirmation": {
-                                        "type": "string",
-                                        "format": "password"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Password reset successfully"
-                    },
-                    "422": {
-                        "description": "Invalid reset token"
-                    }
-                }
-            }
-        },
-        "/api/auth/v1/me": {
-            "get": {
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "Get current session",
-                "operationId": "d5e561bbd671e0504b994793835786d1",
-                "responses": {
-                    "200": {
-                        "description": "Current session fetched"
-                    },
-                    "401": {
-                        "description": "Unauthenticated"
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/api/auth/v1/logout": {
-            "post": {
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "Logout current session",
-                "operationId": "7b05e13fc24697805e0ee8961d851bd7",
-                "responses": {
-                    "200": {
-                        "description": "Logged out successfully"
-                    },
-                    "401": {
-                        "description": "Unauthenticated"
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/api/auth/v1/refresh": {
-            "post": {
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "Refresh access token",
-                "operationId": "ed04247018a300e4297353d12987965a",
-                "responses": {
-                    "200": {
-                        "description": "Token refreshed"
-                    },
-                    "401": {
-                        "description": "Unauthenticated"
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
+        
         "/api/common/v1/locations/countries": {
             "get": {
                 "tags": [
@@ -986,6 +501,495 @@
                         "description": "Validation error"
                     }
                 }
+            }
+        },
+        
+        "/api/auth/v1/tenants/plans": {
+            "get": {
+                "tags": [
+                    "Tenant Registration"
+                ],
+                "summary": "List public plans",
+                "operationId": "7c627de6d625dbd63983a4a02966c082",
+                "responses": {
+                    "200": {
+                        "description": "Public plans fetched"
+                    }
+                }
+            }
+        },
+        "/api/auth/v1/tenants/register": {
+            "post": {
+                "tags": [
+                    "Tenant Registration"
+                ],
+                "summary": "Register a tenant",
+                "operationId": "d218971b09670795fa18fdd6fd36e9ac",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "organization_name",
+                                    "slug",
+                                    "company_size",
+                                    "default_currency",
+                                    "default_timezone",
+                                    "owner",
+                                    "office"
+                                ],
+                                "properties": {
+                                    "organization_name": {
+                                        "type": "string"
+                                    },
+                                    "slug": {
+                                        "type": "string"
+                                    },
+                                    "company_size": {
+                                        "type": "string"
+                                    },
+                                    "default_currency": {
+                                        "type": "string"
+                                    },
+                                    "default_timezone": {
+                                        "type": "string"
+                                    },
+                                    "owner": {
+                                        "properties": {
+                                            "first_name": {
+                                                "type": "string"
+                                            },
+                                            "last_name": {
+                                                "type": "string"
+                                            },
+                                            "display_name": {
+                                                "type": "string"
+                                            },
+                                            "email": {
+                                                "type": "string",
+                                                "format": "email"
+                                            },
+                                            "password": {
+                                                "type": "string",
+                                                "format": "password"
+                                            },
+                                            "password_confirmation": {
+                                                "type": "string",
+                                                "format": "password"
+                                            }
+                                        },
+                                        "type": "object"
+                                    },
+                                    "office": {
+                                        "properties": {
+                                            "office_name": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Tenant registered"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/auth/v1/tenants/register/payment/confirm": {
+            "post": {
+                "tags": [
+                    "Tenant Registration"
+                ],
+                "summary": "Confirm registration payment",
+                "operationId": "10181a3900af95dbd21fbcd31796ba2e",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "tenant_uuid",
+                                    "razorpay_order_id",
+                                    "razorpay_payment_id",
+                                    "razorpay_signature"
+                                ],
+                                "properties": {
+                                    "tenant_uuid": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    },
+                                    "razorpay_order_id": {
+                                        "type": "string"
+                                    },
+                                    "razorpay_payment_id": {
+                                        "type": "string"
+                                    },
+                                    "razorpay_signature": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Payment verified"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+
+        "/api/auth/v1/announcements": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "List published announcements",
+                "operationId": "e9c01e621912f01cfec1afb2e9174689",
+                "responses": {
+                    "200": {
+                        "description": "Published announcements fetched"
+                    }
+                }
+            }
+        },
+        "/api/auth/v1/legal/{document_type}": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Get a public legal document",
+                "operationId": "4891fe809c8b7148d77f2f3cbc8f1f3c",
+                "parameters": [
+                    {
+                        "name": "document_type",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Legal document fetched"
+                    },
+                    "404": {
+                        "description": "Document not found"
+                    }
+                }
+            }
+        },
+
+        "/api/auth/v1/accounts/discover": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Discover accounts by email",
+                "operationId": "e6cbd73de3301bfddc1bc85b6df171e2",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "device_name": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Accounts discovered"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/auth/v1/accounts/login": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Login to an account",
+                "operationId": "5ba7c1c4b2fbc5cf4d10157be309dfa5",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "discovery_token",
+                                    "account_ref",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "discovery_token": {
+                                        "type": "string"
+                                    },
+                                    "account_ref": {
+                                        "type": "string"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password"
+                                    },
+                                    "remember": {
+                                        "type": "boolean"
+                                    },
+                                    "device_name": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Login successful"
+                    },
+                    "401": {
+                        "description": "Invalid credentials"
+                    }
+                }
+            }
+        },
+        "/api/auth/v1/accounts/login/2fa": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Verify two-factor login",
+                "operationId": "de1ade3efce09cf4624a5b25e44626e1",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "challenge_token",
+                                    "code"
+                                ],
+                                "properties": {
+                                    "challenge_token": {
+                                        "type": "string"
+                                    },
+                                    "code": {
+                                        "type": "string",
+                                        "maxLength": 6,
+                                        "minLength": 6
+                                    },
+                                    "remember_device": {
+                                        "type": "boolean"
+                                    },
+                                    "device_name": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Two-factor verification successful"
+                    },
+                    "422": {
+                        "description": "Invalid code"
+                    }
+                }
+            }
+        },
+        "/api/auth/v1/password/forgot": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Request password reset",
+                "operationId": "985c2af82229136b61a00681505fc06e",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "account_ref": {
+                                        "type": "string"
+                                    },
+                                    "discovery_token": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Reset instructions requested"
+                    }
+                }
+            }
+        },
+        "/api/auth/v1/password/reset": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Reset password",
+                "operationId": "8ef27eefd619fa5360f66955f766a955",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "token",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "token": {
+                                        "type": "string"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password reset successfully"
+                    },
+                    "422": {
+                        "description": "Invalid reset token"
+                    }
+                }
+            }
+        },
+        "/api/auth/v1/me": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Get current session",
+                "operationId": "d5e561bbd671e0504b994793835786d1",
+                "responses": {
+                    "200": {
+                        "description": "Current session fetched"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/v1/logout": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Logout current session",
+                "operationId": "7b05e13fc24697805e0ee8961d851bd7",
+                "responses": {
+                    "200": {
+                        "description": "Logged out successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/v1/refresh": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Refresh access token",
+                "operationId": "ed04247018a300e4297353d12987965a",
+                "responses": {
+                    "200": {
+                        "description": "Token refreshed"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/platform/v1/health": {
@@ -18298,12 +18302,16 @@
     },
     "tags": [
         {
-            "name": "Authentication",
-            "description": "Authentication"
-        },
-        {
             "name": "Common",
             "description": "Common"
+        },
+        {
+            "name": "Tenant Registration",
+            "description": "Tenant Registration"
+        },
+        {
+            "name": "Authentication",
+            "description": "Authentication"
         },
         {
             "name": "Platform Health",

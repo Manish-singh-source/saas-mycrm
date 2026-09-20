@@ -35,14 +35,14 @@ use App\Http\Controllers\PlatformDashboardController;
 
 Route::get('health', [PlatformController::class, 'health'])->middleware('throttle:api-health');
 
-Route::middleware('throttle:api-public-security')->group(function (): void {
+Route::middleware(['auth:sanctum', 'platform.token', 'throttle:api-public-security'])->group(function (): void {
     Route::post('verify-email/resend', [PlatformSecurityController::class, 'resendVerification']);
     Route::post('2fa/enable', [PlatformSecurityController::class, 'enableTwoFactor']);
     Route::post('2fa/confirm', [PlatformSecurityController::class, 'confirmTwoFactor']);
     Route::post('2fa/disable', [PlatformSecurityController::class, 'disableTwoFactor']);
 });
-Route::get('settings/preferences', [PlatformSecurityController::class, 'preferences'])->middleware('throttle:api-preferences-read');
-Route::put('settings/preferences', [PlatformSecurityController::class, 'updatePreferences'])->middleware('throttle:api-preferences-write');
+Route::get('settings/preferences', [PlatformSecurityController::class, 'preferences'])->middleware(['auth:sanctum', 'platform.token', 'throttle:api-preferences-read']);
+Route::put('settings/preferences', [PlatformSecurityController::class, 'updatePreferences'])->middleware(['auth:sanctum', 'platform.token', 'throttle:api-preferences-write']);
 
 Route::middleware(['auth:sanctum', 'platform.token', 'throttle:api-authenticated'])->group(function (): void {
     Route::get('summary', [PlatformDashboardController::class, 'summary'])->middleware('abilities:dashboard.view');
