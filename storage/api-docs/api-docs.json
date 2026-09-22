@@ -8,6 +8,10 @@
     "servers": [
         {
             "url": "https://darkgreen-goat-738912.hostingersite.com",
+            "description": "Production development server"
+        },
+        {
+            "url": "http://127.0.0.1:8000",
             "description": "Local development server"
         }
     ],
