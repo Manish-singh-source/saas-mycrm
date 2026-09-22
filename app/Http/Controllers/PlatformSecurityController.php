@@ -65,7 +65,7 @@ final class PlatformSecurityController extends Controller
         $input = $request->validated();
         $user = $this->user($request);
         foreach ($input['preferences'] as $group => $values) {
-            foreach ($values as $key => $value) PlatformUserPreference::updateOrCreate(['platform_user_id' => $user->id, 'group' => $group, 'key' => $key], ['value' => $value]);
+            foreach ($values as $key => $value) $user->preferences()->updateOrCreate(['group' => $group, 'key' => $key], ['value' => $value]);
         }
         return ApiResponse::success(['preferences' => PlatformUserPreference::where('platform_user_id', $user->id)->orderBy('group')->orderBy('key')->get()], 'Platform preferences updated.');
     }

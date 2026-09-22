@@ -42,13 +42,31 @@ final class ZPlatformApi
     #[OA\Get(path: '/api/platform/v1/profile', summary: 'GET profile', tags: ['Platform Settings'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
     public function route12(): void {}
 
-    #[OA\Patch(path: '/api/platform/v1/profile', summary: 'PATCH profile', tags: ['Platform Settings'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
+    #[OA\Patch(path: '/api/platform/v1/profile', summary: 'PATCH profile', tags: ['Platform Settings'], security: [['bearerAuth' => []]], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(type: 'object', properties: [
+        new OA\Property(property: 'first_name', type: 'string', maxLength: 100),
+        new OA\Property(property: 'last_name', type: 'string', nullable: true, maxLength: 100),
+        new OA\Property(property: 'display_name', type: 'string', maxLength: 200),
+        new OA\Property(property: 'mobile', type: 'string', nullable: true, maxLength: 20),
+        new OA\Property(property: 'timezone', type: 'string', maxLength: 100),
+        new OA\Property(property: 'locale', type: 'string', maxLength: 20),
+    ])), responses: [new OA\Response(response: 200, description: 'Successful response')])]
     public function route13(): void {}
 
-    #[OA\Put(path: '/api/platform/v1/profile', summary: 'PUT profile', tags: ['Platform Settings'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
+    #[OA\Put(path: '/api/platform/v1/profile', summary: 'PUT profile', tags: ['Platform Settings'], security: [['bearerAuth' => []]], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(type: 'object', properties: [
+        new OA\Property(property: 'first_name', type: 'string', maxLength: 100),
+        new OA\Property(property: 'last_name', type: 'string', nullable: true, maxLength: 100),
+        new OA\Property(property: 'display_name', type: 'string', maxLength: 200),
+        new OA\Property(property: 'mobile', type: 'string', nullable: true, maxLength: 20),
+        new OA\Property(property: 'timezone', type: 'string', maxLength: 100),
+        new OA\Property(property: 'locale', type: 'string', maxLength: 20),
+    ])), responses: [new OA\Response(response: 200, description: 'Successful response')])]
     public function route14(): void {}
 
-    #[OA\Put(path: '/api/platform/v1/profile/password', summary: 'PUT profile/password', tags: ['Platform Settings'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
+    #[OA\Put(path: '/api/platform/v1/profile/password', summary: 'PUT profile/password', tags: ['Platform Settings'], security: [['bearerAuth' => []]], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(type: 'object', required: ['current_password', 'password', 'password_confirmation'], properties: [
+        new OA\Property(property: 'current_password', type: 'string', format: 'password'),
+        new OA\Property(property: 'password', type: 'string', format: 'password', minLength: 8),
+        new OA\Property(property: 'password_confirmation', type: 'string', format: 'password'),
+    ])), responses: [new OA\Response(response: 200, description: 'Successful response')])]
     public function route15(): void {}
 
     #[OA\Get(path: '/api/platform/v1/profile/sessions', summary: 'GET profile/sessions', tags: ['Platform Settings'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
@@ -633,7 +651,15 @@ final class ZPlatformApi
     #[OA\Get(path: '/api/platform/v1/backups/runs/{run_uuid}', summary: 'GET backups/runs/{run_uuid}', tags: ['Operations'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
     public function route209(): void {}
 
-    #[OA\Put(path: '/api/platform/v1/platform', summary: 'PUT platform', tags: ['Platform Settings'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]
+    #[OA\Put(path: '/api/platform/v1/platform', summary: 'PUT platform', tags: ['Platform Settings'], security: [['bearerAuth' => []]], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(type: 'object', required: ['settings'], properties: [
+        new OA\Property(property: 'settings', type: 'array', minItems: 1, items: new OA\Items(type: 'object', required: ['group', 'key'], properties: [
+            new OA\Property(property: 'group', type: 'string', enum: ['general', 'security', 'billing', 'email', 'storage', 'queue', 'integration'], maxLength: 100),
+            new OA\Property(property: 'key', type: 'string', pattern: '^[a-z][a-z0-9_.-]*$', maxLength: 150),
+            new OA\Property(property: 'value', nullable: true),
+            new OA\Property(property: 'value_type', type: 'string', enum: ['string', 'integer', 'boolean', 'number', 'json']),
+            new OA\Property(property: 'is_encrypted', type: 'boolean'),
+        ])),
+    ])), responses: [new OA\Response(response: 200, description: 'Successful response')])]
     public function route210(): void {}
 
     #[OA\Post(path: '/api/platform/v1/notification-templates', summary: 'POST notification-templates', tags: ['Operations'], security: [['bearerAuth' => []]], responses: [new OA\Response(response: 200, description: 'Successful response')])]

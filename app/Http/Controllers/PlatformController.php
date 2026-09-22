@@ -24,7 +24,7 @@ final class PlatformController extends Controller
     {
         $data = $request->validate(['current_password' => ['required', 'string'], 'password' => ['required', 'string', 'min:8', 'confirmed']]);
         if (! Hash::check($data['current_password'], $request->user()->password)) return ApiResponse::error('Invalid password.', 422, null, 'INVALID_PASSWORD');
-        $request->user()->update(['password' => Hash::make($data['password'])]); ActivityLogger::record($request, 'password.changed', $request->user(), 'Platform password changed.');
+        $request->user()->forceFill(['password' => Hash::make($data['password'])])->save(); ActivityLogger::record($request, 'password.changed', $request->user(), 'Platform password changed.');
         return ApiResponse::success(null, 'Password changed successfully.');
     }
 
