@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 
 class TenantFullDemoSeeder extends Seeder
 {
-    private const PASSWORD = '123465789';
+    private const PASSWORD = '123456789';
 
     public function run(): void
     {

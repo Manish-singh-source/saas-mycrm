@@ -14,14 +14,94 @@ final class TenantCrmController extends BaseApiController
  private function tid(): int{return (int)request()->attributes->get('tenant_id');}
  private function party(string $type,string $uuid): Party{return Party::where('tenant_id',$this->tid())->where('party_type',$type)->where('uuid',$uuid)->firstOrFail();}
  private function profileTable(string $type): string{return $type==='client'?'client_profiles':'vendor_profiles';}
- private function pPayload(Party $p,string $type): array{$profile=DB::table($this->profileTable($type))->where('tenant_id',$this->tid())->where('party_id',$p->id)->first();$data=$p->toArray();$data['profile']=$profile;$data['contacts']=DB::table('party_contacts')->where('tenant_id',$this->tid())->where('party_id',$p->id)->whereNull('deleted_at')->get();$data['addresses']=DB::table('party_addresses')->where('tenant_id',$this->tid())->where('party_id',$p->id)->get();$data['party_uuid']=$p->uuid;$data['client_uuid']=$type==='client'?$p->uuid:null;$data['vendor_uuid']=$type==='vendor'?$p->uuid:null;$data['owner_user']=$p->owner?->only(['uuid','display_name','email']);if($profile){foreach((array)$profile as $key=>$value){if(!array_key_exists($key,$data))$data[$key]=$value;}}return $data;}
+ private function pPayload(Party $p,string $type): array{$profile=DB::table($this->profileTable($type))->where('tenant_id',$this->tid())->where('party_id',$p->id)->first();$data=$p->toArray();$data['profile']=$profile;$data['contacts']=DB::table('party_contacts')->where('tenant_id',$this->tid())->where('party_id',$p->id)->whereNull('deleted_at')->get();$data['addresses']=DB::table('party_addresses')->where('tenant_id',$this->tid())->where('party_id',$p->id)->get();$data['party_uuid']=$p->uuid;$data['client_uuid']=$type==='client'?$p->uuid:null;if($type==='client'&&$profile?->account_manager_id)$data['account_manager_uuid']=DB::table('users')->where('id',$profile->account_manager_id)->value('uuid');$data['vendor_uuid']=$type==='vendor'?$p->uuid:null;$data['owner_user']=$p->owner?->only(['uuid','display_name','email']);if($profile){foreach((array)$profile as $key=>$value){if(!array_key_exists($key,$data))$data[$key]=$value;}}return $data;}
  private function pList(Request $r,string $type){$q=Party::where('parties.tenant_id',$this->tid())->where('parties.party_type',$type)->withTrashed(false)->leftJoin($this->profileTable($type).' as profiles','profiles.party_id','=','parties.id')->select('parties.*','profiles.'.($type==='client'?'client_code':'vendor_code'),'profiles.'.($type==='client'?'client_type':'vendor_category_id'));if($r->filled('search'))$q->where(fn($x)=>$x->where('parties.display_name','like','%'.$r->search.'%')->orWhere('parties.email','like','%'.$r->search.'%')->orWhere('profiles.'.($type==='client'?'client_code':'vendor_code'),'like','%'.$r->search.'%'));if($type==='client'&&$r->filled('filter.client_type'))$q->where('profiles.client_type',$r->input('filter.client_type'));$p=$q->orderBy('parties.display_name')->paginate((int)$r->integer('per_page',25));$rows=$p->getCollection()->map(fn($x)=>$this->pPayload(Party::find($x->id),$type))->all();return $this->list($rows,$p,ucfirst($type).'s fetched.');}
  public function clients(Request $r){return $this->pList($r,'client');} public function vendors(Request $r){return $this->pList($r,'vendor');}
- public function createParty(Request $r,string $type){$r->merge(array_merge((array)$r->input('party',[]),(array)$r->input('profile',[]),$r->except(['party','profile'])));$d=$r->validate(['display_name'=>'required|string|max:200','legal_name'=>'nullable|string|max:200','email'=>'nullable|email','phone'=>'nullable|string|max:30','website'=>'nullable|string','client_code'=>'nullable|string|max:80','vendor_code'=>'nullable|string|max:80','client_type'=>'nullable|string|max:80','vendor_category_id'=>'nullable|string']);if($type==='client'&&!filled($d['client_code']??null))abort(422,'The client code field is required.');if($type==='vendor'&&!filled($d['vendor_code']??null))abort(422,'The vendor code field is required.');$code=$type==='client'?$d['client_code']??null:$d['vendor_code']??null;if(DB::table($this->profileTable($type))->where('tenant_id',$this->tid())->where($type==='client'?'client_code':'vendor_code',$code)->exists())return $this->businessError('Code already exists.','DUPLICATE_PARTY_CODE');$p=Party::create(['uuid'=>(string)Str::uuid(),'tenant_id'=>$this->tid(),'party_type'=>$type,'display_name'=>$d['display_name'],'legal_name'=>$d['legal_name']??null,'email'=>$d['email']??null,'phone'=>$d['phone']??null,'website'=>$d['website']??null,'owner_user_id'=>auth()->id(),'created_by'=>auth()->id()]);$profile=['tenant_id'=>$this->tid(),'party_id'=>$p->id,($type==='client'?'client_code':'vendor_code')=>$code];if($type==='client')$profile['client_type']=$d['client_type']??null;else$profile['vendor_category_id']=isset($d['vendor_category_id'])?DB::table('tenant_lookups')->where('tenant_id',$this->tid())->where('uuid',$d['vendor_category_id'])->value('id'):null;DB::table($this->profileTable($type))->insert($profile+['created_at'=>now(),'updated_at'=>now()]);return $this->success([$type=>$this->pPayload($p,$type)],ucfirst($type).' created.',201);}
+ public function createParty(Request $r,string $type){if($type==='client')return $this->createClientParty($r);$r->merge(array_merge((array)$r->input('party',[]),(array)$r->input('profile',[]),$r->except(['party','profile'])));$d=$r->validate(['display_name'=>'required|string|max:200','legal_name'=>'nullable|string|max:200','email'=>'nullable|email','phone'=>'nullable|string|max:30','website'=>'nullable|string','client_code'=>'nullable|string|max:80','vendor_code'=>'nullable|string|max:80','client_type'=>'nullable|string|max:80','vendor_category_id'=>'nullable|string']);if($type==='client'&&!filled($d['client_code']??null))abort(422,'The client code field is required.');if($type==='vendor'&&!filled($d['vendor_code']??null))abort(422,'The vendor code field is required.');$code=$type==='client'?$d['client_code']??null:$d['vendor_code']??null;if(DB::table($this->profileTable($type))->where('tenant_id',$this->tid())->where($type==='client'?'client_code':'vendor_code',$code)->exists())return $this->businessError('Code already exists.','DUPLICATE_PARTY_CODE');$p=Party::create(['uuid'=>(string)Str::uuid(),'tenant_id'=>$this->tid(),'party_type'=>$type,'display_name'=>$d['display_name'],'legal_name'=>$d['legal_name']??null,'email'=>$d['email']??null,'phone'=>$d['phone']??null,'website'=>$d['website']??null,'owner_user_id'=>auth()->id(),'created_by'=>auth()->id()]);$profile=['tenant_id'=>$this->tid(),'party_id'=>$p->id,($type==='client'?'client_code':'vendor_code')=>$code];if($type==='client')$profile['client_type']=$d['client_type']??null;else$profile['vendor_category_id']=isset($d['vendor_category_id'])?DB::table('tenant_lookups')->where('tenant_id',$this->tid())->where('uuid',$d['vendor_category_id'])->value('id'):null;DB::table($this->profileTable($type))->insert($profile+['created_at'=>now(),'updated_at'=>now()]);return $this->success([$type=>$this->pPayload($p,$type)],ucfirst($type).' created.',201);}
+ private function createClientParty(Request $r){
+    $r->merge(array_merge((array)$r->input('party',[]),(array)$r->input('profile',[]),$r->except(['party','profile'])));
+    $d=$r->validate([
+        'display_name'=>['required','string','max:200'],
+        'legal_name'=>['nullable','string','max:200'],
+        'email'=>['nullable','email','max:150'],
+        'phone'=>['nullable','string','max:30'],
+        'website'=>['nullable','string','max:255'],
+        'owner_user_id'=>['nullable','uuid'],
+        'client_code'=>['prohibited'],
+        'client_type'=>['nullable','string','max:80'],
+        'credit_limit'=>['nullable','numeric','min:0'],
+        'payment_terms_days'=>['nullable','integer','min:0'],
+        'onboarding_date'=>['nullable','date'],
+        'account_manager_id'=>['nullable','uuid'],
+    ]);
+    $tenantId=$this->tid();
+    foreach(['owner_user_id','account_manager_id'] as $field){
+        if(!empty($d[$field])){
+            $id=DB::table('users')->where('tenant_id',$tenantId)->where('uuid',$d[$field])->value('id');
+            if(!$id) throw \Illuminate\Validation\ValidationException::withMessages([$field=>'The selected user is invalid.']);
+            $d[$field]=$id;
+        }
+    }
+    return DB::transaction(function() use($d,$tenantId){
+        DB::table('tenants')->where('id',$tenantId)->lockForUpdate()->first();
+        $next=DB::table('client_profiles')->where('tenant_id',$tenantId)->where('client_code','like','CL-%')->pluck('client_code')
+            ->reduce(fn(int $max,string $code): int => preg_match('/^CL-(\d+)$/',$code,$matches) ? max($max,(int)$matches[1]) : $max,0)+1;
+        $p=Party::create(['uuid'=>(string)Str::uuid(),'tenant_id'=>$tenantId,'party_type'=>'client','display_name'=>$d['display_name'],'legal_name'=>$d['legal_name']??null,'email'=>$d['email']??null,'phone'=>$d['phone']??null,'website'=>$d['website']??null,'owner_user_id'=>$d['owner_user_id']??auth()->id(),'created_by'=>auth()->id()]);
+        DB::table('client_profiles')->insert(['tenant_id'=>$tenantId,'party_id'=>$p->id,'client_code'=>sprintf('CL-%06d',$next),'client_type'=>$d['client_type']??null,'credit_limit'=>$d['credit_limit']??0,'payment_terms_days'=>$d['payment_terms_days']??0,'onboarding_date'=>$d['onboarding_date']??null,'account_manager_id'=>$d['account_manager_id']??null,'created_at'=>now(),'updated_at'=>now()]);
+        return $this->success(['client'=>$this->pPayload($p,'client')],'Client created.',201);
+    });
+ }
  public function showParty(string $type,string $uuid){return $this->success([$type=>$this->pPayload($this->party($type,$uuid),$type)]);}
- public function updateParty(Request $r,string $type,string $uuid){$r->merge(array_merge((array)$r->input('party',[]),(array)$r->input('profile',[]),$r->except(['party','profile'])));$p=$this->party($type,$uuid);$d=$r->except(['uuid','tenant_id','party_type','id','client_code','vendor_code','client_type','vendor_category_id','contacts','addresses']);$p->fill($d)->save();$fields=$type==='client'?['client_code','client_type']:['vendor_code','vendor_category_id'];$pd=$r->only($fields);if(isset($pd['vendor_category_id']))$pd['vendor_category_id']=DB::table('tenant_lookups')->where('tenant_id',$this->tid())->where('uuid',$pd['vendor_category_id'])->value('id');if($pd)DB::table($this->profileTable($type))->where('tenant_id',$this->tid())->where('party_id',$p->id)->update($pd);return $this->showParty($type,$uuid);}
+ public function updateParty(Request $r,string $type,string $uuid){if($type==='client')return $this->updateClientParty($r,$uuid);$r->merge(array_merge((array)$r->input('party',[]),(array)$r->input('profile',[]),$r->except(['party','profile'])));$p=$this->party($type,$uuid);$d=$r->except(['uuid','tenant_id','party_type','id','client_code','vendor_code','client_type','vendor_category_id','contacts','addresses']);$p->fill($d)->save();$fields=$type==='client'?['client_code','client_type']:['vendor_code','vendor_category_id'];$pd=$r->only($fields);if(isset($pd['vendor_category_id']))$pd['vendor_category_id']=DB::table('tenant_lookups')->where('tenant_id',$this->tid())->where('uuid',$pd['vendor_category_id'])->value('id');if($pd)DB::table($this->profileTable($type))->where('tenant_id',$this->tid())->where('party_id',$p->id)->update($pd);return $this->showParty($type,$uuid);}
+ private function updateClientParty(Request $r,string $uuid){
+    $p=$this->party('client',$uuid);
+    $r->merge(array_merge((array)$r->input('party',[]),(array)$r->input('profile',[]),$r->except(['party','profile'])));
+    $d=$r->validate([
+        'client_code'=>['prohibited'],
+        'display_name'=>['sometimes','required','string','max:200'],
+        'legal_name'=>['nullable','string','max:200'],
+        'email'=>['nullable','email','max:150'],
+        'phone'=>['nullable','string','max:30'],
+        'website'=>['nullable','string','max:255'],
+        'owner_user_id'=>['nullable','uuid'],
+        'client_type'=>['nullable','string','max:80'],
+        'credit_limit'=>['nullable','numeric','min:0'],
+        'payment_terms_days'=>['nullable','integer','min:0'],
+        'onboarding_date'=>['nullable','date'],
+        'account_manager_id'=>['nullable','uuid'],
+    ]);
+    foreach(['owner_user_id','account_manager_id'] as $field){
+        if(!empty($d[$field])){
+            $id=DB::table('users')->where('tenant_id',$this->tid())->where('uuid',$d[$field])->value('id');
+            if(!$id) throw \Illuminate\Validation\ValidationException::withMessages([$field=>'The selected user is invalid.']);
+            $d[$field]=$id;
+        }
+    }
+    $party=array_intersect_key($d,array_flip(['display_name','legal_name','email','phone','website','owner_user_id']));
+    $profile=array_intersect_key($d,array_flip(['client_type','credit_limit','payment_terms_days','onboarding_date','account_manager_id']));
+    DB::transaction(function() use($p,$party,$profile){
+        if($party) $p->fill($party)->save();
+        if($profile) DB::table('client_profiles')->where('tenant_id',$this->tid())->where('party_id',$p->id)->update($profile+['updated_at'=>now()]);
+    });
+    return $this->showParty('client',$uuid);
+ }
  public function deleteParty(string $type,string $uuid){$this->party($type,$uuid)->delete();return $this->success(null,ucfirst($type).' archived.');}public function restoreParty(string $type,string $uuid){$p=Party::withTrashed()->where('tenant_id',$this->tid())->where('party_type',$type)->where('uuid',$uuid)->firstOrFail();$p->restore();return $this->showParty($type,$uuid);}
- private function child(Request $r,string $type,string $uuid,string $kind,?string $childUuid=null){$p=$this->party($type,$uuid);$table=$kind==='contacts'?'party_contacts':'party_addresses';$q=DB::table($table)->where('tenant_id',$this->tid())->where('party_id',$p->id);if($childUuid)$q->where($kind==='contacts'?'uuid':'id',$childUuid);if($r->isMethod('get'))return $this->success([$kind=>$q->whereNull('deleted_at')->get()]);$d=$r->except(['id','uuid','tenant_id','party_id','deleted_at']);if($childUuid){$q->update($d);return $this->success([$kind=>[$q->first()]],'Updated.');}$d=array_merge($d,['tenant_id'=>$this->tid(),'party_id'=>$p->id]);if($kind==='contacts')$d['uuid']=(string)Str::uuid();$id=$kind==='contacts'?DB::table($table)->insertGetId($d+['created_at'=>now(),'updated_at'=>now()]):DB::table($table)->insertGetId($d+['created_at'=>now(),'updated_at'=>now()]);return $this->success([$kind=>DB::table($table)->find($id)],'Created.',201);}
+ private function child(Request $r,string $type,string $uuid,string $kind,?string $childUuid=null){$p=$this->party($type,$uuid);$table=$kind==='contacts'?'party_contacts':'party_addresses';$q=DB::table($table)->where('tenant_id',$this->tid())->where('party_id',$p->id);if($childUuid)$q->where($kind==='contacts'?'uuid':'id',$childUuid);if($r->isMethod('get'))return $this->success([$kind=>$q->whereNull('deleted_at')->get()]);if($kind==='contacts'){
+            $d=$r->validate(['first_name'=>['required','string','max:100'],'last_name'=>['nullable','string','max:100'],'email'=>['nullable','email','max:150'],'mobile'=>['nullable','string','max:20'],'phone'=>['nullable','string','max:30'],'is_primary'=>['sometimes','boolean'],'portal_enabled'=>['sometimes','boolean']]);
+            $d['display_name']=trim($d['first_name'].' '.($d['last_name']??''));
+            if($childUuid){
+                $q->update($d+['updated_at'=>now()]);
+                return $this->success([$kind=>[$q->first()]],'Updated.');
+            }
+            $d=array_merge($d,['uuid'=>(string)Str::uuid(),'tenant_id'=>$this->tid(),'party_id'=>$p->id,'created_at'=>now(),'updated_at'=>now()]);
+            $id=DB::table($table)->insertGetId($d);
+            return $this->success([$kind=>DB::table($table)->find($id)],'Created.',201);
+        }
+        $d=$r->except(['id','uuid','tenant_id','party_id','deleted_at']);
+        if($childUuid){$q->update($d);return $this->success([$kind=>[$q->first()]],'Updated.');}
+        $d=array_merge($d,['tenant_id'=>$this->tid(),'party_id'=>$p->id]);
+        $id=DB::table($table)->insertGetId($d+['created_at'=>now(),'updated_at'=>now()]);
+        return $this->success([$kind=>DB::table($table)->find($id)],'Created.',201);}
  public function contacts(Request $r,string $type,string $uuid){return $this->child($r,$type,$uuid,'contacts');}public function contact(Request $r,string $type,string $uuid,string $cid){return $this->child($r,$type,$uuid,'contacts',$cid);}public function addresses(Request $r,string $type,string $uuid){return $this->child($r,$type,$uuid,'addresses');}public function address(Request $r,string $type,string $uuid,int $id){return $this->child($r,$type,$uuid,'addresses',(string)$id);}
  public function related(string $type,string $uuid,string $resource){$p=$this->party($type,$uuid);$allowed=['client'=>['projects','invoices','payments','renewals','issues'],'vendor'=>['expenses','renewals']];abort_unless(in_array($resource,$allowed[$type],true),404);$rows=$resource==='renewals'?Renewal::where('tenant_id',$this->tid())->where('party_id',$p->id)->with(['party','owner'])->get()->map(fn($r)=>$this->rPayload($r)):DB::table($resource)->where('tenant_id',$this->tid())->where($type==='client'?'client_party_id':'vendor_party_id',$p->id)->get();return $this->success([$resource=>$rows]);}
  public function activity(string $type,string $uuid){$p=$this->party($type,$uuid);return $this->success(['activity'=>DB::table('activity_logs')->where('tenant_id',$this->tid())->where('subject_id',$p->id)->where('subject_type',Party::class)->latest()->limit(50)->get()]);}

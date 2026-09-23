@@ -19,6 +19,7 @@ final class Staff extends Model
     public function designation(): BelongsTo { return $this->belongsTo(Designation::class); }
     public function office(): BelongsTo { return $this->belongsTo(TenantOffice::class, 'office_id'); }
     public function primaryTeam(): BelongsTo { return $this->belongsTo(Team::class, 'primary_team_id'); }
+    public function reportingManager(): BelongsTo { return $this->belongsTo(User::class, 'reporting_manager_id'); }
     public function bankAccounts(): HasMany { return $this->hasMany(StaffBankAccount::class); }
     public function salaryStructures(): HasMany { return $this->hasMany(StaffSalaryStructure::class); }
 }

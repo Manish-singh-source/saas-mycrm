@@ -83,9 +83,83 @@ final class TenantStaffController extends BaseApiController
     public function index(Request $r){return $this->staffData($r);}
     public function grid(Request $r){return $this->staffData($r,true);}
     public function show(string $uuid){return $this->success(['staff'=>$this->staffPayload($this->staff($uuid))]);}
-    public function store(Request $request){$d=$request->validate(['employee_code'=>'required|string|max:80','first_name'=>'required|string|max:100','last_name'=>'nullable|string|max:100','display_name'=>'nullable|string|max:200','personal_email'=>'nullable|email','work_email'=>'nullable|email','mobile'=>'nullable|string|max:20','gender'=>'nullable|string|max:30','date_of_birth'=>'nullable|date','joining_date'=>'nullable|date','exit_date'=>'nullable|date','department_id'=>'nullable|string','designation_id'=>'nullable|string','office_id'=>'nullable|string','primary_team_id'=>'nullable|string','reporting_manager_id'=>'nullable|string','employment_type'=>'nullable|string|max:50','employment_status'=>'sometimes|string|max:50','create_user'=>'sometimes|boolean','role_ids'=>'sometimes|array']); $map=['department_id'=>'departments','designation_id'=>'designations','office_id'=>'tenant_offices','primary_team_id'=>'teams','reporting_manager_id'=>'users']; foreach($map as $f=>$t) if(array_key_exists($f,$d)) $d[$f]=$d[$f]===null?null:$this->rel($t,$d[$f]); $s=new Staff; unset($d['create_user'],$d['role_ids']); $s->forceFill(array_merge($d,['uuid'=>(string)Str::uuid(),'tenant_id'=>$this->tid(),'display_name'=>$d['display_name']??trim($d['first_name'].' '.($d['last_name']??'')),'created_by'=>auth()->id()])); $s->save(); if($request->boolean('create_user')) { $u=$this->createLinkedUser($s,$request->input('role_ids',[])); } return $this->success(['staff'=>$this->staffPayload($s->fresh())],'Staff created.',201); }
+    public function store(Request $request){
+        $d=$request->validate([
+            'employee_code'=>['prohibited'],
+            'first_name'=>['required','string','max:100'],
+            'last_name'=>['nullable','string','max:100'],
+            'display_name'=>['nullable','string','max:200'],
+            'personal_email'=>['nullable','email'],
+            'work_email'=>['nullable','email','required_if:create_user,true'],
+            'mobile'=>['nullable','string','max:20'],
+            'gender'=>['nullable','in:male,female,other,prefer_not_to_say'],
+            'date_of_birth'=>['nullable','date'],
+            'joining_date'=>['nullable','date'],
+            'exit_date'=>['nullable','date','after_or_equal:joining_date'],
+            'department_id'=>['nullable','string'],
+            'designation_id'=>['nullable','string'],
+            'office_id'=>['nullable','string'],
+            'primary_team_id'=>['nullable','string'],
+            'reporting_manager_id'=>['nullable','string'],
+            'employment_type'=>['nullable','in:full_time,part_time,contract,intern,temporary'],
+            'employment_status'=>['sometimes','in:active,inactive,on_leave,terminated'],
+            'create_user'=>['sometimes','boolean'],
+            'role_ids'=>['sometimes','array'],
+            'role_ids.*'=>['string'],
+        ]);
+        $map=['department_id'=>'departments','designation_id'=>'designations','office_id'=>'tenant_offices','primary_team_id'=>'teams','reporting_manager_id'=>'users'];
+        foreach($map as $f=>$t) if(isset($d[$f])) $d[$f]=$this->rel($t,$d[$f]);
+        $s=DB::transaction(function() use($d,$request) {
+            DB::table('tenants')->where('id',$this->tid())->lockForUpdate()->first();
+            $next=Staff::withTrashed()->where('tenant_id',$this->tid())->where('employee_code','like','EMP-%')->pluck('employee_code')
+                ->reduce(fn(int $max,string $code): int => preg_match('/^EMP-(\d+)$/',$code,$matches) ? max($max,(int)$matches[1]) : $max,0)+1;
+            $fields=$d;
+            unset($fields['create_user'],$fields['role_ids']);
+            $s=new Staff;
+            $s->forceFill(array_merge($fields,['uuid'=>(string)Str::uuid(),'tenant_id'=>$this->tid(),'employee_code'=>sprintf('EMP-%06d',$next),'display_name'=>$d['display_name']??trim($d['first_name'].' '.($d['last_name']??'')),'created_by'=>auth()->id()]))->save();
+            if($request->boolean('create_user')) $this->createLinkedUser($s,$d['role_ids']??[]);
+            return $s;
+        });
+        return $this->success(['staff'=>$this->staffPayload($s->fresh())],'Staff created.',201);
+    }
+    public function formOptions(){
+        $tid=$this->tid();
+        $options=[];
+        foreach(['departments'=>['name'],'designations'=>['name'],'tenant_offices'=>['office_name'],'teams'=>['name'],'users'=>['display_name']] as $table=>$columns){
+            $query=DB::table($table)->where('tenant_id',$tid);
+            if(in_array($table,['teams','users'])) $query->whereNull('deleted_at');
+            $options[$table]=$query->orderBy($columns[0])->get(['uuid',$columns[0]])->all();
+        }
+        return $this->success($options,'Staff form options fetched.');
+    }
     private function createLinkedUser(Staff $s,array $roles): User { $temp=Str::random(16); $u=new User; $u->forceFill(['uuid'=>(string)Str::uuid(),'tenant_id'=>$this->tid(),'staff_id'=>$s->id,'first_name'=>$s->first_name,'last_name'=>$s->last_name,'display_name'=>$s->display_name,'email'=>$s->work_email?:$s->personal_email,'password'=>Hash::make($temp),'account_type'=>'staff','status'=>'invited'])->save(); $this->syncRoles($u,$roles); return $u; }
-    public function update(Request $request,string $uuid){$s=$this->staff($uuid);$d=$request->except(['uuid','tenant_id','id','create_user','role_ids']);$s->forceFill($d)->save();return $this->success(['staff'=>$this->staffPayload($s->fresh())],'Staff updated.');}
+    public function update(Request $request,string $uuid){
+        $s=$this->staff($uuid);
+        $d=$request->validate([
+            'employee_code'=>['prohibited'],
+            'first_name'=>['sometimes','required','string','max:100'],
+            'last_name'=>['nullable','string','max:100'],
+            'display_name'=>['nullable','string','max:200'],
+            'personal_email'=>['nullable','email'],
+            'work_email'=>['nullable','email'],
+            'mobile'=>['nullable','string','max:20'],
+            'gender'=>['nullable','in:male,female,other,prefer_not_to_say'],
+            'date_of_birth'=>['nullable','date'],
+            'joining_date'=>['nullable','date'],
+            'exit_date'=>['nullable','date'],
+            'department_id'=>['nullable','string'],
+            'designation_id'=>['nullable','string'],
+            'office_id'=>['nullable','string'],
+            'primary_team_id'=>['nullable','string'],
+            'reporting_manager_id'=>['nullable','string'],
+            'employment_type'=>['nullable','in:full_time,part_time,contract,intern,temporary'],
+            'employment_status'=>['sometimes','in:active,inactive,on_leave,terminated'],
+        ]);
+        foreach(['department_id'=>'departments','designation_id'=>'designations','office_id'=>'tenant_offices','primary_team_id'=>'teams','reporting_manager_id'=>'users'] as $field=>$table)
+            if(array_key_exists($field,$d)) $d[$field]=$d[$field] ? $this->rel($table,$d[$field]) : null;
+        $s->forceFill($d)->save();
+        return $this->success(['staff'=>$this->staffPayload($s->fresh())],'Staff updated.');
+    }
     public function destroy(string $uuid){$s=$this->staff($uuid);$s->users()->update(['status'=>'suspended']);$s->delete();return $this->success(null,'Staff archived.');}
     public function bulkDestroy(Request $r){$d=$r->validate(['ids'=>'required|array|min:1','ids.*'=>'string']);$n=0;foreach($d['ids'] as $id){$s=Staff::where('tenant_id',$this->tid())->where('uuid',$id)->first();if($s){$s->users()->update(['status'=>'suspended']);$s->delete();$n++;}}return $this->success(['archived'=>$n],'Staff archived.');}
     public function restore(string $uuid){$s=Staff::withTrashed()->where('tenant_id',$this->tid())->where('uuid',$uuid)->firstOrFail();$s->restore();return $this->success(['staff'=>$this->staffPayload($s->fresh())],'Staff restored.');}

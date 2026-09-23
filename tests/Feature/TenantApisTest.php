@@ -52,6 +52,95 @@ final class TenantApisTest extends TestCase
         return $this->postJson('/api/platform/v1/tenants', $this->body($this->plan()))->assertCreated()->json('data.tenant.uuid');
     }
 
+    public function test_tenant_team_create_generates_codes_and_rejects_duplicate_names(): void
+    {
+        $this->admin();
+        $tenantUuid = $this->createTenant();
+        $tenant = Tenant::where('uuid', $tenantUuid)->firstOrFail();
+        $this->postJson('/api/platform/v1/tenants/'.$tenantUuid.'/activate')->assertOk();
+
+        $permissionId = DB::table('permissions')->insertGetId(['uuid' => (string) Str::uuid(), 'module' => 'team', 'name' => 'team.create', 'guard_name' => 'tenant', 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
+        $roleId = DB::table('roles')->where('tenant_id', $tenant->id)->first()->id;
+        DB::table('role_has_permissions')->insert(['role_id' => $roleId, 'permission_id' => $permissionId]);
+        Sanctum::actingAs(User::where('tenant_id', $tenant->id)->firstOrFail(), ['*']);
+        $this->withHeader('X-Tenant', $tenantUuid);
+        $url = '/api/tenant/v1/teams';
+
+        $this->postJson($url, ['name' => 'Operations', 'description' => 'Core operations', 'visibility' => 'tenant', 'status' => 'active'])
+            ->assertCreated()->assertJsonPath('data.team.code', 'TEAM-000001');
+        $this->postJson($url, ['name' => 'Finance'])
+            ->assertCreated()->assertJsonPath('data.team.code', 'TEAM-000002');
+        $this->postJson($url, ['name' => 'Operations'])->assertUnprocessable();
+        $this->postJson($url, ['name' => 'Engineering', 'code' => 'CUSTOM'])->assertUnprocessable();
+        $this->postJson($url, [])->assertUnprocessable();
+        $this->assertDatabaseCount('teams', 2);
+    }
+    public function test_tenant_user_invite_accepts_available_account_types(): void
+    {
+        $this->admin();
+        $tenantUuid = $this->createTenant();
+        $tenant = Tenant::where('uuid', $tenantUuid)->firstOrFail();
+        $this->postJson('/api/platform/v1/tenants/'.$tenantUuid.'/activate')->assertOk();
+
+        $permissionId = DB::table('permissions')->insertGetId(['uuid' => (string) Str::uuid(), 'module' => 'staff', 'name' => 'staff.create', 'guard_name' => 'tenant', 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
+        $roleId = DB::table('roles')->where('tenant_id', $tenant->id)->first()->id;
+        DB::table('role_has_permissions')->insert(['role_id' => $roleId, 'permission_id' => $permissionId]);
+        Sanctum::actingAs(User::where('tenant_id', $tenant->id)->firstOrFail(), ['*']);
+        $this->withHeader('X-Tenant', $tenantUuid);
+
+        foreach (['staff', 'client', 'owner'] as $accountType) {
+            $this->postJson('/api/tenant/v1/users/invite', [
+                'first_name' => 'Test',
+                'email' => $accountType.'@example.com',
+                'account_type' => $accountType,
+                'status' => 'invited',
+                'role_ids' => [],
+            ])->assertCreated()->assertJsonPath('data.user.account_type', $accountType);
+        }
+    }
+    public function test_tenant_staff_create_generates_code_and_validates_linked_login(): void
+    {
+        $this->admin();
+        $tenantUuid = $this->createTenant();
+        $tenant = Tenant::where('uuid', $tenantUuid)->firstOrFail();
+        $this->postJson('/api/platform/v1/tenants/'.$tenantUuid.'/activate')->assertOk();
+        $roleId = DB::table('roles')->where('tenant_id', $tenant->id)->first()->id;
+        foreach (['staff.create', 'staff.view'] as $permission) {
+            $permissionId = DB::table('permissions')->insertGetId(['uuid' => (string) Str::uuid(), 'module' => 'staff', 'name' => $permission, 'guard_name' => 'tenant', 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('role_has_permissions')->insert(['role_id' => $roleId, 'permission_id' => $permissionId]);
+        }
+        Sanctum::actingAs(User::where('tenant_id', $tenant->id)->firstOrFail(), ['*']);
+        $this->withHeader('X-Tenant', $tenantUuid);
+
+        $this->getJson('/api/tenant/v1/staff/form-options')->assertOk()->assertJsonStructure(['data' => ['departments', 'designations', 'tenant_offices', 'teams', 'users']]);
+        $this->postJson('/api/tenant/v1/staff', ['first_name' => 'Alice'])->assertCreated()->assertJsonPath('data.staff.employee_code', 'EMP-000001');
+        $this->postJson('/api/tenant/v1/staff', ['first_name' => 'Bob', 'work_email' => 'bob@example.com', 'create_user' => true])
+            ->assertCreated()->assertJsonPath('data.staff.employee_code', 'EMP-000002');
+        $this->postJson('/api/tenant/v1/staff', ['first_name' => 'Carol', 'create_user' => true])->assertUnprocessable();
+        $this->postJson('/api/tenant/v1/staff', ['first_name' => 'Dan', 'employee_code' => 'CUSTOM'])->assertUnprocessable();
+        $this->assertDatabaseCount('staff', 2);
+    }
+    public function test_tenant_client_create_generates_code_and_saves_profile(): void
+    {
+        $this->admin();
+        $tenantUuid = $this->createTenant();
+        $tenant = Tenant::where('uuid', $tenantUuid)->firstOrFail();
+        $this->postJson('/api/platform/v1/tenants/'.$tenantUuid.'/activate')->assertOk();
+        $permissionId = DB::table('permissions')->insertGetId(['uuid' => (string) Str::uuid(), 'module' => 'client', 'name' => 'client.create', 'guard_name' => 'tenant', 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
+        $roleId = DB::table('roles')->where('tenant_id', $tenant->id)->first()->id;
+        DB::table('role_has_permissions')->insert(['role_id' => $roleId, 'permission_id' => $permissionId]);
+        $user = User::where('tenant_id', $tenant->id)->firstOrFail();
+        Sanctum::actingAs($user, ['*']);
+        $this->withHeader('X-Tenant', $tenantUuid);
+
+        $this->postJson('/api/tenant/v1/clients', ['party' => ['display_name' => 'Acme', 'email' => 'acme@example.com'], 'profile' => ['client_type' => 'business', 'credit_limit' => 1200, 'payment_terms_days' => 30, 'onboarding_date' => '2026-09-22', 'account_manager_id' => $user->uuid]])
+            ->assertCreated()->assertJsonPath('data.client.client_code', 'CL-000001')->assertJsonPath('data.client.profile.payment_terms_days', 30);
+        $this->postJson('/api/tenant/v1/clients', ['party' => ['display_name' => 'Beta']])
+            ->assertCreated()->assertJsonPath('data.client.client_code', 'CL-000002');
+        $this->postJson('/api/tenant/v1/clients', ['party' => ['display_name' => 'Invalid'], 'profile' => ['client_code' => 'CUSTOM']])->assertUnprocessable();
+        $this->postJson('/api/tenant/v1/clients', ['party' => []])->assertUnprocessable();
+        $this->assertDatabaseCount('client_profiles', 2);
+    }
     public function test_public_plans_exclude_unavailable_plans_and_registration_creates_complete_graph(): void
     {
         $plan = $this->plan();
@@ -207,4 +296,74 @@ final class TenantApisTest extends TestCase
         $this->putJson($base.'/modules', ['modules' => [['module_code' => 'crm', 'enabled' => false]]])->assertOk()->assertJsonPath('data.modules.0.uuid', $module)->assertJsonPath('data.modules.0.limits.users', 25);
         $this->putJson($base.'/modules', ['modules' => []])->assertOk()->assertJsonCount(1, 'data.modules');
     }
+    public function test_project_child_actions_create_update_complete_and_delete_records(): void
+    {
+        $this->admin();
+        $tenantUuid = $this->createTenant();
+        $tenant = Tenant::where('uuid', $tenantUuid)->firstOrFail();
+        $this->postJson('/api/platform/v1/tenants/'.$tenantUuid.'/activate')->assertOk();
+
+        $roleId = DB::table('roles')->where('tenant_id', $tenant->id)->first()->id;
+        foreach (['project.create', 'project.view', 'project.edit'] as $permission) {
+            $permissionId = DB::table('permissions')->insertGetId([
+                'uuid' => (string) Str::uuid(),
+                'module' => 'project',
+                'name' => $permission,
+                'guard_name' => 'tenant',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('role_has_permissions')->insert(['role_id' => $roleId, 'permission_id' => $permissionId]);
+        }
+
+        $user = User::where('tenant_id', $tenant->id)->firstOrFail();
+        Sanctum::actingAs($user, ['*']);
+        $this->withHeader('X-Tenant', $tenantUuid);
+
+        $this->getJson('/api/tenant/v1/navigation/sidebar')
+            ->assertOk()
+            ->assertJsonStructure(['data' => ['navigation' => ['badges' => ['overdue_tasks', 'open_issues', 'pending_leave', 'renewals_due_soon']]]]);
+
+        $projectUuid = $this->postJson('/api/tenant/v1/projects', [
+            'project_number' => 'PRJ-000001',
+            'name' => 'Project child actions',
+        ])->assertCreated()->json('data.project.uuid');
+        $base = '/api/tenant/v1/projects/'.$projectUuid;
+
+        $phaseId = $this->postJson($base.'/phases', [
+            'name' => 'Discovery',
+            'start_date' => '2026-09-23',
+        ])->assertCreated()->json('data.phases.id');
+        $this->patchJson($base.'/phases/'.$phaseId, ['name' => 'Discovery updated'])
+            ->assertOk()
+            ->assertJsonPath('data.phases.name', 'Discovery updated');
+
+        $milestoneId = $this->postJson($base.'/milestones', [
+            'name' => 'Kickoff',
+            'start_date' => '2026-09-23',
+            'due_date' => '2026-09-30',
+        ])->assertCreated()->json('data.milestones.id');
+        $this->postJson($base.'/milestones/'.$milestoneId.'/complete')
+            ->assertOk()
+            ->assertJsonPath('data.milestone.id', $milestoneId);
+        $this->assertNotNull(DB::table('project_milestones')->where('id', $milestoneId)->value('completed_at'));
+
+        $memberId = $this->postJson($base.'/members', [
+            'user_id' => $user->uuid,
+            'allocation_percent' => 75,
+        ])->assertCreated()
+            ->assertJsonPath('data.members.user_id', $user->id)
+            ->json('data.members.id');
+
+        $this->getJson($base.'/members')->assertOk()->assertJsonCount(1, 'data.members');
+        $this->getJson('/api/tenant/v1/projects/'.$projectUuid)
+            ->assertOk()
+            ->assertJsonCount(1, 'data.project.members')
+            ->assertJsonCount(1, 'data.project.phases')
+            ->assertJsonCount(1, 'data.project.milestones');
+        $this->deleteJson($base.'/members/'.$memberId)->assertOk();
+        $this->assertDatabaseMissing('project_members', ['id' => $memberId]);
+    }
+
 }

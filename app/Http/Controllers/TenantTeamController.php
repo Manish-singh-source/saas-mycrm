@@ -46,7 +46,14 @@ class TenantTeamController extends BaseApiController
     public function store(Request $request): JsonResponse
     {
         $data = $this->teamData($request);
-        $id = DB::table('teams')->insertGetId([...$data, 'uuid' => (string) \Illuminate\Support\Str::uuid(), 'tenant_id' => app(\App\Tenancy\TenantContext::class)->id(), 'created_by' => $request->user()?->id, 'created_at' => now(), 'updated_at' => now()]);
+        $tenantId = app(\App\Tenancy\TenantContext::class)->id();
+        $id = DB::transaction(function () use ($data, $tenantId, $request): int {
+            DB::table('tenants')->where('id', $tenantId)->lockForUpdate()->first();
+            $next = DB::table('teams')->where('tenant_id', $tenantId)->where('code', 'like', 'TEAM-%')->pluck('code')
+                ->reduce(fn (int $max, string $code): int => preg_match('/^TEAM-(\d+)$/', $code, $matches) ? max($max, (int) $matches[1]) : $max, 0) + 1;
+
+            return DB::table('teams')->insertGetId([...$data, 'code' => sprintf('TEAM-%06d', $next), 'uuid' => (string) \Illuminate\Support\Str::uuid(), 'tenant_id' => $tenantId, 'created_by' => $request->user()?->id, 'created_at' => now(), 'updated_at' => now()]);
+        });
         $team = DB::table('teams')->where('id', $id)->first();
         $this->tenant->audit($request, 'tenant_team_created', 'team', $id, null, (array) $team);
 
@@ -75,7 +82,7 @@ class TenantTeamController extends BaseApiController
     {
         $team = $this->tenant->byUuid('teams', $team_uuid, false);
         $old = (array) $team;
-        $data = $this->teamData($request, true);
+        $data = $this->teamData($request, true, $team->id);
         DB::table('teams')->where('id', $team->id)->update([...$data, 'updated_by' => $request->user()?->id, 'updated_at' => now()]);
         $new = (array) DB::table('teams')->where('id', $team->id)->first();
         $this->tenant->audit($request, 'tenant_team_updated', 'team', $team->id, $old, $new);
@@ -258,8 +265,15 @@ class TenantTeamController extends BaseApiController
     }
     public function storeTeamRole(Request $request): JsonResponse
     {
-        $data = $request->validate(['name' => ['required', 'string', 'max:150'], 'code' => ['required', 'string', 'max:80'], 'description' => ['nullable', 'string'], 'permissions' => ['nullable', 'array'], 'sort_order' => ['nullable', 'integer'], 'status' => ['nullable', 'string', 'max:50']]);
-        $id = DB::table('team_roles')->insertGetId([...$data, 'permissions' => json_encode($data['permissions'] ?? []), 'uuid' => (string) \Illuminate\Support\Str::uuid(), 'tenant_id' => app(\App\Tenancy\TenantContext::class)->id(), 'created_at' => now(), 'updated_at' => now()]);
+        $tenantId = app(\App\Tenancy\TenantContext::class)->id();
+        $data = $request->validate(['name' => ['required', 'string', 'max:150', Rule::unique('team_roles')->where('tenant_id', $tenantId)], 'code' => ['prohibited'], 'description' => ['nullable', 'string'], 'permissions' => ['nullable', 'array'], 'sort_order' => ['nullable', 'integer'], 'status' => ['nullable', Rule::in(['active', 'inactive'])]]);
+        $id = DB::transaction(function () use ($tenantId, $data): int {
+            DB::table('tenants')->where('id', $tenantId)->lockForUpdate()->first();
+            $next = DB::table('team_roles')->where('tenant_id', $tenantId)->where('code', 'like', 'TR-%')->pluck('code')
+                ->reduce(fn (int $max, string $code): int => preg_match('/^TR-(\d+)$/', $code, $matches) ? max($max, (int) $matches[1]) : $max, 0) + 1;
+
+            return DB::table('team_roles')->insertGetId([...$data, 'code' => sprintf('TR-%06d', $next), 'permissions' => json_encode($data['permissions'] ?? []), 'uuid' => (string) \Illuminate\Support\Str::uuid(), 'tenant_id' => $tenantId, 'created_at' => now(), 'updated_at' => now()]);
+        });
         $this->tenant->audit($request, 'tenant_team_role_created', 'team_role', $id, null, $data);
 
         return $this->success(['team_role' => DB::table('team_roles')->where('id', $id)->first()], 'Team role created.', 201);
@@ -268,10 +282,10 @@ class TenantTeamController extends BaseApiController
     public function updateTeamRole(Request $request, string $team_role_uuid): JsonResponse
     {
         $role = $this->tenant->byUuid('team_roles', $team_role_uuid, false);
-        if ($role->is_system && ($request->filled('name') || $request->filled('code'))) {
+        if ($role->is_system && $request->filled('name')) {
             return $this->businessError('System team roles cannot be renamed.', 'SYSTEM_TEAM_ROLE_RENAME_FORBIDDEN', 403);
         }
-        $data = $request->validate(['name' => ['sometimes', 'string', 'max:150'], 'code' => ['sometimes', 'string', 'max:80'], 'description' => ['nullable', 'string'], 'permissions' => ['nullable', 'array'], 'sort_order' => ['nullable', 'integer'], 'status' => ['nullable', 'string', 'max:50']]);
+        $data = $request->validate(['name' => ['sometimes', 'string', 'max:150', Rule::unique('team_roles')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->ignore($role->id)], 'code' => ['prohibited'], 'description' => ['nullable', 'string'], 'permissions' => ['nullable', 'array'], 'sort_order' => ['nullable', 'integer'], 'status' => ['nullable', 'string', 'max:50']]);
         if (array_key_exists('permissions', $data)) {
             $data['permissions'] = json_encode($data['permissions']);
         }
@@ -301,9 +315,9 @@ class TenantTeamController extends BaseApiController
         return $this->success(['job' => $this->tenant->createJob($request, 'export', 'teams', $request->all())], 'Teams export queued.', 202);
     }
 
-    private function teamData(Request $request, bool $partial = false): array
+    private function teamData(Request $request, bool $partial = false, ?int $teamId = null): array
     {
-        $data = $request->validate(['parent_team_id' => ['nullable', 'string'], 'department_id' => ['nullable', 'string'], 'office_id' => ['nullable', 'string'], 'team_type_id' => ['nullable', 'string'], 'name' => [$partial ? 'sometimes' : 'required', 'string', 'max:150'], 'code' => [$partial ? 'sometimes' : 'required', 'string', 'max:80'], 'description' => ['nullable', 'string'], 'lead_user_id' => ['nullable', 'string'], 'assistant_lead_user_id' => ['nullable', 'string'], 'email' => ['nullable', 'email', 'max:150'], 'phone' => ['nullable', 'string', 'max:20'], 'color' => ['nullable', 'string', 'max:30'], 'icon' => ['nullable', 'string', 'max:80'], 'visibility' => ['nullable', 'string', 'max:50'], 'is_default' => ['nullable', 'boolean'], 'status' => ['nullable', 'string', 'max:50']]);
+        $data = $request->validate(['parent_team_id' => ['nullable', 'string'], 'department_id' => ['nullable', 'string'], 'office_id' => ['nullable', 'string'], 'team_type_id' => ['nullable', 'string'], 'name' => [$partial ? 'sometimes' : 'required', 'string', 'max:150', Rule::unique('teams')->where('tenant_id', app(\App\Tenancy\TenantContext::class)->id())->ignore($teamId)], 'code' => ['prohibited'], 'description' => ['nullable', 'string'], 'lead_user_id' => ['nullable', 'string'], 'assistant_lead_user_id' => ['nullable', 'string'], 'email' => ['nullable', 'email', 'max:150'], 'phone' => ['nullable', 'string', 'max:20'], 'color' => ['nullable', 'string', 'max:30'], 'icon' => ['nullable', 'string', 'max:80'], 'visibility' => ['nullable', 'string', 'max:50'], 'is_default' => ['nullable', 'boolean'], 'status' => ['nullable', 'string', 'max:50']]);
         foreach (['parent_team_id' => 'teams', 'department_id' => 'departments', 'office_id' => 'tenant_offices', 'team_type_id' => 'tenant_lookups', 'lead_user_id' => 'users', 'assistant_lead_user_id' => 'users'] as $key => $table) {
             if (array_key_exists($key, $data)) {
                 $data[$key] = $this->tenant->uuidToId($table, $data[$key], true);

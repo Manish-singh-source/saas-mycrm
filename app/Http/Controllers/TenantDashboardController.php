@@ -28,10 +28,39 @@ final class TenantDashboardController extends BaseApiController
         $id=DB::table('tenant_import_export_jobs')->insertGetId(['uuid'=>(string)Str::uuid(),'tenant_id'=>$this->tid(),'user_id'=>$request->user()?->id,'type'=>'export','module'=>$module,'status'=>'queued','payload'=>json_encode($request->all()),'created_at'=>now(),'updated_at'=>now()]);
         return $this->success(['job'=>DB::table('tenant_import_export_jobs')->where('id',$id)->first()],'Export queued.',202);
     }
+    private function statusQuery(string $table,array $codes,bool $exclude=false)
+    {
+        $query=DB::table($table.' as records')
+            ->leftJoin('tenant_lookups as status_lookup','status_lookup.id','=','records.status_id')
+            ->where('records.tenant_id',$this->tid());
+
+        return $query->where(function($statusQuery)use($codes,$exclude){
+            $statusQuery->whereNull('status_lookup.code');
+            if($exclude)$statusQuery->orWhereNotIn('status_lookup.code',$codes);
+            else$statusQuery->orWhereIn('status_lookup.code',$codes);
+        });
+    }
     public function navigation(): mixed
     {
         $subscription=DB::table('subscriptions')->where('tenant_id',$this->tid())->latest('id')->first();
-        return $this->success(['navigation'=>['modules'=>[],'subscription'=>$subscription,'badges'=>['overdue_tasks'=>DB::table('tasks')->where('tenant_id',$this->tid())->whereNotIn('status',['completed','cancelled'])->whereNotNull('due_at')->where('due_at','<',now())->count(),'open_issues'=>DB::table('client_issues')->where('tenant_id',$this->tid())->whereIn('status',['open','in_progress'])->count(),'pending_leave'=>DB::table('leave_requests')->where('tenant_id',$this->tid())->where('status','pending')->count(),'unread_notifications'=>0,'renewals_due_soon'=>DB::table('renewals')->where('tenant_id',$this->tid())->whereBetween('renewal_date',[today(),today()->addDays(30)])->whereNotIn('status',['cancelled','completed'])->count()]]],'Navigation fetched.');
+        $overdueTasks=$this->statusQuery('tasks',['completed','cancelled'],true)
+            ->whereNull('records.deleted_at')
+            ->whereNull('records.completed_at')
+            ->whereNotNull('records.due_at')
+            ->where('records.due_at','<',now())
+            ->count();
+        $openIssues=$this->statusQuery('client_issues',['open','in_progress'])
+            ->whereNull('records.deleted_at')
+            ->whereNull('records.resolved_at')
+            ->whereNull('records.closed_at')
+            ->count();
+        $pendingLeave=$this->statusQuery('leave_requests',['pending'])->count();
+        $renewalsDueSoon=$this->statusQuery('renewals',['cancelled','completed'],true)
+            ->whereNull('records.deleted_at')
+            ->whereBetween('records.renewal_date',[today(),today()->addDays(30)])
+            ->count();
+
+        return $this->success(['navigation'=>['modules'=>[],'subscription'=>$subscription,'badges'=>['overdue_tasks'=>$overdueTasks,'open_issues'=>$openIssues,'pending_leave'=>$pendingLeave,'unread_notifications'=>0,'renewals_due_soon'=>$renewalsDueSoon]]],'Navigation fetched.');
     }
     public function summary(Request $request): mixed
     {

@@ -108,6 +108,7 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token', 'throttle:a
     Route::post('staff/export', [TenantStaffController::class, 'export'])->middleware('tenant.permission:staff.export');
     Route::delete('staff/bulk', [TenantStaffController::class, 'bulkDestroy'])->middleware('tenant.permission:staff.delete');
     Route::get('staff', [TenantStaffController::class, 'index'])->middleware('tenant.permission:staff.view');
+    Route::get('staff/form-options', [TenantStaffController::class, 'formOptions'])->middleware('tenant.permission:staff.view');
     Route::post('staff', [TenantStaffController::class, 'store'])->middleware('tenant.permission:staff.create');
     Route::get('staff/{staff_uuid}', [TenantStaffController::class, 'show'])->middleware('tenant.permission:staff.view');
     Route::match(['put', 'patch'], 'staff/{staff_uuid}', [TenantStaffController::class, 'update'])->middleware('tenant.permission:staff.edit');
@@ -224,8 +225,11 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token', 'throttle:a
     Route::post('projects/{project_uuid}/archive', [TenantWorkController::class, 'projectArchive'])->middleware('tenant.permission:project.archive');
     Route::get('projects/{project_uuid}/tasks', [TenantWorkController::class, 'projectTasks'])->middleware('tenant.permission:task.view');
     Route::post('projects/{project_uuid}/tasks', [TenantWorkController::class, 'projectTaskStore'])->middleware('tenant.permission:task.create');
+    Route::post('projects/{project_uuid}/milestones/{child_id}/complete', [TenantWorkController::class, 'completeMilestone'])->middleware('tenant.permission:project.edit');
     Route::get('projects/{project_uuid}/{resource}', [TenantWorkController::class, 'children'])->defaults('parent','projects')->middleware('tenant.permission:project.view');
     Route::post('projects/{project_uuid}/{resource}', [TenantWorkController::class, 'children'])->defaults('parent','projects')->middleware('tenant.permission:project.edit');
+    Route::match(['put','patch'], 'projects/{project_uuid}/{resource}/{child_id}', [TenantWorkController::class, 'children'])->defaults('parent','projects')->middleware('tenant.permission:project.edit');
+    Route::delete('projects/{project_uuid}/{resource}/{child_id}', [TenantWorkController::class, 'children'])->defaults('parent','projects')->middleware('tenant.permission:project.edit');
 
     Route::get('tasks/dashboard', [TenantWorkController::class, 'taskDashboard'])->middleware('tenant.permission:task.view');
     Route::get('tasks/kanban', [TenantWorkController::class, 'taskKanban'])->middleware('tenant.permission:task.view');
@@ -310,10 +314,13 @@ Route::middleware(['tenant.context', 'auth:sanctum', 'tenant.token', 'throttle:a
     Route::post('expenses/{expense_uuid}/approve', [TenantFinanceController::class, 'expenseState'])->defaults('state','approved')->middleware('tenant.permission:finance.expense.approve');
     Route::post('expenses/{expense_uuid}/reject', [TenantFinanceController::class, 'expenseState'])->defaults('state','rejected')->middleware('tenant.permission:finance.expense.approve');
 
-    foreach (['general','company','branding','localization','communication','security','storage','hr','crm','integrations'] as $settingsGroup) {
-        Route::get('settings/'.$settingsGroup, [TenantSettingsController::class, 'group'])->middleware('tenant.permission:setting.view');
-        Route::match(['put','patch'], 'settings/'.$settingsGroup, [TenantSettingsController::class, 'update'])->middleware('tenant.permission:setting.edit');
-    }
+    $settingsGroups = ['general','company','branding','localization','communication','security','storage','hr','crm','integrations'];
+    Route::get('settings/{group}', [TenantSettingsController::class, 'group'])
+        ->whereIn('group', $settingsGroups)
+        ->middleware('tenant.permission:setting.view');
+    Route::match(['put','patch'], 'settings/{group}', [TenantSettingsController::class, 'update'])
+        ->whereIn('group', $settingsGroups)
+        ->middleware('tenant.permission:setting.edit');
     Route::get('settings/lookups', [TenantSettingsController::class, 'lookups'])->middleware('tenant.permission:setting.view');
     Route::put('settings/lookups/reorder', [TenantSettingsController::class, 'reorder'])->middleware('tenant.permission:setting.edit');
     Route::delete('settings/lookups/{lookup_uuid}', [TenantSettingsController::class, 'deleteLookup'])->middleware('tenant.permission:setting.edit');

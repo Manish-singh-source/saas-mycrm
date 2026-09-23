@@ -58,6 +58,70 @@ final class TenantWorkController extends BaseApiController
  public function issueDelete(string $uuid){$this->issue($uuid)->delete();return $this->success(null,'Issue archived.');}
  public function issueState(Request $r,string $uuid,string $state){$i=$this->issue($uuid);if($state==='resolve')$i->update(['resolved_at'=>now()]);elseif($state==='close')$i->update(['closed_at'=>now()]);elseif($state==='reopen')$i->update(['resolved_at'=>null,'closed_at'=>null]);elseif($state==='status'){ $d=$r->validate(['status_id'=>'required|string']);$id=$this->lookup($d['status_id']);if(!$id)abort(422,'Invalid status UUID.');$i->update(['status_id'=>$id]); }else abort(404);return $this->success(['issue'=>$this->ip($i)]);}
  public function issueAssign(Request $r,string $uuid){$i=$this->issue($uuid);$d=$r->validate(['assigned_to'=>'nullable|string','assigned_team_id'=>'nullable|string']);foreach(['assigned_to'=>'users','assigned_team_id'=>'teams'] as $f=>$tbl)if(array_key_exists($f,$d)&&$d[$f]!==null){if(!$d[$f]=$this->rid($tbl,$d[$f]))abort(422,'Invalid assignment UUID.');}$i->update($d);return $this->success(['issue'=>$this->ip($i)]);}
- public function children(Request $r,string $parent,string $uuid,string $kind){$map=['projects'=>['members'=>'project_members','phases'=>'project_phases','milestones'=>'project_milestones','time-logs'=>'project_time_logs','expenses'=>'project_expenses'],'tasks'=>['checklists'=>'task_checklists','comments'=>'task_comments','dependencies'=>'task_dependencies','watchers'=>'task_watchers','time-logs'=>'task_time_logs']];if(!isset($map[$parent][$kind]))abort(404);$id=$parent==='projects'?$this->project($uuid)->id:$this->task($uuid)->id;$fk=$parent==='projects'?'project_id':'task_id';$q=DB::table($map[$parent][$kind])->where('tenant_id',$this->tid())->where($fk,$id);if($r->isMethod('get'))return $this->success([$kind=>str_contains($kind,'time-')?$q->latest()->get():$q->get()]);$d=$r->except(['id','tenant_id',$fk]);if($r->isMethod('delete')){$q->where('id',$r->route('child_id'))->delete();return $this->success(null,'Deleted.');}$d[$fk]=$id;$d['tenant_id']=$this->tid();$new=DB::table($map[$parent][$kind])->insertGetId($d+['created_at'=>now(),'updated_at'=>now()]);return $this->success([$kind=>DB::table($map[$parent][$kind])->where('id',$new)->first()],'Created.',201);}
+ private function childRelation(string $table,mixed $value,string $field):?int
+ {
+  if($value===null||$value==='')return null;
+  $query=DB::table($table)->where('tenant_id',$this->tid());
+  $id=is_numeric($value)?$query->where('id',(int)$value)->value('id'):$query->where('uuid',(string)$value)->value('id');
+  if(!$id)abort(422,'Invalid '.$field.'.');
+  return (int)$id;
+ }
+ private function childData(string $parent,string $kind,array $data,int $parentId):array
+ {
+  if($parent==='projects'){
+   $allowed=['members'=>['user_id','team_id','role_id','billing_rate','allocation_percent','joined_at','left_at'],'phases'=>['name','start_date','due_date','status_id','sort_order'],'milestones'=>['phase_id','name','due_date','status_id'],'time-logs'=>['task_id','user_id','started_at','ended_at','minutes','billable'],'expenses'=>['vendor_party_id','amount','currency','expense_date','status_id']];
+   $data=array_intersect_key($data,array_flip($allowed[$kind]??[]));
+  }
+  $relations=$parent==='projects'
+   ?['members'=>['user_id'=>'users','team_id'=>'teams','role_id'=>'tenant_lookups'],'phases'=>['status_id'=>'tenant_lookups'],'milestones'=>['status_id'=>'tenant_lookups'],'time-logs'=>['user_id'=>'users','task_id'=>'tasks'],'expenses'=>['vendor_party_id'=>'parties','status_id'=>'tenant_lookups']]
+   :['dependencies'=>['depends_on_task_id'=>'tasks'],'watchers'=>['user_id'=>'users'],'time-logs'=>['user_id'=>'users']];
+  foreach($relations[$kind]??[] as $field=>$table)if(array_key_exists($field,$data))$data[$field]=$this->childRelation($table,$data[$field],$field);
+  if($parent==='projects'&&$kind==='milestones'&&array_key_exists('phase_id',$data)&&$data['phase_id']!==null&&$data['phase_id']!==''){
+   $phaseId=DB::table('project_phases')->where('tenant_id',$this->tid())->where('project_id',$parentId)->where('id',(int)$data['phase_id'])->value('id');
+   if(!$phaseId)abort(422,'Invalid phase_id.');
+   $data['phase_id']=(int)$phaseId;
+  }
+  return $data;
+ }
+ public function children(Request $r)
+ {
+  $parent=(string)$r->route('parent');
+  $uuid=(string)($r->route('project_uuid')??$r->route('task_uuid'));
+  $kind=(string)$r->route('resource');
+  $map=['projects'=>['members'=>'project_members','phases'=>'project_phases','milestones'=>'project_milestones','time-logs'=>'project_time_logs','expenses'=>'project_expenses'],'tasks'=>['checklists'=>'task_checklists','comments'=>'task_comments','dependencies'=>'task_dependencies','watchers'=>'task_watchers','time-logs'=>'task_time_logs']];
+  if(!isset($map[$parent][$kind]))abort(404);
+  $id=$parent==='projects'?$this->project($uuid)->id:$this->task($uuid)->id;
+  $fk=$parent==='projects'?'project_id':'task_id';
+  $table=$map[$parent][$kind];
+  $query=DB::table($table)->where('tenant_id',$this->tid())->where($fk,$id);
+  if($r->isMethod('get'))return $this->success([$kind=>str_contains($kind,'time-')?$query->latest('id')->get():$query->get()]);
+  $childId=$r->route('child_id');
+  if($r->isMethod('delete')){
+   if(!$query->where('id',$childId)->delete())abort(404);
+   return $this->success(null,'Deleted.');
+  }
+  $data=$this->childData($parent,$kind,$r->except(['id','tenant_id',$fk]),$id);
+  if($r->isMethod('put')||$r->isMethod('patch')){
+   $row=$query->where('id',$childId);
+   if(!$row->exists())abort(404);
+   if(DB::getSchemaBuilder()->hasColumn($table,'updated_at'))$data['updated_at']=now();
+   $row->update($data);
+   return $this->success([$kind=>DB::table($table)->where('id',$childId)->first()],'Updated.');
+  }
+  $data[$fk]=$id;
+  $data['tenant_id']=$this->tid();
+  if(DB::getSchemaBuilder()->hasColumn($table,'created_at'))$data['created_at']=now();
+  if(DB::getSchemaBuilder()->hasColumn($table,'updated_at'))$data['updated_at']=now();
+  $new=DB::table($table)->insertGetId($data);
+  return $this->success([$kind=>DB::table($table)->where('id',$new)->first()],'Created.',201);
+ }
+ public function completeMilestone(Request $r)
+ {
+  $project=$this->project((string)$r->route('project_uuid'));
+  $milestone=DB::table('project_milestones')->where('tenant_id',$this->tid())->where('project_id',$project->id)->where('id',$r->route('child_id'));
+  if(!$milestone->exists())abort(404);
+  $milestone->update(['completed_at'=>now()]);
+  return $this->success(['milestone'=>$milestone->first()],'Milestone completed.');
+ }
  public function export(){return $this->success(['status'=>'queued','job_id'=>(string)Str::uuid()],'Export queued.',202);}
 }
